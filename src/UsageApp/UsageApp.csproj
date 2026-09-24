@@ -12,6 +12,11 @@
     <!-- Unpackaged and self-contained: no MSIX, no certificate, and no
          dependency on whichever Windows App Runtime happens to be installed. -->
     <WindowsPackageType>None</WindowsPackageType>
+    <!-- Not for MSIX (the app stays unpackaged): without this, `dotnet publish`
+         leaves out the app's own resources.pri and compiled XAML (.xbf), and
+         the published build dies at startup with 0xC000027B while the Debug
+         build runs fine. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>

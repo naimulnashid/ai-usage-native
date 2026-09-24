@@ -295,6 +295,12 @@ slice fading the rest and the legend in step.
   `TranslateTransform`, animated by storyboards.
 - **`CornerRadius(999)` is not "fully round".** CSS clamps an oversized
   radius; WinUI does not, and draws pointed ends. Use half the height.
+- **An unpackaged app still needs `<EnableMsixTooling>true</EnableMsixTooling>`**
+  to publish. Without it `dotnet publish` leaves out the app's own
+  `resources.pri` and compiled XAML, and the published build dies at startup
+  with `0xC000027B` inside `Microsoft.UI.Xaml.dll` - while the Debug build, run
+  from `bin\`, works perfectly. `tools/Install.ps1` refuses a publish without
+  `AIUsage.pri` for this reason. Test the *published* copy after build changes.
 - **A lambda parameter named `_` next to a named one is not a discard**:
   `(_, e) => { _ = Task(); }` assigns to the parameter.
 - **`dotnet test` on .NET 10 needs `global.json`'s

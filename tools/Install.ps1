@@ -60,6 +60,11 @@ $staging = Join-Path $root 'publish\AIUsage'
 Write-Host 'Publishing a Release build...'
 & dotnet publish (Join-Path $root 'src\UsageApp\UsageApp.csproj') -c Release -o $staging --nologo -v q
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+# Without its own resources.pri the app dies at startup (0xC000027B) - which
+# is what a publish without EnableMsixTooling produced. Never install that.
+if (-not (Test-Path (Join-Path $staging 'AIUsage.pri'))) {
+  throw 'The published build has no AIUsage.pri, so it would crash at startup. Check EnableMsixTooling in UsageApp.csproj.'
+}
 
 Stop-Installed
 if (Test-Path $target) { Remove-Item $target -Recurse -Force }
