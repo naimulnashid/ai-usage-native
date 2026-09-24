@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UsageCore</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The default rate cards ship inside the library. A file of the same name
+         in the config folder replaces one wholesale. -->
+    <EmbeddedResource Include="Pricing\pricing.json" LogicalName="UsageCore.pricing.json" />
+    <EmbeddedResource Include="Pricing\codex-pricing.json" LogicalName="UsageCore.codex-pricing.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UsageCore.Tests" />
+  </ItemGroup>
+</Project>

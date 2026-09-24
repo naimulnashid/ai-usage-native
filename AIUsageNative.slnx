@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UsageApp/UsageApp.csproj" />
+    <Project Path="src/UsageCli/UsageCli.csproj" />
+    <Project Path="src/UsageCore/UsageCore.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UsageCore.Tests/UsageCore.Tests.csproj" />
+  </Folder>
+</Solution>

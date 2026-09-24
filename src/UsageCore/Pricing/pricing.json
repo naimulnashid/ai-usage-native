@@ -1,0 +1,93 @@
+{
+  "_comment": "Editable rate card. Rates are USD per MILLION tokens. Edit this file to update pricing; no code changes required. Any model string found in the transcripts but absent from `models` below is reported as UNPRICED (surfaced in the UI, never silently counted as $0).",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "lastVerified": "2026-08-19",
+  "_rateNotes": {
+    "cacheWrite5m": "1.25x base input (default TTL)",
+    "cacheWrite1h": "2x base input (must be explicitly requested)",
+    "cacheRead": "0.1x base input"
+  },
+  "_sonnet5Note": "Sonnet 5 is $2/$10 PERMANENTLY. It launched as introductory pricing 'through 2026-08-31', but Anthropic made it the standard price and cancelled the scheduled increase to $3/$15. Some cached Anthropic docs still show the old $3/$15 figure - do not 'correct' these values to match them.",
+  "models": {
+    "claude-fable-5": {
+      "input": 10.0,
+      "cacheWrite5m": 12.5,
+      "cacheWrite1h": 20.0,
+      "cacheRead": 1.0,
+      "output": 50.0
+    },
+    "claude-mythos-5": {
+      "input": 10.0,
+      "cacheWrite5m": 12.5,
+      "cacheWrite1h": 20.0,
+      "cacheRead": 1.0,
+      "output": 50.0
+    },
+    "claude-opus-5-5": {
+      "input": 4.0,
+      "cacheWrite5m": 5.0,
+      "cacheWrite1h": 8.0,
+      "cacheRead": 0.2,
+      "output": 20.0,
+      "_note": "Added 2026-09-22. Cache reads are 0.05x base input here, not the usual 0.1x - deliberate, not a typo."
+    },
+    "claude-opus-5": {
+      "input": 5.0,
+      "cacheWrite5m": 6.25,
+      "cacheWrite1h": 10.0,
+      "cacheRead": 0.5,
+      "output": 25.0
+    },
+    "claude-opus-4-8": {
+      "input": 5.0,
+      "cacheWrite5m": 6.25,
+      "cacheWrite1h": 10.0,
+      "cacheRead": 0.5,
+      "output": 25.0
+    },
+    "claude-opus-4-7": {
+      "input": 5.0,
+      "cacheWrite5m": 6.25,
+      "cacheWrite1h": 10.0,
+      "cacheRead": 0.5,
+      "output": 25.0
+    },
+    "claude-opus-4-6": {
+      "input": 5.0,
+      "cacheWrite5m": 6.25,
+      "cacheWrite1h": 10.0,
+      "cacheRead": 0.5,
+      "output": 25.0
+    },
+    "claude-sonnet-5": {
+      "input": 2.0,
+      "cacheWrite5m": 2.5,
+      "cacheWrite1h": 4.0,
+      "cacheRead": 0.2,
+      "output": 10.0
+    },
+    "claude-sonnet-4-6": {
+      "input": 3.0,
+      "cacheWrite5m": 3.75,
+      "cacheWrite1h": 6.0,
+      "cacheRead": 0.3,
+      "output": 15.0
+    },
+    "claude-haiku-4-5": {
+      "input": 1.0,
+      "cacheWrite5m": 1.25,
+      "cacheWrite1h": 2.0,
+      "cacheRead": 0.1,
+      "output": 5.0
+    },
+    "<synthetic>": {
+      "input": 0.0,
+      "cacheWrite5m": 0.0,
+      "cacheWrite1h": 0.0,
+      "cacheRead": 0.0,
+      "output": 0.0,
+      "_note": "Local synthetic messages - no API call, no cost. Priced at zero deliberately, not unpriced."
+    }
+  }
+}

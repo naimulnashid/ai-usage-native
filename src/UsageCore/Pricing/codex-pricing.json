@@ -1,0 +1,33 @@
+{
+  "_comment": "OpenAI rate card for Codex, USD per MILLION tokens. Edit freely; no code changes required. IMPORTANT: this prices tokens at OpenAI's regular API rates, which is NOT what a ChatGPT subscription charges. The dashboard labels the figure 'API-equivalent' for that reason - it answers 'what would this have cost through the API', not 'what were you billed'.",
+
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "lastVerified": "2026-08-19",
+
+  "_buckets": "Codex reports no cache-creation tokens (cache_write_input_tokens has been 0 on every event observed) and OpenAI's rate card has no cache-write line, so both cacheWrite entries are 0. `cacheRead` is OpenAI's cached-input rate, a tenth of the input rate. `input` is charged on the UNCACHED remainder only - the parser subtracts cached_input_tokens out of input_tokens, which OpenAI reports as a total including cache hits.",
+
+  "_fastMode": "Fast/priority mode roughly doubles these rates. Codex does not record whether a turn ran in fast mode, so everything is priced at standard speed; heavy fast-mode use would run higher than shown.",
+
+  "models": {
+    "gpt-5.6-sol": {
+      "input": 5.0,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.5,
+      "output": 30.0
+    },
+    "gpt-5.3-codex": {
+      "input": 1.75,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.175,
+      "output": 14.0
+    }
+  },
+
+  "_aliases": "Model strings that appear in the rollout files but are a job title rather than a model name. They are priced as the target but keep their own identity in the charts.",
+  "aliases": {
+    "codex-auto-review": "gpt-5.3-codex"
+  }
+}

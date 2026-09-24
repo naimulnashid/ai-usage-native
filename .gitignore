@@ -1,0 +1,16 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.user
+.vs/
+
+# Transcript-derived data must never be committed: transcripts hold real code
+# and paths from other projects. Tests build their fixtures at run time.
+*.jsonl
+demo-data/
+out/
+
+# Screenshots taken while developing can show real usage.
+screenshots/
