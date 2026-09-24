@@ -598,7 +598,74 @@ public sealed partial class MainWindow : Window
             _scroller.UpdateLayout();
             _scroller.ChangeView(null, scroll, null, disableAnimation: true);
             if (Environment.GetEnvironmentVariable("AIUSAGE_DEBUG_LAYOUT") is { Length: > 0 } dump) DumpOverflow(dump);
+            if (Environment.GetEnvironmentVariable("AIUSAGE_DEBUG_FULLPAGE") is { Length: > 0 } width && double.TryParse(width, out var w)) FitWindowToPage(w);
         });
+    }
+
+    /* Development only: a window as tall as the page, for full-page screenshots. */
+
+    private delegate IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProcW(IntPtr previous, IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private WndProc? _unboundedProc;
+    private IntPtr _previousProc;
+    private int _fitPasses;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _fitTimer;
+
+    /// <summary>
+    /// <c>AIUSAGE_DEBUG_FULLPAGE=&lt;width&gt;</c>: sizes the window to that
+    /// width and to the page's whole height, so tools/Capture-Views.ps1 can
+    /// photograph the page top to bottom in one real frame - rail included,
+    /// which a stitch of scrolled captures would cut off.
+    /// </summary>
+    /// <remarks>
+    /// Windows caps a window at roughly the screen's size through
+    /// WM_GETMINMAXINFO, so the cap is lifted first. Re-measured until the
+    /// page stops growing, since the window's height can change the page's.
+    /// </remarks>
+    private void FitWindowToPage(double widthDip)
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        if (_unboundedProc is null)
+        {
+            _unboundedProc = (h, msg, w, l) =>
+            {
+                var result = CallWindowProcW(_previousProc, h, msg, w, l);
+                if (msg == 0x0024) // WM_GETMINMAXINFO: ptMaxTrackSize is the fifth POINT.
+                {
+                    Marshal.WriteInt32(l, 32, 30000);
+                    Marshal.WriteInt32(l, 36, 30000);
+                }
+                return result;
+            };
+            _previousProc = SetWindowLongPtr(hwnd, -4, Marshal.GetFunctionPointerForDelegate(_unboundedProc));
+        }
+        if (AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Restored) presenter.Restore();
+
+        var scale = GetDpiForWindow(hwnd) / 96.0;
+        _scroller.UpdateLayout();
+        var height = Root.ActualHeight - _scroller.ViewportHeight + _scroller.ExtentHeight;
+        AppWindow.Move(new PointInt32(0, 0));
+        AppWindow.ResizeClient(new SizeInt32((int)Math.Round(widthDip * scale), (int)Math.Ceiling(height * scale)));
+        if (++_fitPasses >= 6) return;
+        // The resize lands through window messages, so check after it has.
+        var timer = _fitTimer ??= DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(600);
+        timer.IsRepeating = false;
+        if (_fitPasses == 1)
+        {
+            timer.Tick += (_, _) =>
+            {
+                _scroller.UpdateLayout();
+                if (_scroller.ExtentHeight > _scroller.ViewportHeight + 0.5 || Math.Abs(Root.ActualWidth - widthDip) > 0.5) FitWindowToPage(widthDip);
+            };
+        }
+        timer.Start();
     }
 
     /// <summary>

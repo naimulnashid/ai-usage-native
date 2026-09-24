@@ -16,7 +16,7 @@ public static class Program
     public static int Main(string[] args)
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        var instance = AppInstance.FindOrRegisterForKey("AIUsage.Main");
+        var instance = AppInstance.FindOrRegisterForKey(InstanceKey());
         if (!instance.IsCurrent)
         {
             // Hand the launch to the running copy, which shows its window.
@@ -34,5 +34,17 @@ public static class Program
             _ = new App();
         });
         return 0;
+    }
+
+    /// <summary>
+    /// One instance per data folder, not per machine. A copy pointed elsewhere
+    /// by <c>AIUSAGE_DATA_DIR</c> - the demo, a screenshot run - is a different
+    /// app's worth of state, and must not be folded into the copy in the tray.
+    /// </summary>
+    private static string InstanceKey()
+    {
+        if (Environment.GetEnvironmentVariable("AIUSAGE_DATA_DIR") is not { Length: > 0 } dir) return "AIUsage.Main";
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dir).ToUpperInvariant()));
+        return "AIUsage." + Convert.ToHexString(hash, 0, 8);
     }
 }

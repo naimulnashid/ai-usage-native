@@ -12,7 +12,10 @@ param(
   [string]$Configuration = 'Debug',
   [int]$Width = 2160,
   [int]$Height = 1500,
-  [int]$WaitSeconds = 7
+  [int]$WaitSeconds = 7,
+  # Capture each page top to bottom at this width (in DIPs): the app grows its
+  # window to the page's full height (AIUSAGE_DEBUG_FULLPAGE). 0 = one screen.
+  [int]$FullPage = 0
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -20,6 +23,10 @@ $exe = Join-Path $root "src\UsageApp\bin\x64\$Configuration\net10.0-windows10.0.
 $env:CLAUDE_CONFIG_DIR = Join-Path $root 'demo-data\claude'
 $env:CODEX_HOME = Join-Path $root 'demo-data\codex'
 $env:AIUSAGE_DATA_DIR = Join-Path $root 'demo-data\appdata'
+$env:AIUSAGE_DEBUG_FULLPAGE = if ($FullPage -gt 0) { "$FullPage" } else { $null }
+# @(...) around the if: a one-item result would otherwise unroll to a string,
+# which cannot be splatted.
+$sizing = @(if ($FullPage -gt 0) { '-AppSized' } else { '-Width', $Width, '-Height', $Height })
 
 foreach ($view in $Views) {
   # "name=spec" or "name=spec@x:y" to hover at (x, y) before the capture.
@@ -29,6 +36,6 @@ foreach ($view in $Views) {
   $env:AIUSAGE_DEBUG_VIEW = $spec
   # Windows PowerShell 5.1, which has System.Drawing built in; PowerShell 7
   # would need System.Drawing.Common referenced by hand.
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Out (Join-Path $root "screenshots\$name.png") -Width $Width -Height $Height -WaitSeconds $WaitSeconds -HoverX $hoverX -HoverY $hoverY -Close
+  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Out (Join-Path $root "screenshots\$name.png") @sizing -WaitSeconds $WaitSeconds -HoverX $hoverX -HoverY $hoverY -Close
   Start-Sleep -Milliseconds 800
 }

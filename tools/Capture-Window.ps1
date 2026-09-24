@@ -25,6 +25,9 @@ param(
   [int]$HoverY = -1,
   # Maximise instead of sizing to -Width x -Height.
   [switch]$Maximize,
+  # Leave the size to the app (AIUSAGE_DEBUG_FULLPAGE grows the window to the
+  # page's height) and capture once it has stopped changing.
+  [switch]$AppSized,
   [switch]$Close
 )
 
@@ -68,14 +71,27 @@ public static class WindowCapture {
   }
   [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
 
+  public static string Size(IntPtr h) { RECT r; GetWindowRect(h, out r); return (r.R - r.L) + "x" + (r.B - r.T); }
+
+  [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr h, ref POINT p);
+  [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
+
+  // Cropped to the client area: the window rectangle also holds Windows 11's
+  // invisible resize borders, which PrintWindow draws as a dark frame. The app
+  // draws its own title bar, so the client area is everything that is seen.
   public static void Save(IntPtr h, string path) {
     RECT r; GetWindowRect(h, out r);
+    RECT c; GetClientRect(h, out c);
+    var origin = new POINT(); ClientToScreen(h, ref origin);
     using (var bmp = new Bitmap(r.R - r.L, r.B - r.T))
     using (var g = Graphics.FromImage(bmp)) {
       IntPtr dc = g.GetHdc();
       PrintWindow(h, dc, 2); // PW_RENDERFULLCONTENT
       g.ReleaseHdc(dc);
-      bmp.Save(path, ImageFormat.Png);
+      var area = new Rectangle(origin.X - r.L, origin.Y - r.T, c.R - c.L, c.B - c.T);
+      area.Intersect(new Rectangle(0, 0, bmp.Width, bmp.Height));
+      using (var client = bmp.Clone(area, bmp.PixelFormat)) client.Save(path, ImageFormat.Png);
     }
   }
 }
@@ -103,7 +119,9 @@ while ($proc.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline) {
 if ($proc.MainWindowHandle -eq 0) { throw 'No window appeared within 30 seconds.' }
 
 $h = $proc.MainWindowHandle
-if ($Maximize) {
+if ($AppSized) {
+  # Nothing to do here: the app sizes itself.
+} elseif ($Maximize) {
   [void][WindowCapture]::ShowWindow($h, 3) # SW_MAXIMIZE
 } elseif ($HoverX -ge 0) {
   # Topmost for a hover capture: Windows will not hand focus to a background
@@ -114,6 +132,17 @@ if ($Maximize) {
 }
 [void][WindowCapture]::SetForegroundWindow($h)
 Start-Sleep -Seconds $WaitSeconds
+if ($AppSized) {
+  # Settled = the same size for two seconds running.
+  $last = ''; $since = Get-Date; $deadline = (Get-Date).AddSeconds(40)
+  while ((Get-Date) -lt $deadline) {
+    $now = [WindowCapture]::Size($h)
+    if ($now -ne $last) { $last = $now; $since = Get-Date }
+    elseif (((Get-Date) - $since).TotalSeconds -ge 2) { break }
+    Start-Sleep -Milliseconds 250
+  }
+  Write-Output "Window settled at $last"
+}
 if ($HoverX -ge 0 -and $HoverY -ge 0) {
   [WindowCapture]::Hover($h, $HoverX, $HoverY)
   Start-Sleep -Milliseconds 1200
