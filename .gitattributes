@@ -5,3 +5,6 @@
 *.png binary
 *.ico binary
 *.ttf binary
+# The vendors' marks are committed byte-identical to their downloads; line
+# endings are part of the bytes.
+src/UsageApp/Assets/AgentMarks/*.svg -text
