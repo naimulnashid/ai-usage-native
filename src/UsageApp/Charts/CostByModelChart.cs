@@ -39,7 +39,11 @@ public sealed class CostByModelChart : ChartSurface
     protected override void Draw(bool animate)
     {
         _bands.Clear();
-        _plotLeft = Left + CategoryWidth;
+        // At least the original's 116px, and wider when a label needs it:
+        // Codex's "auto-review (5.3 Codex)" ran off the left edge at 116.
+        // Capped at a third of the chart, so the bars keep most of it.
+        var widest = _rows.Count == 0 ? 0 : _rows.Max(r => ChartKit.MeasureText(r.Label, 14));
+        _plotLeft = Left + Math.Min(Math.Max(CategoryWidth, widest + 12), W / 3);
         _plotRight = W - Right;
         var plotTop = Top;
         var plotBottom = H - Bottom - XAxisHeight;
