@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # WinUI 3 builds on Windows only; the core library and its tests would run
+    # anywhere, but one job keeps the minutes down on a private repo.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build AIUsageNative.slnx -c Release
+
+      - name: Test
+        run: dotnet test --project tests/UsageCore.Tests/UsageCore.Tests.csproj -c Release --no-build

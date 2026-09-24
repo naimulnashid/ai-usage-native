@@ -45,4 +45,19 @@
   <ItemGroup>
     <Content Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- Release output: English UI resources only (the app's own text is
+       English), and no debug symbols - SkiaSharp and HarfBuzz ship ~100 MB of
+       native .pdb files that a published app has no use for. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <Target Name="DropSymbolsFromPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_PublishedSymbols Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_PublishedSymbols)" />
+  </Target>
 </Project>

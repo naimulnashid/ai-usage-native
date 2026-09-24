@@ -33,6 +33,8 @@ files with it; the knowledge below was carried over and re-verified here.
 src/UsageCore/           Parsers, pricing, archive, view math. net10.0, no UI.
   Model/Types.cs           The one report shape both parsers emit.
   Parsing/Guards.cs        What a malformed line can and cannot do. Day keys.
+  Parsing/LineReading.cs   Byte lines and a forward-only JSON scan. Read before
+                           touching how a file is read - see "Memory" below.
   Parsing/UsageMath.cs     Cells, buckets, daily rollup - shared by both parsers.
   Parsing/ClaudeParser.cs  Claude Code: 4 traps.
   Parsing/CodexParser.cs   Codex: 5 traps.
@@ -45,8 +47,21 @@ src/UsageCore/           Parsers, pricing, archive, view math. net10.0, no UI.
   AppPaths.cs              Where the app reads and writes.
 src/UsageCli/            `aiusage parse <agent>` and `aiusage demo-data`.
 src/UsageApp/            The WinUI 3 app.
+  Program.cs               Entry point: single instance (AppInstance redirect).
+  MainWindow.xaml.cs       Shell: title bar, rail, top bar, page host, navigation.
+  Theme/Palette.cs         Colour tokens; the accent brushes swapped per agent.
+  Theme/Ui.cs              Element builders: text, cards, panels, tips, buttons, motion.
+  Charts/                  Hand-drawn charts on XAML shapes (see "Charts").
+  Controls/                FitGrid, DataTable, CountUp, score icons, logos, range picker.
+  Views/                   The four pages, built in code from the builders.
+  State/                   AppState, tray, watcher, logos, hidden projects, start at login.
+  Imaging/ImageLoader.cs   SVG through Svg.Skia; raster files as they are.
+  Assets/                  Geist (OFL), the vendors' marks, the app icon.
 tests/UsageCore.Tests/   xUnit v3; fixtures written at run time.
-tools/Capture-Window.ps1 Launch the app and screenshot its window.
+tools/Capture-Window.ps1 Launch the app and screenshot its window (optionally hovering).
+tools/Capture-Views.ps1  Screenshot any page/section on the demo data.
+tools/Install.ps1        Publish and install for this user, with a Start menu shortcut.
+tools/make-icon.cs       Regenerate Assets/app.ico from Assets/app-icon.svg.
 ```
 
 ## Where the app keeps its state
@@ -58,8 +73,10 @@ Everything it writes lives in `%LOCALAPPDATA%\AI Usage Native\`:
 | `config\settings.json` | day offset, week start, idle cutoff (all optional) |
 | `config\projects.json`, `config\codex-projects.json` | merges and display names |
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that REPLACES the built-in one |
+| `project-logos\claude\`, `project-logos\codex\` | one image per project, named after it |
+| `hidden-projects.json`, `codex-hidden-projects.json` | projects hidden from the Projects list (ids only) |
+| `app-settings.json` | the app's own preferences: rail, auto-refresh, close to tray |
 | `history\claude-history.json`, `history\codex-history.json` | the archive |
-| `project-logos\claude\`, `project-logos\codex\` | one image per project |
 
 **`AIUSAGE_DATA_DIR` moves all of it, and anything reading demo transcripts
 must set it.** Without it synthetic days are folded into the real archive, and
@@ -200,6 +217,152 @@ When this port was written, both parsers reproduced the original dashboard's
 output **exactly** — cost to six decimals, tokens, messages, runtime, active
 days, de-duplication counts, both records, peak hour — on the demo tree and on
 real data, for both agents.
+
+## Memory: why transcripts are scanned as bytes
+
+The first port read each line with `ReadLine` and parsed it with
+`JsonDocument`. The numbers were right; the memory was not. Transcript lines
+can be megabytes long (a tool result is written into its line whole), and
+`JsonDocument` rents its buffers from the shared array pool, which keeps the
+largest ones for the life of the process. On real data a full parse peaked at
+689 MB and **still held ~430 MB after it had finished and been collected** -
+unacceptable for an app that lives in the tray.
+
+`LineReading.cs` replaced it: lines are split as bytes out of one buffer per
+file, and `Utf8JsonReader` pulls out only the fields a parser uses, skipping
+everything else - message bodies included - in place. Peak fell to ~160 MB,
+nothing is retained afterwards, and the parse is ~1.7x faster. Results were
+re-verified identical to the original dashboard on real data.
+
+Rules that follow from it:
+
+- **Do not reintroduce `JsonDocument` or `JsonNode` on the per-line path.**
+  (The archive still uses `JsonNode`: one small file, read once.)
+- **A field read must consume its value.** Every `Json.*` helper leaves the
+  reader past the value whatever its type; a hand-written read that forgets to
+  `Skip()` a nested value desynchronises the rest of the line.
+- **Invalid JSON anywhere in a line throws**, including inside a skipped value
+  and trailing content after the root (`Json.End`). That is what makes such a
+  line "unparseable", exactly as `JsonDocument.Parse` would have.
+- Repeated strings (models, working directories) go through the per-parse
+  `StringPool`, since a record is held per line until the parse ends.
+
+After each refresh the app forces a compacting collection, and while it sits
+in the tray it drops the built page entirely (`MainWindow.EnterTray`): idle in
+the tray it holds ~175 MB, which is the WinUI runtime's own floor.
+
+## The app
+
+### One design system, built in code
+
+The pages are assembled in C# from the builders in `Theme/Ui.cs`, not from
+XAML templates - the equivalent of the original's shared CSS classes, so a
+card, a panel head or an info tip exists in exactly one definition. Sizes are
+the original's CSS pixels as effective pixels, one for one.
+
+- **Colours come from `Palette`, never literals.** The accent brushes are
+  shared instances whose `Color` is swapped by `Palette.ApplyProvider`, which
+  is how switching agent re-themes everything without rebuilding it.
+- **Geist is bundled** (`Assets/Fonts`, OFL) and loaded as
+  `ms-appx:///Assets/Fonts/Geist-Variable.ttf#Geist`. An absolute file path
+  silently falls back to Segoe UI.
+- **The headline glow** is a composition drop shadow cut from the text's own
+  alpha mask (`Ui.Glow`) - XAML has no text-shadow.
+- **Motion** (the rise-in, count-ups, chart growth) is skipped when Windows
+  has animations turned off (`Motion.Enabled`).
+
+### Charts are hand-drawn
+
+`Charts/` draws on XAML shapes rather than using a chart library, because the
+details that carry meaning are the ones a library fights: a band's shade
+encoding its price, a legend in its share's own denominator, a hovered donut
+slice fading the rest and the legend in step.
+
+- **Axis ticks use Recharts' algorithm** (`ChartKit.NiceTicks`), so they land
+  on the same round values the original drew ($0/$3/$6/$9/$12, 0/650K/1.30M).
+- **The curve is d3's monotone-X**, which never overshoots the data.
+- **Edge labels are nudged inward, not dropped** (`ClampCentre`): the last
+  day is the one worth naming.
+- **Tooltips are popups**, so the scroller cannot clip them.
+
+### WinUI traps met while building it
+
+- **`Border` is sealed.** Components that are "a border with behaviour" are
+  factories (`ProjectLogoView.Create`), not subclasses.
+- **An element cannot have both a `RenderTransform` and a
+  `TranslationTransition`** - it throws "Access denied" the moment the second
+  is set. The rise-in and the card hover lift therefore share one
+  `TranslateTransform`, animated by storyboards.
+- **`CornerRadius(999)` is not "fully round".** CSS clamps an oversized
+  radius; WinUI does not, and draws pointed ends. Use half the height.
+- **A lambda parameter named `_` next to a named one is not a discard**:
+  `(_, e) => { _ = Task(); }` assigns to the parameter.
+- **`dotnet test` on .NET 10 needs `global.json`'s
+  `"test": { "runner": "Microsoft.Testing.Platform" }`**, and must run from the
+  repo folder to see it.
+- **The Windows App SDK meta-package pulls in the AI/ML components** (~60 MB of
+  onnxruntime and DirectML). The app references WinUI, Foundation,
+  InteractiveExperiences and DWrite directly. For the same reason the tray
+  uses `H.NotifyIcon` (core), not `H.NotifyIcon.WinUI`, which depends on the
+  1.x meta-package.
+
+### Native-only features
+
+- **Tray** (`TrayHost`): today's spend per agent in the tooltip, Codex's
+  marked "API-equiv." Closing the window hides it to the tray unless that is
+  turned off in Settings.
+- **Refresh when transcripts change** (`TranscriptWatcher`): throttled per
+  agent - the first change is picked up after a few seconds, and while changes
+  keep coming an agent is re-parsed at most once a minute. A live session
+  writes every few seconds, so "wait for quiet" would never fire.
+- **Start at login**: the per-user Run key, launching with `--tray`. Off until
+  turned on. Not tested end to end on the author's machine by automation (it
+  writes the user's startup configuration); check it by hand after changes.
+- **Single instance** (`Program.cs`): a second launch hands off to the running
+  copy and exits.
+- **Project logos**: watched folders, so a new file appears within a second;
+  Set logo / Remove logo / drag-and-drop onto a card / Import. Every SVG goes
+  through **Svg.Skia** - WinUI's SvgImageSource supports a subset (no text,
+  filters or `<style>`) and draws nothing for the rest.
+
+### Checking the UI
+
+`tools/Capture-Views.ps1` launches the app on `./demo-data` (with its own
+`AIUSAGE_DATA_DIR`) and screenshots any page at any scroll offset, through the
+development-only `AIUSAGE_DEBUG_VIEW=agent,page[,projectId],scroll`:
+
+```powershell
+& tools\Capture-Views.ps1 -Views @('top=claude,overview,0', 'cards=codex,projects,700', 'hover=claude,overview,0@367:902')
+```
+
+- `@x:y` hovers at a point (physical pixels from the window's top-left) before
+  capturing. The window is made topmost for that capture: Windows will not
+  give focus to a background launch, so the pointer would otherwise land on
+  whatever is in front. Hovering uses `SendInput`; `SetCursorPos` alone
+  produces no pointer events.
+- The capture uses `PrintWindow`, which does not include menus and flyouts
+  (they are separate popup windows). Check those through UI Automation - every
+  control has an automation name.
+- Screenshots go to `screenshots/`, which is gitignored.
+
+### Where this deliberately differs from the original
+
+- The heat map's subtitle says **"Brighter means a more expensive day."** The
+  original said "Darker", but its own ramp rises in luminance with spend.
+- No password, cookie, CSP or LAN mode: there is no listener to protect.
+- Loading placeholders are approximate; the original's pixel-measured
+  skeletons existed to stop a browser layout jumping.
+
+## Installing
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\Install.ps1             # publish + install for this user
+powershell -ExecutionPolicy Bypass -File tools\Install.ps1 -Uninstall  # remove (keeps your data)
+```
+
+The build is self-contained (~190 MB: .NET and the Windows App SDK travel
+with it) and unsigned. It runs with Smart App Control off; with it on, an
+unsigned build may be blocked.
 
 ## Privacy
 
