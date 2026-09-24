@@ -426,6 +426,36 @@ a variable font: a weight is chosen with
 `Package-Release.ps1`, then `gh release create v<version>` with the zip. The
 build is unsigned; the release notes say what SmartScreen will show.
 
+### Code signing: not done yet, deliberately deferred
+
+Looked into on 2026-09-24 and parked. Check prices and eligibility again
+before acting; both change. What was established:
+
+- **Signing does not by itself remove the SmartScreen warning.** SmartScreen
+  goes by reputation. Since 2024 even EV certificates no longer skip it
+  straight away; a signed app still warns until enough people have downloaded
+  and run it. Signing gives that reputation somewhere to build up. Unsigned,
+  it never does.
+- **Smart App Control is where signing helps at once.** It blocks unsigned apps
+  it does not recognise outright and allows a valid signature from a trusted
+  certificate authority. Today the zip does not run at all with it on.
+- **Sign our own binaries, not just the exe**: `AIUsage.exe`, `AIUsage.dll`
+  and `UsageCore.dll`. The .NET and Windows App SDK files in the publish are
+  already Microsoft-signed.
+- **A self-signed certificate is useless** for other people's PCs.
+
+| Option | Cost | Publisher shown | Notes |
+|---|---|---|---|
+| **SignPath Foundation** | Free for open source | "SignPath Foundation" | The favourite. Suits a public MIT project, but applications are reviewed and releases must be built in GitHub Actions, not locally. |
+| **Microsoft Store** | Free individual developer account | Microsoft signs it | No SmartScreen warning at all, plus auto-update. Needs MSIX packaging, and start at login moved from the Run key to a packaged `StartupTask`. |
+| **Paid certificate** (Certum's open-source certificate is the cheapest; Sectigo and DigiCert cost more) | Tens to hundreds of dollars a year | The owner's name | Key must live on a hardware token or a cloud HSM. The warning stays until reputation builds. |
+| **Azure Trusted Signing** | About $10 a month | The owner's name | Individual sign-up was limited to a few countries (US and Canada) when checked; confirm first. |
+
+Whichever is chosen, the groundwork is the same: a GitHub Actions release
+workflow that runs `Package-Release.ps1`'s publish, signs the binaries, then
+zips and uploads. Once signed, drop the SmartScreen paragraph from the README's
+Download section and from the release notes.
+
 ## Privacy
 
 This repo is public, and the rule is the same as the original's: nothing

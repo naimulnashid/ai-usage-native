@@ -46,7 +46,8 @@ installing. Windows 10 1809 or later, x64.
 
 The build is not code-signed, so SmartScreen will say it does not recognise the
 app: **More info → Run anyway**. With Smart App Control turned on, Windows may
-refuse it outright; build it yourself instead (below).
+refuse it outright; build it yourself instead (below). Signing is being
+considered; the options are weighed in [CLAUDE.md](CLAUDE.md#code-signing-not-done-yet-deliberately-deferred).
 
 ## Build and install from source
 
