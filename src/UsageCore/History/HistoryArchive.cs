@@ -14,6 +14,18 @@ public sealed class ArchivedDay
 
 public sealed record ProjectMeta(string Name, string? Cwd);
 
+/// <summary>
+/// Source-generated, so saving the archive never depends on reflection: a
+/// trimmed build, or a host with reflection-based serialization turned off,
+/// must not be what loses a day of history.
+/// </summary>
+[System.Text.Json.Serialization.JsonSourceGenerationOptions(
+    WriteIndented = true,
+    PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+[System.Text.Json.Serialization.JsonSerializable(typeof(HistoryFile))]
+internal sealed partial class ArchiveJson : System.Text.Json.Serialization.JsonSerializerContext;
+
 public sealed class HistoryFile
 {
     public const int CurrentVersion = 1;
@@ -45,12 +57,6 @@ public sealed class HistoryFile
 /// </remarks>
 public static class HistoryArchive
 {
-    private static readonly JsonSerializerOptions WriteOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-    };
 
     public static string PathFor(ProviderId provider, string? historyDir = null) =>
         System.IO.Path.Combine(historyDir ?? AppPaths.HistoryDir, provider == ProviderId.Claude ? "claude-history.json" : "codex-history.json");
@@ -171,7 +177,7 @@ public static class HistoryArchive
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
             var temp = file + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(history, WriteOptions));
+            File.WriteAllText(temp, JsonSerializer.Serialize(history, ArchiveJson.Default.HistoryFile));
             File.Move(temp, file, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
