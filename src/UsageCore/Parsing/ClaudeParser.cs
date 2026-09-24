@@ -96,7 +96,8 @@ public static partial class ClaudeParser
 
         // Read every file once, in parallel; merge per-file counters in file order.
         var fileRecords = new FileRecords[files.Count];
-        Parallel.For(0, files.Count, i => fileRecords[i] = ReadFile(files[i], nowMs));
+        var pool = new StringPool();
+        Parallel.For(0, files.Count, i => fileRecords[i] = ReadFile(files[i], nowMs, pool));
         foreach (var fr in fileRecords) fr.Diag.MergeInto(diagnostics);
 
         // Trap 1 + 2: one canonical token set per key, the largest output wins.
@@ -378,72 +379,74 @@ public static partial class ClaudeParser
         return result;
     }
 
-    private static FileRecords ReadFile(DiscoveredFile file, long nowMs)
+    /// <summary>The fields one line contributes. Everything else on it is skipped unread.</summary>
+    private struct Line
+    {
+        public string? Type, Timestamp, Cwd, RequestId, MessageId, Model;
+        public bool HasMessage, HasUsage;
+        public long Input, Output, CacheRead, FlatCacheWrite, Write5m, Write1h;
+        public bool HasCacheCreation;
+    }
+
+    private static FileRecords ReadFile(DiscoveredFile file, long nowMs, StringPool pool)
     {
         var fr = new FileRecords(file);
         try
         {
-            using var reader = new StreamReader(file.Abs, new FileStreamOptions { Access = FileAccess.Read, Share = FileShare.ReadWrite | FileShare.Delete });
-            string? raw;
-            while ((raw = reader.ReadLine()) is not null)
+            using var reader = ByteLineReader.Open(file.Abs);
+            while (reader.TryReadLine(out var bytes))
             {
-                var line = raw.Trim();
-                if (line.Length == 0) continue;
+                if (bytes.IsEmpty) continue;
                 fr.Diag.LinesRead++;
 
-                JsonDocument doc;
+                Line line;
                 try
                 {
-                    doc = JsonDocument.Parse(line);
-                }
-                catch (JsonException)
-                {
-                    // Truncated or malformed: skipped, never fatal.
-                    fr.Diag.LinesUnparseable++;
-                    continue;
-                }
-
-                using (doc)
-                {
-                    var entry = doc.RootElement;
-                    // Valid JSON that is not an object (null, a number, an array)
-                    // is just as unusable.
-                    if (entry.ValueKind != JsonValueKind.Object)
+                    // Truncated or malformed: skipped, never fatal. Valid JSON
+                    // that is not an object (null, a number, an array) is just
+                    // as unusable.
+                    if (!TryScan(bytes, out line))
                     {
                         fr.Diag.LinesUnparseable++;
                         continue;
                     }
-
-                    var tsRaw = Guards.StringField(entry, "timestamp");
-                    var ts = Guards.ParseTimestampMs(tsRaw, nowMs);
-                    if (ts is null && tsRaw is not null) fr.Diag.ImplausibleTimestamps++;
-                    if (ts is { } t && (fr.FirstTimestampMs is null || t < fr.FirstTimestampMs)) fr.FirstTimestampMs = t;
-
-                    if (Guards.StringField(entry, "cwd") is { } cwd)
-                    {
-                        fr.FirstCwd ??= cwd;
-                        fr.CwdCounts[cwd] = fr.CwdCounts.GetValueOrDefault(cwd) + 1;
-                    }
-
-                    var hasMessage = Guards.TryObject(entry, "message", out var message);
-                    var lineModel = hasMessage ? Guards.StringField(message, "model") : null;
-
-                    string? key = null;
-                    TokenCounts? tokens = null;
-                    if (hasMessage && Guards.StringField(entry, "type") == "assistant")
-                    {
-                        fr.Diag.AssistantLines++;
-                        if (Guards.TryObject(message, "usage", out var usage))
-                        {
-                            tokens = ReadTokens(usage);
-                            var messageId = Guards.StringField(message, "id");
-                            var requestId = Guards.StringField(entry, "requestId");
-                            if (messageId is not null) key = $"{messageId}::{requestId}";
-                        }
-                    }
-
-                    fr.Records.Add(new LineRecord(ts, lineModel, key, tokens));
                 }
+                catch (JsonException)
+                {
+                    fr.Diag.LinesUnparseable++;
+                    continue;
+                }
+
+                var ts = Guards.ParseTimestampMs(line.Timestamp, nowMs);
+                if (ts is null && line.Timestamp is not null) fr.Diag.ImplausibleTimestamps++;
+                if (ts is { } t && (fr.FirstTimestampMs is null || t < fr.FirstTimestampMs)) fr.FirstTimestampMs = t;
+
+                if (line.Cwd is { } cwd)
+                {
+                    cwd = pool.Get(cwd);
+                    fr.FirstCwd ??= cwd;
+                    fr.CwdCounts[cwd] = fr.CwdCounts.GetValueOrDefault(cwd) + 1;
+                }
+
+                string? key = null;
+                TokenCounts? tokens = null;
+                if (line.HasMessage && line.Type == "assistant")
+                {
+                    fr.Diag.AssistantLines++;
+                    if (line.HasUsage)
+                    {
+                        // Trap 4: prefer the TTL split; the flat legacy field is the 5m rate.
+                        tokens = new TokenCounts(
+                            Input: line.Input,
+                            Output: line.Output,
+                            CacheRead: line.CacheRead,
+                            CacheWrite5m: line.HasCacheCreation ? line.Write5m : line.FlatCacheWrite,
+                            CacheWrite1h: line.HasCacheCreation ? line.Write1h : 0);
+                        if (line.MessageId is not null) key = $"{line.MessageId}::{line.RequestId}";
+                    }
+                }
+
+                fr.Records.Add(new LineRecord(ts, line.Model is null ? null : pool.Get(line.Model), key, tokens));
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -454,30 +457,81 @@ public static partial class ClaudeParser
         return fr;
     }
 
-    /// <summary>
-    /// The five buckets. Cache writes prefer the TTL-split object, falling back
-    /// to the flat legacy field at the 5m rate (5m is the default TTL).
-    /// </summary>
-    private static TokenCounts ReadTokens(JsonElement usage)
+    /// <summary>Reads the fields a Claude Code line carries; false when the root is not an object.</summary>
+    private static bool TryScan(ReadOnlySpan<byte> bytes, out Line line)
     {
-        long write5m, write1h = 0;
-        if (Guards.TryObject(usage, "cache_creation", out var creation))
+        line = default;
+        var r = new Utf8JsonReader(bytes);
+        if (!r.Read()) throw new JsonException("Empty line.");
+        if (r.TokenType != JsonTokenType.StartObject)
         {
-            write5m = Guards.TokenField(creation, "ephemeral_5m_input_tokens");
-            write1h = Guards.TokenField(creation, "ephemeral_1h_input_tokens");
-        }
-        else
-        {
-            write5m = Guards.TokenField(usage, "cache_creation_input_tokens");
+            r.Skip();
+            Json.End(ref r);
+            return false;
         }
 
-        return new TokenCounts(
-            Input: Guards.TokenField(usage, "input_tokens"),
-            Output: Guards.TokenField(usage, "output_tokens"),
-            CacheRead: Guards.TokenField(usage, "cache_read_input_tokens"),
-            CacheWrite5m: write5m,
-            CacheWrite1h: write1h);
+        while (Json.NextProperty(ref r))
+        {
+            if (r.ValueTextEquals("type"u8)) line.Type = Json.String(ref r);
+            else if (r.ValueTextEquals("timestamp"u8)) line.Timestamp = Json.String(ref r);
+            else if (r.ValueTextEquals("cwd"u8)) line.Cwd = Json.String(ref r);
+            else if (r.ValueTextEquals("requestId"u8)) line.RequestId = Json.String(ref r);
+            else if (r.ValueTextEquals("message"u8))
+            {
+                if (!Json.EnterObject(ref r)) continue;
+                line.HasMessage = true;
+                while (Json.NextProperty(ref r))
+                {
+                    if (r.ValueTextEquals("id"u8)) line.MessageId = Json.String(ref r);
+                    else if (r.ValueTextEquals("model"u8)) line.Model = Json.String(ref r);
+                    else if (r.ValueTextEquals("usage"u8))
+                    {
+                        if (!Json.EnterObject(ref r)) continue;
+                        line.HasUsage = true;
+                        ScanUsage(ref r, ref line);
+                    }
+                    else Json.SkipValue(ref r);
+                }
+            }
+            else Json.SkipValue(ref r);
+        }
+        Json.End(ref r);
+        return true;
     }
+
+    private static void ScanUsage(ref Utf8JsonReader r, ref Line line)
+    {
+        while (Json.NextProperty(ref r))
+        {
+            if (r.ValueTextEquals("input_tokens"u8)) line.Input = Json.Count(ref r);
+            else if (r.ValueTextEquals("output_tokens"u8)) line.Output = Json.Count(ref r);
+            else if (r.ValueTextEquals("cache_read_input_tokens"u8)) line.CacheRead = Json.Count(ref r);
+            else if (r.ValueTextEquals("cache_creation_input_tokens"u8)) line.FlatCacheWrite = Json.Count(ref r);
+            else if (r.ValueTextEquals("cache_creation"u8))
+            {
+                if (!Json.EnterObject(ref r)) continue;
+                line.HasCacheCreation = true;
+                while (Json.NextProperty(ref r))
+                {
+                    if (r.ValueTextEquals("ephemeral_5m_input_tokens"u8)) line.Write5m = Json.Count(ref r);
+                    else if (r.ValueTextEquals("ephemeral_1h_input_tokens"u8)) line.Write1h = Json.Count(ref r);
+                    else Json.SkipValue(ref r);
+                }
+            }
+            else Json.SkipValue(ref r);
+        }
+    }
+}
+
+/// <summary>
+/// One copy of each repeated string (models, working directories) per parse,
+/// rather than one per line.
+/// </summary>
+internal sealed class StringPool
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _strings = new(StringComparer.Ordinal);
+
+    public string Get(string value) => _strings.GetOrAdd(value, value);
 }
 
 /// <summary>Counters one file contributes, merged into the report in file order.</summary>

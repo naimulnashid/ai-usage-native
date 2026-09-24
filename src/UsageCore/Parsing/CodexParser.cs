@@ -97,7 +97,8 @@ public static partial class CodexParser
         var threadNames = LoadThreadNames(home, diagnostics.Warnings);
 
         var fileRecords = new FileRecords[files.Count];
-        Parallel.For(0, files.Count, i => fileRecords[i] = ReadFile(files[i], nowMs));
+        var pool = new StringPool();
+        Parallel.For(0, files.Count, i => fileRecords[i] = ReadFile(files[i], nowMs, pool));
         foreach (var fr in fileRecords)
         {
             fr.Diag.MergeInto(diagnostics);
@@ -314,14 +315,6 @@ public static partial class CodexParser
         return names;
     }
 
-    private static RawTotals ReadTotals(JsonElement usage) => new(
-        Guards.TokenField(usage, "input_tokens"),
-        Guards.TokenField(usage, "cached_input_tokens"),
-        Guards.TokenField(usage, "cache_write_input_tokens"),
-        Guards.TokenField(usage, "output_tokens"),
-        Guards.TokenField(usage, "reasoning_output_tokens"),
-        Guards.TokenField(usage, "total_tokens"));
-
     /// <summary>
     /// Per-turn usage as the delta of the running totals. A field going
     /// backwards means the counter restarted (a context reset): it is taken as
@@ -354,7 +347,24 @@ public static partial class CodexParser
             Reasoning: reasoning);
     }
 
-    private static FileRecords ReadFile(DiscoveredFile file, long nowMs)
+    /// <summary>A running total as it appeared on a line, and whether it was there.</summary>
+    private struct Usage
+    {
+        public bool Present;
+        public long Input, Cached, CacheWrite, Output, Reasoning, Total;
+
+        public readonly RawTotals Totals => new(Input, Cached, CacheWrite, Output, Reasoning, Total);
+    }
+
+    /// <summary>The fields one rollout line contributes. Everything else is skipped unread.</summary>
+    private struct Line
+    {
+        public string? Type, Timestamp;
+        public string? PayloadType, Cwd, Model, ParentThreadId, ThreadSource, SubagentKind;
+        public Usage InfoTotal, InfoLast, PayloadTotal, PayloadLast;
+    }
+
+    private static FileRecords ReadFile(DiscoveredFile file, long nowMs, StringPool pool)
     {
         var fr = new FileRecords(file);
         string? currentModel = null, currentCwd = null;
@@ -363,18 +373,21 @@ public static partial class CodexParser
 
         try
         {
-            using var reader = new StreamReader(file.Abs, new FileStreamOptions { Access = FileAccess.Read, Share = FileShare.ReadWrite | FileShare.Delete });
-            string? raw;
-            while ((raw = reader.ReadLine()) is not null)
+            using var reader = ByteLineReader.Open(file.Abs);
+            while (reader.TryReadLine(out var bytes))
             {
-                var line = raw.Trim();
-                if (line.Length == 0) continue;
+                if (bytes.IsEmpty) continue;
                 fr.Diag.LinesRead++;
 
-                JsonDocument doc;
+                Line line;
                 try
                 {
-                    doc = JsonDocument.Parse(line);
+                    // `null`, a bare number or an array is valid JSON and unusable here.
+                    if (!TryScan(bytes, out line))
+                    {
+                        fr.Diag.LinesUnparseable++;
+                        continue;
+                    }
                 }
                 catch (JsonException)
                 {
@@ -382,106 +395,81 @@ public static partial class CodexParser
                     continue;
                 }
 
-                using (doc)
+                var ts = Guards.ParseTimestampMs(line.Timestamp, nowMs);
+                if (ts is null && line.Timestamp is not null) fr.Diag.ImplausibleTimestamps++;
+                if (ts is { } t)
                 {
-                    var entry = doc.RootElement;
-                    if (entry.ValueKind != JsonValueKind.Object)
+                    if (fr.FirstTimestampMs is null || t < fr.FirstTimestampMs) fr.FirstTimestampMs = t;
+                    if (fr.LastTimestampMs is null || t > fr.LastTimestampMs) fr.LastTimestampMs = t;
+                }
+
+                if (line.Type == "session_meta")
+                {
+                    if (line.Cwd is { } cwd)
+                    {
+                        currentCwd = pool.Get(cwd);
+                        fr.Cwd ??= currentCwd;
+                    }
+                    // Present on every subagent rollout, absent on a real chat.
+                    if (line.ParentThreadId is { } parent) fr.ParentThreadId ??= parent;
+                    if (line.ThreadSource == "subagent")
+                    {
+                        fr.IsSubagent = true;
+                        // `source: { subagent: { other: "guardian" } }` - the shape
+                        // has moved before, so it is read defensively.
+                        fr.SubagentKind ??= line.SubagentKind ?? "subagent";
+                    }
+                    // Some schema versions carried the model here.
+                    if (line.Model is { } model) currentModel = pool.Get(model);
+                }
+                else if (line.Type == "turn_context")
+                {
+                    if (line.Model is { } model) currentModel = pool.Get(model);
+                    if (line.Cwd is { } cwd)
+                    {
+                        currentCwd = pool.Get(cwd);
+                        fr.Cwd ??= currentCwd;
+                    }
+                }
+                else if (line.Type == "event_msg" && line.PayloadType == "token_count")
+                {
+                    var totals = line.InfoTotal.Present ? line.InfoTotal : line.PayloadTotal;
+                    // Older shapes, and a null `info` on an aborted turn, carry
+                    // no running total. Skipped, not guessed at.
+                    if (!totals.Present)
                     {
                         fr.Diag.LinesUnparseable++;
                         continue;
                     }
 
-                    var tsRaw = Guards.StringField(entry, "timestamp");
-                    var ts = Guards.ParseTimestampMs(tsRaw, nowMs);
-                    if (ts is null && tsRaw is not null) fr.Diag.ImplausibleTimestamps++;
-                    if (ts is { } t)
+                    fr.Diag.AssistantLines++;
+                    var current = totals.Totals;
+
+                    // Trap 1: identical running totals say nothing new, however
+                    // large their last_token_usage looks.
+                    if (havePrevious && current == previous)
                     {
-                        if (fr.FirstTimestampMs is null || t < fr.FirstTimestampMs) fr.FirstTimestampMs = t;
-                        if (fr.LastTimestampMs is null || t > fr.LastTimestampMs) fr.LastTimestampMs = t;
+                        fr.Repeats++;
+                        continue;
                     }
 
-                    var payload = Guards.TryObject(entry, "payload", out var p) ? p : default;
-                    var type = Guards.StringField(entry, "type");
+                    var tokens = Delta(havePrevious ? previous : default, current, out var reset);
+                    if (reset) fr.CounterResets++;
+                    previous = current;
+                    havePrevious = true;
 
-                    if (type == "session_meta")
+                    // The independent check: Codex's own figure for the turn.
+                    var last = line.InfoLast.Present ? line.InfoLast : line.PayloadLast;
+                    if (last.Present)
                     {
-                        if (Guards.StringField(payload, "cwd") is { } cwd)
-                        {
-                            currentCwd = cwd;
-                            fr.Cwd ??= cwd;
-                        }
-                        // Present on every subagent rollout, absent on a real chat.
-                        if (Guards.StringField(payload, "parent_thread_id") is { } parent) fr.ParentThreadId ??= parent;
-                        if (Guards.StringField(payload, "thread_source") == "subagent")
-                        {
-                            fr.IsSubagent = true;
-                            // `source: { subagent: { other: "guardian" } }` - the
-                            // shape has moved before, so read it defensively.
-                            string? kind = null;
-                            if (Guards.TryObject(payload, "source", out var source) && Guards.TryObject(source, "subagent", out var sub))
-                            {
-                                kind = Guards.StringField(sub, "other") ?? Guards.StringField(sub, "kind") ?? Guards.StringField(sub, "type");
-                            }
-                            fr.SubagentKind ??= kind ?? "subagent";
-                        }
-                        // Some schema versions carried the model here.
-                        if (Guards.StringField(payload, "model") is { } model) currentModel = model;
-                    }
-                    else if (type == "turn_context")
-                    {
-                        if (Guards.StringField(payload, "model") is { } model) currentModel = model;
-                        if (Guards.StringField(payload, "cwd") is { } cwd)
-                        {
-                            currentCwd = cwd;
-                            fr.Cwd ??= cwd;
-                        }
-                    }
-                    else if (type == "event_msg" && Guards.StringField(payload, "type") == "token_count")
-                    {
-                        var hasInfo = Guards.TryObject(payload, "info", out var info);
-                        JsonElement totalUsage = default;
-                        var hasTotals = (hasInfo && Guards.TryObject(info, "total_token_usage", out totalUsage))
-                                        || Guards.TryObject(payload, "total_token_usage", out totalUsage);
-                        // Older shapes, and a null `info` on an aborted turn,
-                        // carry no running total. Skipped, not guessed at.
-                        if (!hasTotals)
-                        {
-                            fr.Diag.LinesUnparseable++;
-                            continue;
-                        }
-
-                        fr.Diag.AssistantLines++;
-                        var current = ReadTotals(totalUsage);
-
-                        // Trap 1: identical running totals say nothing new,
-                        // however large their last_token_usage looks.
-                        if (havePrevious && current == previous)
-                        {
-                            fr.Repeats++;
-                            continue;
-                        }
-
-                        var tokens = Delta(havePrevious ? previous : default, current, out var reset);
-                        if (reset) fr.CounterResets++;
-                        previous = current;
-                        havePrevious = true;
-
-                        // The independent check: Codex's own figure for the turn.
-                        JsonElement lastUsage = default;
-                        var hasLast = (hasInfo && Guards.TryObject(info, "last_token_usage", out lastUsage))
-                                      || Guards.TryObject(payload, "last_token_usage", out lastUsage);
-                        if (hasLast)
-                        {
-                            var reported = Guards.TokenField(lastUsage, "total_tokens");
-                            var derived = tokens.Input + tokens.CacheRead + tokens.Output + tokens.CacheWrite5m;
-                            if (reported != derived) fr.Reconciled = false;
-                        }
-
-                        fr.Events.Add(new UsageEvent(ts, currentModel ?? "(unknown)", currentCwd, tokens));
+                        var derived = tokens.Input + tokens.CacheRead + tokens.Output + tokens.CacheWrite5m;
+                        if (last.Total != derived) fr.Reconciled = false;
                     }
 
-                    if (ts is { } tickMs) fr.Ticks.Add(new Tick(tickMs, currentModel, currentCwd));
+                    fr.Events.Add(new UsageEvent(ts, currentModel ?? "(unknown)", currentCwd, tokens));
                 }
+
+                if (ts is { } tickMs) fr.Ticks.Add(new Tick(tickMs, currentModel, currentCwd));
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -490,5 +478,97 @@ public static partial class CodexParser
             fr.Diag.Warnings.Add($"Error reading {file.Rel}: {ex.Message}");
         }
         return fr;
+    }
+
+    /// <summary>Reads the fields a rollout line carries; false when the root is not an object.</summary>
+    private static bool TryScan(ReadOnlySpan<byte> bytes, out Line line)
+    {
+        line = default;
+        var r = new Utf8JsonReader(bytes);
+        if (!r.Read()) throw new JsonException("Empty line.");
+        if (r.TokenType != JsonTokenType.StartObject)
+        {
+            r.Skip();
+            Json.End(ref r);
+            return false;
+        }
+
+        while (Json.NextProperty(ref r))
+        {
+            if (r.ValueTextEquals("type"u8)) line.Type = Json.String(ref r);
+            else if (r.ValueTextEquals("timestamp"u8)) line.Timestamp = Json.String(ref r);
+            else if (r.ValueTextEquals("payload"u8))
+            {
+                if (!Json.EnterObject(ref r)) continue;
+                ScanPayload(ref r, ref line);
+            }
+            else Json.SkipValue(ref r);
+        }
+        Json.End(ref r);
+        return true;
+    }
+
+    private static void ScanPayload(ref Utf8JsonReader r, ref Line line)
+    {
+        while (Json.NextProperty(ref r))
+        {
+            if (r.ValueTextEquals("type"u8)) line.PayloadType = Json.String(ref r);
+            else if (r.ValueTextEquals("cwd"u8)) line.Cwd = Json.String(ref r);
+            else if (r.ValueTextEquals("model"u8)) line.Model = Json.String(ref r);
+            else if (r.ValueTextEquals("parent_thread_id"u8)) line.ParentThreadId = Json.String(ref r);
+            else if (r.ValueTextEquals("thread_source"u8)) line.ThreadSource = Json.String(ref r);
+            else if (r.ValueTextEquals("total_token_usage"u8)) line.PayloadTotal = ScanUsage(ref r);
+            else if (r.ValueTextEquals("last_token_usage"u8)) line.PayloadLast = ScanUsage(ref r);
+            else if (r.ValueTextEquals("info"u8))
+            {
+                if (!Json.EnterObject(ref r)) continue;
+                while (Json.NextProperty(ref r))
+                {
+                    if (r.ValueTextEquals("total_token_usage"u8)) line.InfoTotal = ScanUsage(ref r);
+                    else if (r.ValueTextEquals("last_token_usage"u8)) line.InfoLast = ScanUsage(ref r);
+                    else Json.SkipValue(ref r);
+                }
+            }
+            else if (r.ValueTextEquals("source"u8))
+            {
+                if (!Json.EnterObject(ref r)) continue;
+                while (Json.NextProperty(ref r))
+                {
+                    if (r.ValueTextEquals("subagent"u8))
+                    {
+                        if (!Json.EnterObject(ref r)) continue;
+                        string? other = null, kind = null, type = null;
+                        while (Json.NextProperty(ref r))
+                        {
+                            if (r.ValueTextEquals("other"u8)) other = Json.String(ref r);
+                            else if (r.ValueTextEquals("kind"u8)) kind = Json.String(ref r);
+                            else if (r.ValueTextEquals("type"u8)) type = Json.String(ref r);
+                            else Json.SkipValue(ref r);
+                        }
+                        line.SubagentKind = other ?? kind ?? type;
+                    }
+                    else Json.SkipValue(ref r);
+                }
+            }
+            else Json.SkipValue(ref r);
+        }
+    }
+
+    private static Usage ScanUsage(ref Utf8JsonReader r)
+    {
+        var usage = default(Usage);
+        if (!Json.EnterObject(ref r)) return usage;
+        usage.Present = true;
+        while (Json.NextProperty(ref r))
+        {
+            if (r.ValueTextEquals("input_tokens"u8)) usage.Input = Json.Count(ref r);
+            else if (r.ValueTextEquals("cached_input_tokens"u8)) usage.Cached = Json.Count(ref r);
+            else if (r.ValueTextEquals("cache_write_input_tokens"u8)) usage.CacheWrite = Json.Count(ref r);
+            else if (r.ValueTextEquals("output_tokens"u8)) usage.Output = Json.Count(ref r);
+            else if (r.ValueTextEquals("reasoning_output_tokens"u8)) usage.Reasoning = Json.Count(ref r);
+            else if (r.ValueTextEquals("total_tokens"u8)) usage.Total = Json.Count(ref r);
+            else Json.SkipValue(ref r);
+        }
+        return usage;
     }
 }

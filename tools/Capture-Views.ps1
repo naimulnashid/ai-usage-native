@@ -22,10 +22,13 @@ $env:CODEX_HOME = Join-Path $root 'demo-data\codex'
 $env:AIUSAGE_DATA_DIR = Join-Path $root 'demo-data\appdata'
 
 foreach ($view in $Views) {
+  # "name=spec" or "name=spec@x:y" to hover at (x, y) before the capture.
   $name, $spec = $view -split '=', 2
+  $hoverX = -1; $hoverY = -1
+  if ($spec -match '^(.*)@(\d+):(\d+)$') { $spec = $Matches[1]; $hoverX = [int]$Matches[2]; $hoverY = [int]$Matches[3] }
   $env:AIUSAGE_DEBUG_VIEW = $spec
   # Windows PowerShell 5.1, which has System.Drawing built in; PowerShell 7
   # would need System.Drawing.Common referenced by hand.
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Out (Join-Path $root "screenshots\$name.png") -Width $Width -Height $Height -WaitSeconds $WaitSeconds -Close
+  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Out (Join-Path $root "screenshots\$name.png") -Width $Width -Height $Height -WaitSeconds $WaitSeconds -HoverX $hoverX -HoverY $hoverY -Close
   Start-Sleep -Milliseconds 800
 }

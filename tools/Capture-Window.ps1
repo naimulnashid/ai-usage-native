@@ -19,6 +19,10 @@ param(
   [int]$Height = 1000,
   [int]$WaitSeconds = 6,
   [string[]]$Arguments = @(),
+  # Move the pointer to this point (physical pixels from the window's top-left)
+  # before capturing, to photograph a hover state. -1 leaves it alone.
+  [int]$HoverX = -1,
+  [int]$HoverY = -1,
   [switch]$Close
 )
 
@@ -36,6 +40,29 @@ public static class WindowCapture {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+  [DllImport("user32.dll")] static extern uint SendInput(uint n, INPUT[] inputs, int size);
+  [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+  [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx, dy; public uint data, flags, time; public IntPtr extra; }
+  [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public MOUSEINPUT mi; }
+
+  // SendInput rather than SetCursorPos: only real input produces the pointer
+  // events WinUI's hover states listen for.
+  static void MoveTo(int x, int y) {
+    int vx = GetSystemMetrics(76), vy = GetSystemMetrics(77), vw = GetSystemMetrics(78), vh = GetSystemMetrics(79);
+    var input = new INPUT { type = 0 };
+    input.mi.dx = (int)((x - vx) * 65535.0 / (vw - 1));
+    input.mi.dy = (int)((y - vy) * 65535.0 / (vh - 1));
+    input.mi.flags = 0x0001 | 0x8000 | 0x4000; // MOVE | ABSOLUTE | VIRTUALDESK
+    SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  public static void Hover(IntPtr h, int x, int y) {
+    RECT r; GetWindowRect(h, out r);
+    for (int i = 6; i >= 0; i--) {
+      MoveTo(r.L + x - i * 4, r.T + y - i * 2);
+      System.Threading.Thread.Sleep(40);
+    }
+  }
   [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
 
   public static void Save(IntPtr h, string path) {
@@ -73,9 +100,19 @@ while ($proc.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline) {
 if ($proc.MainWindowHandle -eq 0) { throw 'No window appeared within 30 seconds.' }
 
 $h = $proc.MainWindowHandle
-[void][WindowCapture]::SetWindowPos($h, [IntPtr]::Zero, 40, 40, $Width, $Height, 0x0004) # SWP_NOZORDER
+if ($HoverX -ge 0) {
+  # Topmost for a hover capture: Windows will not hand focus to a background
+  # launch, so without this the pointer lands on whatever window is in front.
+  [void][WindowCapture]::SetWindowPos($h, [IntPtr]::new(-1), 40, 40, $Width, $Height, 0)
+} else {
+  [void][WindowCapture]::SetWindowPos($h, [IntPtr]::Zero, 40, 40, $Width, $Height, 0x0004) # SWP_NOZORDER
+}
 [void][WindowCapture]::SetForegroundWindow($h)
 Start-Sleep -Seconds $WaitSeconds
+if ($HoverX -ge 0 -and $HoverY -ge 0) {
+  [WindowCapture]::Hover($h, $HoverX, $HoverY)
+  Start-Sleep -Milliseconds 1200
+}
 
 $full = [System.IO.Path]::GetFullPath($Out)
 New-Item -ItemType Directory -Force (Split-Path $full) | Out-Null

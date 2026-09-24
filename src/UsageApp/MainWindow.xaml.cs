@@ -111,8 +111,22 @@ public sealed partial class MainWindow : Window
             // window comes back from the tray icon.
             args.Cancel = true;
             AppWindow.Hide();
+            EnterTray();
             ClosedToTray?.Invoke();
         };
+    }
+
+    private bool _inTray;
+
+    /// <summary>
+    /// Nothing is on screen, so nothing needs to be built: drop the page and let
+    /// the tray process sit small. It is rebuilt when the window comes back.
+    /// </summary>
+    public void EnterTray()
+    {
+        _inTray = true;
+        _pageHost.Content = null;
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     /// <summary>Raised when the close button sent the window to the tray.</summary>
@@ -120,6 +134,12 @@ public sealed partial class MainWindow : Window
 
     public void ShowAndActivate()
     {
+        if (_inTray)
+        {
+            _inTray = false;
+            UpdateChrome();
+            Rebuild(keepScroll: false);
+        }
         AppWindow.Show();
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter) presenter.Restore();
         Activate();
@@ -515,7 +535,9 @@ public sealed partial class MainWindow : Window
     private void OnStateChanged(ProviderId id)
     {
         UpdateChrome();
-        if (id != _state.Provider) return;
+        // Hidden in the tray: the tray tooltip updates itself; the page is
+        // built when the window comes back.
+        if (_inTray || id != _state.Provider) return;
         // Rebuild when there is something new to show; a refresh in progress
         // keeps the previous report on screen rather than flashing a skeleton.
         var data = _state.Current;

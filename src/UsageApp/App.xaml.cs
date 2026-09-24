@@ -47,7 +47,8 @@ public partial class App : Application
 
         // Launched by the Run key at login: straight to the tray.
         var startInTray = Environment.GetCommandLineArgs().Contains("--tray", StringComparer.OrdinalIgnoreCase);
-        if (!startInTray) _window.Activate();
+        if (startInTray) _window.EnterTray();
+        else _window.Activate();
 
         // Both agents load up front, one after the other: the tray shows both,
         // whichever one is on screen.
