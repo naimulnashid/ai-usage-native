@@ -306,6 +306,17 @@ slice fading the rest and the legend in step.
 - **`dotnet test` on .NET 10 needs `global.json`'s
   `"test": { "runner": "Microsoft.Testing.Platform" }`**, and must run from the
   repo folder to see it.
+- **A `ScrollViewer` centres a `MaxWidth` column by its DESIRED width**, not
+  the viewport's. A page narrower than its cap (the Projects page) drifted
+  sideways away from the top bar as the window grew. The column now sits in a
+  frame `Grid` whose width is pinned to the viewport in `SizeChanged`.
+- **`TextBlock` selection is off by default**, so nothing could be copied.
+  `Ui.Text` turns it on; chrome (tabs, buttons, rail, chart axes) passes
+  `selectable: false` or goes through `Ui.NoSelect`, since a selectable label
+  inside a button swallows the press.
+- **A selectable `TextBlock` marks `Tapped` handled.** A project card's tap
+  handler is registered with `AddHandler(..., handledEventsToo: true)`, or a
+  click on the project's name does nothing.
 - **The Windows App SDK meta-package pulls in the AI/ML components** (~60 MB of
   onnxruntime and DirectML). The app references WinUI, Foundation,
   InteractiveExperiences and DWrite directly. For the same reason the tray

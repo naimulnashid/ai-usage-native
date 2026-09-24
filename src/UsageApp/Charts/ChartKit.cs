@@ -149,7 +149,8 @@ public static class ChartKit
     /// <summary>Places a label with its anchor at (x, y): align -1 left, 0 centre, 1 right edge.</summary>
     public static TextBlock Label(Canvas canvas, string text, double x, double y, int align, double size = 13, Brush? brush = null)
     {
-        var block = Ui.Text(text, size, 400, brush ?? Palette.TextFaintBrush, numeric: true);
+        // Axis labels sit on the hover surface: not selectable.
+        var block = Ui.Text(text, size, 400, brush ?? Palette.TextFaintBrush, numeric: true, selectable: false);
         block.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var w = block.DesiredSize.Width;
         var h = block.DesiredSize.Height;

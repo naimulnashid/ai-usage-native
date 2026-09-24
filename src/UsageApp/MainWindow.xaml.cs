@@ -36,8 +36,8 @@ public sealed partial class MainWindow : Window
     private readonly PageContext _ctx;
 
     private readonly Border _rail = new();
-    private readonly TextBlock _railBrand = Ui.Text("AI Usage", 16, 600, spacing: -0.01);
-    private readonly TextBlock _railGroup = Ui.Caps("Agent", 11, 0.09);
+    private readonly TextBlock _railBrand = Ui.Text("AI Usage", 16, 600, spacing: -0.01, selectable: false);
+    private readonly TextBlock _railGroup = Ui.NoSelect(Ui.Caps("Agent", 11, 0.09));
     private readonly Dictionary<ProviderId, (Button Button, TextBlock Label)> _railItems = [];
     private readonly TextBlock _heading = Ui.Text("", 17, 640, spacing: -0.015);
     private readonly Dictionary<PageKind, Button> _tabs = [];
@@ -141,8 +141,23 @@ public sealed partial class MainWindow : Window
             Rebuild(keepScroll: false);
         }
         AppWindow.Show();
-        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter) presenter.Restore();
+        Maximize();
         Activate();
+    }
+
+    /// <summary>The window always opens maximised - at launch and back from the tray.</summary>
+    public void OpenMaximized()
+    {
+        Maximize();
+        Activate();
+    }
+
+    private void Maximize()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Maximized)
+        {
+            presenter.Maximize();
+        }
     }
 
     /* -------------------------------------------------------------- Shell */
@@ -158,7 +173,7 @@ public sealed partial class MainWindow : Window
         var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
         var icon = new Image { Width = 16, Height = 16 };
         title.Children.Add(icon);
-        title.Children.Add(Ui.Text("AI Usage", 12.5, 500, Palette.TextFaintBrush));
+        title.Children.Add(Ui.Text("AI Usage", 12.5, 500, Palette.TextFaintBrush, selectable: false));
         titleBar.Children.Add(title);
         Root.Children.Add(titleBar);
         SetTitleBar(titleBar);
@@ -182,7 +197,14 @@ public sealed partial class MainWindow : Window
         var column = new StackPanel { MaxWidth = 1320 + 64, Padding = new Thickness(32, 0, 32, 40) };
         column.Children.Add(_pageHost);
         column.Children.Add(Footer());
-        _scroller.Content = column;
+        // The frame is pinned to the viewport's width, and the column centres
+        // inside it. Handing the column to the scroller directly centred it by
+        // its DESIRED width - so a page whose content asks for less than the
+        // column (Projects: 1217 of 1384) slid ~80px right of the top bar.
+        var frame = new Grid();
+        frame.Children.Add(column);
+        _scroller.SizeChanged += (_, e) => frame.Width = e.NewSize.Width;
+        _scroller.Content = frame;
         Grid.SetRow(_scroller, 1);
         main.Children.Add(_scroller);
 
@@ -258,7 +280,7 @@ public sealed partial class MainWindow : Window
             var markBox = new Grid { Width = 24, Height = 24 };
             markBox.Children.Add(mark);
 
-            var label = Ui.Text(meta.Label, 15, 500, Palette.TextMutedBrush);
+            var label = Ui.Text(meta.Label, 15, 500, Palette.TextMutedBrush, selectable: false);
             label.VerticalAlignment = VerticalAlignment.Center;
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             content.Children.Add(markBox);
@@ -350,7 +372,7 @@ public sealed partial class MainWindow : Window
         {
             var tab = new Button
             {
-                Content = Ui.Text(label, 15.5, 500, Palette.TextMutedBrush),
+                Content = Ui.Text(label, 15.5, 500, Palette.TextMutedBrush, selectable: false),
                 Padding = new Thickness(15, 8, 15, 8),
                 CornerRadius = new CornerRadius(Ui.RadiusSmall),
                 BorderThickness = new Thickness(1),
@@ -575,7 +597,32 @@ public sealed partial class MainWindow : Window
         {
             _scroller.UpdateLayout();
             _scroller.ChangeView(null, scroll, null, disableAnimation: true);
+            if (Environment.GetEnvironmentVariable("AIUSAGE_DEBUG_LAYOUT") is { Length: > 0 } dump) DumpOverflow(dump);
         });
+    }
+
+    /// <summary>
+    /// Development only: lists every element whose desired width exceeds the
+    /// width it was given - the usual cause of a page sliding off-centre.
+    /// </summary>
+    private void DumpOverflow(string file)
+    {
+        var lines = new List<string>
+        {
+            $"scroller: viewport {_scroller.ViewportWidth:0} extent {_scroller.ExtentWidth:0} hoffset {_scroller.HorizontalOffset:0} actual {_scroller.ActualWidth:0}",
+            $"frame: width {((FrameworkElement)_scroller.Content).ActualWidth:0} desired {((FrameworkElement)_scroller.Content).DesiredSize}",
+            $"page: offset {_pageHost.ActualOffset} width {_pageHost.ActualWidth:0}",
+        };
+        void Walk(DependencyObject node, int depth)
+        {
+            if (node is FrameworkElement fe && fe.DesiredSize.Width > fe.ActualWidth + 1 && fe.ActualWidth > 0)
+            {
+                lines.Add($"{new string(' ', depth)}{fe.GetType().Name} desired {fe.DesiredSize.Width:0} actual {fe.ActualWidth:0} {(fe is TextBlock t ? t.Text : "")}");
+            }
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++) Walk(VisualTreeHelper.GetChild(node, i), depth + 1);
+        }
+        Walk(_scroller, 0);
+        File.WriteAllLines(file, lines);
     }
 
     private void UpdateChrome()
@@ -595,12 +642,12 @@ public sealed partial class MainWindow : Window
         if (data.Loading)
         {
             content.Children.Add(new ProgressRing { IsActive = true, Width = 14, Height = 14, Foreground = Palette.AccentBright });
-            content.Children.Add(Ui.Text("Refreshing", 15, 570, Palette.AccentBright));
+            content.Children.Add(Ui.Text("Refreshing", 15, 570, Palette.AccentBright, selectable: false));
         }
         else
         {
             content.Children.Add(new FontIcon { Glyph = "", FontSize = 14, Foreground = Palette.AccentBright });
-            content.Children.Add(Ui.Text("Refresh", 15, 570, Palette.AccentBright));
+            content.Children.Add(Ui.Text("Refresh", 15, 570, Palette.AccentBright, selectable: false));
         }
         _refresh.Content = content;
         _refresh.IsEnabled = !data.Loading;

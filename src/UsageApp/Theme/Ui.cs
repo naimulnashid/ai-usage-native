@@ -29,10 +29,16 @@ public static class Ui
         Brush? brush = null,
         double spacing = 0,
         bool numeric = false,
-        bool wrap = false)
+        bool wrap = false,
+        bool selectable = true)
     {
         var block = new TextBlock
         {
+            // Text is selectable and copyable, as it was in the browser. Labels
+            // on controls are not (see NoSelect): dragging there should press
+            // the control, not start a selection.
+            IsTextSelectionEnabled = selectable,
+            SelectionHighlightColor = Palette.Accent,
             Text = text,
             FontFamily = Fonts.Sans,
             FontSize = size,
@@ -223,7 +229,7 @@ public static class Ui
     /// </summary>
     public static Button InfoTip(string label, string text)
     {
-        var glyph = Text("i", 11, 700, Palette.TextFaintBrush);
+        var glyph = Text("i", 11, 700, Palette.TextFaintBrush, selectable: false);
         glyph.HorizontalAlignment = HorizontalAlignment.Center;
         glyph.VerticalAlignment = VerticalAlignment.Center;
         var button = new Button
@@ -275,6 +281,27 @@ public static class Ui
     public static void SetTip(FrameworkElement element, string text) =>
         ToolTipService.SetToolTip(element, TipContent(text));
 
+    /// <summary>Turns text selection off throughout a control's content.</summary>
+    public static T NoSelect<T>(T content) where T : class
+    {
+        switch (content)
+        {
+            case TextBlock block:
+                block.IsTextSelectionEnabled = false;
+                break;
+            case Panel panel:
+                foreach (var child in panel.Children) NoSelect(child);
+                break;
+            case Border border when border.Child is not null:
+                NoSelect(border.Child);
+                break;
+            case ContentControl control when control.Content is not null:
+                NoSelect(control.Content);
+                break;
+        }
+        return content;
+    }
+
     /* ------------------------------------------------------------ Buttons */
 
     /// <summary>The outlined button. <paramref name="primary"/> is the accent one (Refresh).</summary>
@@ -282,7 +309,7 @@ public static class Ui
     {
         var button = new Button
         {
-            Content = content,
+            Content = NoSelect(content),
             FontFamily = Fonts.Sans,
             FontSize = fontSize,
             FontWeight = Fonts.Weight(570),
@@ -313,7 +340,7 @@ public static class Ui
     {
         var link = new HyperlinkButton
         {
-            Content = Text(text, size, 400, brush ?? Palette.TextMutedBrush),
+            Content = Text(text, size, 400, brush ?? Palette.TextMutedBrush, selectable: false),
             Padding = new Thickness(0),
             Margin = new Thickness(0),
             Background = Palette.TransparentBrush,

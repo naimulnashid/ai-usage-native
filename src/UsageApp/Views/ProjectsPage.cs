@@ -284,11 +284,15 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             card.BorderBrush = Palette.BorderBrightBrush;
         }
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"{project.Name}, {Format.Usd(project.Combined.CostUsd)}, {share:0.0}% of total");
-        card.Tapped += (_, e) =>
+        // handledEventsToo: selectable text marks a tap as handled, which made
+        // clicking the project's NAME do nothing. A tap still opens the project
+        // wherever it lands; a drag across the text is not a tap, so selecting
+        // and copying still works.
+        card.AddHandler(UIElement.TappedEvent, new TappedEventHandler((_, e) =>
         {
             if (e.OriginalSource is DependencyObject source && IsInsideButton(source, card)) return;
             ctx.Navigate(new Route(PageKind.Project, project.Id));
-        };
+        }), handledEventsToo: true);
         card.IsTabStop = true;
         card.KeyDown += (_, e) =>
         {

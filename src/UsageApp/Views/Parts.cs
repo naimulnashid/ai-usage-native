@@ -44,7 +44,8 @@ public static class Parts
         value.LineHeight = 0;
         CountUp.Apply(value, cost, v => Format.Usd(v));
         var accent = Palette.AccentColor;
-        first.Children.Add(Ui.Glow(value, Windows.UI.Color.FromArgb(150, accent.R, accent.G, accent.B)));
+        // The original's text-shadow: 60px of the accent at 28%.
+        first.Children.Add(Ui.Glow(value, Windows.UI.Color.FromArgb(71, accent.R, accent.G, accent.B)));
         foreach (var extra in costExtras) first.Children.Add(extra);
         grid.Children.Add(first);
 

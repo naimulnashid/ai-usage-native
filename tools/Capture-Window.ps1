@@ -23,6 +23,8 @@ param(
   # before capturing, to photograph a hover state. -1 leaves it alone.
   [int]$HoverX = -1,
   [int]$HoverY = -1,
+  # Maximise instead of sizing to -Width x -Height.
+  [switch]$Maximize,
   [switch]$Close
 )
 
@@ -39,6 +41,7 @@ public static class WindowCapture {
   [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
   [DllImport("user32.dll")] static extern uint SendInput(uint n, INPUT[] inputs, int size);
   [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
@@ -100,7 +103,9 @@ while ($proc.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline) {
 if ($proc.MainWindowHandle -eq 0) { throw 'No window appeared within 30 seconds.' }
 
 $h = $proc.MainWindowHandle
-if ($HoverX -ge 0) {
+if ($Maximize) {
+  [void][WindowCapture]::ShowWindow($h, 3) # SW_MAXIMIZE
+} elseif ($HoverX -ge 0) {
   # Topmost for a hover capture: Windows will not hand focus to a background
   # launch, so without this the pointer lands on whatever window is in front.
   [void][WindowCapture]::SetWindowPos($h, [IntPtr]::new(-1), 40, 40, $Width, $Height, 0)
