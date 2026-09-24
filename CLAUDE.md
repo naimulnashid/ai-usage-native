@@ -336,7 +336,10 @@ slice fading the rest and the legend in step.
   turned on. Not tested end to end on the author's machine by automation (it
   writes the user's startup configuration); check it by hand after changes.
 - **Single instance** (`Program.cs`): a second launch hands off to the running
-  copy and exits.
+  copy and exits. **One instance per data folder**, not per machine: a copy with
+  its own `AIUSAGE_DATA_DIR` (the demo, a screenshot run) registers a key
+  derived from that path, so it starts beside the copy in the tray instead of
+  silently handing its launch - and its demo environment - to the real one.
 - **Project logos**: watched folders, so a new file appears within a second;
   Set logo / Remove logo / drag-and-drop onto a card / Import. Every SVG goes
   through **Svg.Skia** - WinUI's SvgImageSource supports a subset (no text,
@@ -361,6 +364,27 @@ development-only `AIUSAGE_DEBUG_VIEW=agent,page[,projectId],scroll`:
   (they are separate popup windows). Check those through UI Automation - every
   control has an automation name.
 - Screenshots go to `screenshots/`, which is gitignored.
+- The capture is cropped to the client area. The window rectangle also holds
+  Windows 11's invisible resize borders, which `PrintWindow` draws as a dark
+  frame; the app draws its own title bar, so the client area is all of it.
+
+**Full pages** (`-FullPage 1440`) come from `AIUSAGE_DEBUG_FULLPAGE=<width>`:
+the app grows its window to the page's whole height, so one capture holds the
+page top to bottom *with the rail beside it* - a stitch of scrolled captures
+would cut the rail off after the first screen. Two things make it work:
+
+- **Windows caps a window at about the screen's size** through
+  `WM_GETMINMAXINFO`, silently. The debug hook subclasses the window proc and
+  raises `ptMaxTrackSize` before resizing, or the "full page" comes out one
+  screen tall.
+- **The resize lands through window messages**, so the page is re-measured on
+  a timer after each resize, until it stops growing (at most six passes).
+  `Capture-Window.ps1 -AppSized` then waits until the window has held the same
+  size for two seconds.
+
+`PrintWindow` with `PW_RENDERFULLCONTENT` captures the parts of the window
+below the screen's edge too. Measured: a 6,900 px overview at 150% came out
+whole.
 
 ### Where this deliberately differs from the original
 
@@ -381,9 +405,30 @@ The build is self-contained (~190 MB: .NET and the Windows App SDK travel
 with it) and unsigned. It runs with Smart App Control off; with it on, an
 unsigned build may be blocked.
 
+## Publishing
+
+The repo is public; `main` is what people see. Four things are generated rather
+than drawn, so they can be regenerated rather than go stale:
+
+| Asset | Made by | Notes |
+|---|---|---|
+| `docs/screenshots/*.webp` | `tools\Capture-Readme.ps1` | Full pages at 1440 DIPs on fresh demo data, lossy WebP (`tools/to-webp.cs`). Re-run when a page changes shape. |
+| `.github/social-preview.png` | `dotnet run tools/make-social-preview.cs` | 1280x640. **GitHub has no API for it**: upload it in Settings -> General -> Social preview. No vendor logos on it, by design (see the script's header). |
+| The release zip | `tools\Package-Release.ps1` | Self-contained publish, zipped. Test the zip itself before uploading: unzip it and run `AIUsage.exe`. |
+| `app.ico` | `dotnet run tools/make-icon.cs` | From `app-icon.svg`. |
+
+The file-based scripts (`*.cs`) take SkiaSharp through `Svg.Skia`, which the
+app already depends on, so the tooling needs nothing but the .NET SDK. Geist is
+a variable font: a weight is chosen with
+`SKTypeface.Clone([new SKFontVariationPositionCoordinate { Axis = SKFourByteTag.Parse("wght"), Value = 600 }])`.
+
+**Releases**: bump `<Version>` in `Directory.Build.props`, commit, run
+`Package-Release.ps1`, then `gh release create v<version>` with the zip. The
+build is unsigned; the release notes say what SmartScreen will show.
+
 ## Privacy
 
-This repo is private, but the rule is the same as the original's: nothing
+This repo is public, and the rule is the same as the original's: nothing
 derived from real transcripts is committed. `*.jsonl`, `demo-data/`, `out/` and
 `screenshots/` are gitignored as a backstop. Tests write fixtures at run time.
 No real project names, paths or spend figures in code, comments, docs or

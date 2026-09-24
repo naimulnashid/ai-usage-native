@@ -12,5 +12,7 @@ publish/
 demo-data/
 out/
 
-# Screenshots taken while developing can show real usage.
-screenshots/
+# Screenshots taken while developing can show real usage. Anchored: the
+# README's own, made from invented data by tools\Capture-Readme.ps1, live in
+# docs/screenshots/.
+/screenshots/

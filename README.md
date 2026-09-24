@@ -1,13 +1,54 @@
 # AI Usage (native)
 
+[![CI](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/naimulnashid/ai-usage-native)](https://github.com/naimulnashid/ai-usage-native/releases/latest)
+[![MIT license](https://img.shields.io/github/license/naimulnashid/ai-usage-native)](LICENSE)
+
 A native Windows app that shows how much **Claude Code** and **Codex** you use:
 tokens, estimated cost and approximate runtime, overall, per project and per
 day. It reads the agents' own transcript files on this PC. Nothing leaves the
 machine: no network calls, no server, no account.
 
-Built with WinUI 3 on .NET 10.
+Built with WinUI 3 on .NET 10. A native port of the
+[AI Usage Dashboard](https://github.com/naimulnashid/ai-usage-tracker) web app,
+sharing its design and its parsing rules but no code.
 
-## Install
+![The whole Claude Code overview, top to bottom: total estimated spend, tokens and runtime; daily spend; the breakdown by model; cost by model; token detail; activity cards; daily tokens and spend by model; and the six-month heat map](docs/screenshots/overview-claude.webp)
+
+<details>
+<summary><b>The projects page, and Codex</b></summary>
+
+Projects open with a share-of-spend ring, because a ranked list looks the same
+whether the top project is 60% of your spend or 15%.
+
+![The projects page: a share-of-spend donut above the ranked list of projects, each with its share bar by model and its options menu](docs/screenshots/projects-claude.webp)
+
+Codex gets its own accent, and its headline says **API-equivalent spend**, not
+"total spend": it is commonly used on a flat subscription, where these tokens
+were never billed individually.
+
+![The whole Codex overview, in its own teal accent, headed API-equivalent spend](docs/screenshots/overview-codex.webp)
+
+</details>
+
+> **Every number in those images is invented.** They are captured from the
+> synthetic transcripts `demo-data` writes (see [Development](#development)).
+> A real screenshot of this app would be a screenshot of somebody's projects,
+> paths and spending.
+
+## Download
+
+Get `AIUsage-<version>-win-x64.zip` from the
+[latest release](https://github.com/naimulnashid/ai-usage-native/releases/latest),
+unzip it anywhere, and run **`AIUsage.exe`** in the `AI Usage` folder. It
+carries its own .NET and Windows App SDK runtime, so nothing else needs
+installing. Windows 10 1809 or later, x64.
+
+The build is not code-signed, so SmartScreen will say it does not recognise the
+app: **More info → Run anyway**. With Smart App Control turned on, Windows may
+refuse it outright; build it yourself instead (below).
+
+## Build and install from source
 
 Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 (Visual Studio is not needed), then:
@@ -86,11 +127,23 @@ dotnet run --project src\UsageCli -- demo-data         # synthetic transcripts f
 
 `demo-data` prints three environment variables that point the app at the
 invented transcripts. **Set all three**, including `AIUSAGE_DATA_DIR`, or the
-invented days are merged into your real archive. `tools\Capture-Views.ps1`
-screenshots any page on that data.
+invented days are merged into your real archive. A copy pointed at its own
+data folder runs beside the one in your tray.
+
+| Script | Does |
+|---|---|
+| `tools\Capture-Views.ps1` | Screenshots any page, at any scroll offset or top to bottom, on the demo data |
+| `tools\Capture-Readme.ps1` | Regenerates the screenshots above |
+| `tools\Package-Release.ps1` | Builds the release zip |
+| `dotnet run tools/make-social-preview.cs` | Redraws `.github/social-preview.png` |
+| `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
 
 [CLAUDE.md](CLAUDE.md) explains how the numbers are computed and why, and the
 rules the UI follows.
+
+## License
+
+[MIT](LICENSE), except for the third-party material below.
 
 ## Trademarks
 
