@@ -42,9 +42,9 @@ public static class Format
     public static string DateShort(string key) =>
         Dates.IsDayKey(key) ? $"{Months[Dates.ToDate(key).Month - 1]} {Dates.ToDate(key).Day}" : key;
 
-    /// <summary>"Tue, Aug 19 2026" - full label for tooltips.</summary>
+    /// <summary>"Tue, Aug 19, 2026" - full label for tooltips.</summary>
     public static string DateLong(string key) =>
-        Dates.IsDayKey(key) ? Dates.ToDate(key).ToString("ddd, MMM d yyyy", En) : key;
+        Dates.IsDayKey(key) ? Dates.ToDate(key).ToString("ddd, MMM d, yyyy", En) : key;
 
     /// <summary>"Aug 19, 2026" - a date that is a fact about a file, not a data point.</summary>
     public static string DateStamp(string key) =>

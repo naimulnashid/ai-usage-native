@@ -15,6 +15,9 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Program.cs is the entry point: it enforces a single instance. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,5 +28,21 @@
     <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.3.12" />
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
     <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="2.1.0" />
+    <!-- The tray icon. The core package, not H.NotifyIcon.WinUI: that one
+         depends on the 1.x Windows App SDK meta-package, which conflicts with
+         the 2.x components above. -->
+    <PackageReference Include="H.NotifyIcon" Version="2.4.1" />
+    <!-- Every SVG (project logos, agent marks, the app icon) is drawn through
+         Svg.Skia rather than WinUI's SvgImageSource, which supports only a
+         subset of SVG and fails silently on the rest. -->
+    <PackageReference Include="Svg.Skia" Version="5.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UsageCore\UsageCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
