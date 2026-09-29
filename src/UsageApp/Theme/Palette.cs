@@ -98,12 +98,22 @@ public static class Palette
         AccentBorderStrong.Color = Hex(meta.Accent, codex ? 0.46 : 0.42);
         AccentFill.Color = Hex(meta.Accent, codex ? 0.24 : 0.22);
         for (var i = 0; i < Heat.Length; i++) Heat[i].Color = Hex(meta.HeatRamp[i]);
+        SetModelColors(UsageCore.Config.ModelSettings.Load(meta.Id).Colors);
     }
 
-    /// <summary>A model's shade: darker means more expensive. See ModelColors.</summary>
-    public static SolidColorBrush ModelBrush(string model) => new(Hex(UsageCore.View.ModelColors.Hex(model)));
+    private static IReadOnlyDictionary<string, string>? _modelColors;
 
-    public static Color ModelColor(string model) => Hex(UsageCore.View.ModelColors.Hex(model));
+    /// <summary>
+    /// The user's chosen shades for the current agent, from the Model prices
+    /// table. Set with the agent, and again after a colour is saved; the page is
+    /// rebuilt after either, so every swatch and band picks it up.
+    /// </summary>
+    public static void SetModelColors(IReadOnlyDictionary<string, string>? colors) => _modelColors = colors;
+
+    /// <summary>A model's shade: darker means more expensive. See ModelColors.</summary>
+    public static SolidColorBrush ModelBrush(string model) => new(ModelColor(model));
+
+    public static Color ModelColor(string model) => Hex(UsageCore.View.ModelColors.Hex(model, _modelColors));
 
     /// <summary>
     /// A project's donut shade by RANK: the largest takes the accent at full

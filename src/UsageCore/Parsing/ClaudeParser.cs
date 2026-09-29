@@ -70,6 +70,9 @@ public static partial class ClaudeParser
     /// (<c>My App</c> and <c>My_App</c> collide) so it cannot be reversed - but it
     /// can be applied forwards to ask which path a directory is named after.
     /// </summary>
+    /// <summary>Claude Code's placeholder model for a turn that made no API call. Never counted.</summary>
+    public const string SyntheticModel = "<synthetic>";
+
     public static string EncodeProjectDir(string cwd) => NonAlphanumeric().Replace(cwd, "-");
 
     [GeneratedRegex("[^A-Za-z0-9]")]
@@ -79,7 +82,7 @@ public static partial class ClaudeParser
     {
         options ??= new ParseOptions();
         var projectsDir = options.Root ?? AppPaths.ClaudeProjectsDir;
-        var pricing = options.Pricing ?? AppConfig.LoadPricing(ProviderId.Claude);
+        var pricing = options.Pricing ?? ModelSettings.LoadEffectivePricing(ProviderId.Claude);
         var settings = options.Settings ?? AppConfig.LoadSettings();
         var projectConfig = options.ProjectConfig ?? AppConfig.LoadProjectConfig(ProviderId.Claude);
         var nowMs = (options.Now?.Invoke() ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds();
@@ -196,7 +199,12 @@ public static partial class ClaudeParser
                     }
                 }
 
-                if (record.LineModel is not null) currentModel = record.LineModel;
+                // Claude Code's placeholder for a turn that made no API call. No
+                // tokens, no cost and not a model anyone chose: not counted as a
+                // message, and not a model taking over - the time around it stays
+                // with whoever was working.
+                var synthetic = record.LineModel == SyntheticModel;
+                if (record.LineModel is not null && !synthetic) currentModel = record.LineModel;
 
                 if (record.TimestampMs is { } ts)
                 {
@@ -218,7 +226,7 @@ public static partial class ClaudeParser
                     lastKeptMs = ts;
                 }
 
-                if (record.Key is null || record.Tokens is null) continue;
+                if (record.Key is null || record.Tokens is null || synthetic) continue;
                 var tokens = canonical.GetValueOrDefault(record.Key, record.Tokens.Value);
                 var model = record.LineModel ?? currentModel ?? "(unknown)";
                 if (!sessionModels.Contains(model)) sessionModels.Add(model);
@@ -230,7 +238,7 @@ public static partial class ClaudeParser
                 var date = record.TimestampMs is { } t ? Dates.LocalDate(t, settings.LocalUtcOffsetHours) : Dates.UnknownDate;
                 if (record.TimestampMs is { } t2 && Dates.LocalHour(t2, settings.LocalUtcOffsetHours) is { } hour)
                 {
-                    acc.HourHistogram[hour]++;
+                    acc.AddHour(file.ProjectId, hour);
                 }
 
                 acc.AddMessage(file.ProjectId, date, model, tokens, cost, rate is null);
@@ -243,8 +251,7 @@ public static partial class ClaudeParser
                 // placeholder. Anything still tiny despite a large context is
                 // flagged, not trusted. Measured to be immaterial, so the UI does
                 // not surface it; the counter is how a change would be noticed.
-                if (model != "<synthetic>"
-                    && tokens.Output < settings.SuspiciousOutputTokens
+                if (tokens.Output < settings.SuspiciousOutputTokens
                     && tokens.Input + tokens.CacheRead >= settings.SuspiciousContextTokens)
                 {
                     sessionSuspicious++;
@@ -295,7 +302,7 @@ public static partial class ClaudeParser
             };
         }).ToList();
 
-        return ReportShaping.Finish(ProviderId.Claude, projectsDir, settings, pricing, diagnostics, acc, projects, sessions, nowMs, excludeSyntheticFromFavorite: true);
+        return ReportShaping.Finish(ProviderId.Claude, projectsDir, settings, pricing, diagnostics, acc, projects, sessions, nowMs);
     }
 
     /// <summary>

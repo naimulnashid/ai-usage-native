@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UsageCore.Config;
 using UsageCore.Model;
 using UsageCore.Parsing;
 
@@ -127,7 +128,18 @@ public static class HistoryArchive
         {
             foreach (var (model, cell) in models)
             {
-                if (NormalizeCell(cell) is { } normalized) perModel[model] = normalized;
+                if (NormalizeCell(cell) is not { } normalized) continue;
+                // Archives written before the parser stopped counting
+                // <synthetic>: drop its cell and take its messages out of the
+                // combined count, so a stored day compares like for like with a
+                // fresh parse (the merge keeps whichever has more messages). Its
+                // runtime stays in the combined figure - that time was spent.
+                if (model == ClaudeParser.SyntheticModel)
+                {
+                    combined.Messages = Math.Max(0, combined.Messages - normalized.Messages);
+                    continue;
+                }
+                perModel[model] = normalized;
             }
         }
         return new UsageBucket { PerModel = perModel, Combined = combined };
@@ -255,7 +267,37 @@ public static class HistoryArchive
     /// Rebuilds the report from the archive, which by now holds the best known
     /// version of every day, including the ones just parsed.
     /// </summary>
-    public static UsageReport Apply(UsageReport report, HistoryFile history, long nowMs)
+    /// <summary>
+    /// A stored bucket priced at today's rates. The archive keeps the token
+    /// counts, so a stored day can be priced again - without this, giving a new
+    /// model a rate would fix every live day and leave its archived days at $0.
+    /// A model with no rate now keeps what was stored.
+    /// </summary>
+    private static (Dictionary<string, UsageCell> PerModel, UsageCell Combined) Reprice(
+        Dictionary<string, UsageCell> perModel, UsageCell combined, PricingConfig? pricing)
+    {
+        if (pricing is null) return (perModel, combined);
+        var cells = new Dictionary<string, UsageCell>(StringComparer.Ordinal);
+        double delta = 0;
+        foreach (var (model, cell) in perModel)
+        {
+            if (AppConfig.GetRate(pricing, model) is not { } rate)
+            {
+                cells[model] = cell;
+                continue;
+            }
+            var priced = cell.Clone();
+            priced.CostUsd = AppConfig.CostOf(new TokenCounts(cell.Input, cell.Output, cell.CacheRead, cell.CacheWrite5m, cell.CacheWrite1h), rate);
+            priced.Unpriced = false;
+            delta += priced.CostUsd - cell.CostUsd;
+            cells[model] = priced;
+        }
+        var total = combined.Clone();
+        total.CostUsd += delta;
+        return (cells, total);
+    }
+
+    public static UsageReport Apply(UsageReport report, HistoryFile history, long nowMs, PricingConfig? pricing = null)
     {
         if (history.Days.Count == 0) return report;
         var tracksReasoning = report.Provider == ProviderId.Codex;
@@ -263,7 +305,11 @@ public static class HistoryArchive
         var liveDates = report.Daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToHashSet(StringComparer.Ordinal);
 
         var daily = archivedDates
-            .Select(date => new DailyEntry { Date = date, PerModel = history.Days[date].PerModel, Combined = history.Days[date].Combined })
+            .Select(date =>
+            {
+                var (perModel, combined) = Reprice(history.Days[date].PerModel, history.Days[date].Combined, pricing);
+                return new DailyEntry { Date = date, PerModel = perModel, Combined = combined };
+            })
             .ToList();
         // The undated bucket cannot be archived by day; carry it through.
         if (report.Daily.FirstOrDefault(d => d.Date == Dates.UnknownDate) is { } unknown) daily.Add(unknown);
@@ -282,7 +328,8 @@ public static class HistoryArchive
                 {
                     if (history.Days[date].Projects.TryGetValue(id, out var bucket))
                     {
-                        projectDaily.Add(new DailyEntry { Date = date, PerModel = bucket.PerModel, Combined = bucket.Combined });
+                        var (perModel, combined) = Reprice(bucket.PerModel, bucket.Combined, pricing);
+                        projectDaily.Add(new DailyEntry { Date = date, PerModel = perModel, Combined = combined });
                     }
                 }
                 if (liveProject?.Daily.FirstOrDefault(d => d.Date == Dates.UnknownDate) is { } unknownDay) projectDaily.Add(unknownDay);
@@ -300,6 +347,7 @@ public static class HistoryArchive
                     Daily = projectDaily,
                     // Sessions cannot be rebuilt from aggregates.
                     Sessions = liveProject?.Sessions ?? [],
+                    Activity = ReportShaping.RefreshActivity(liveProject?.Activity, projectDaily, rolled.Combined, report.Settings.LocalUtcOffsetHours, nowMs),
                 };
             })
             .Where(p => p.Combined.Messages > 0 || p.Combined.TotalTokens > 0)
@@ -338,6 +386,7 @@ public static class HistoryArchive
             Global = global,
             Daily = daily,
             Projects = projects,
+            ModelRates = report.ModelRates,
             Coverage = new HistoryCoverage
             {
                 EarliestDate = archivedDates.FirstOrDefault(),
@@ -349,13 +398,13 @@ public static class HistoryArchive
     }
 
     /// <summary>Parse-time hook: fold in, persist, rebuild from the archive.</summary>
-    public static UsageReport WithHistory(UsageReport report, string? historyDir = null)
+    public static UsageReport WithHistory(UsageReport report, string? historyDir = null, PricingConfig? pricing = null)
     {
         var warnings = report.Diagnostics.Warnings;
         var file = PathFor(report.Provider, historyDir);
         var history = Load(file, warnings);
         Merge(history, report, DateTimeOffset.UtcNow);
         Save(history, file, warnings);
-        return Apply(report, history, report.GeneratedAt.ToUnixTimeMilliseconds());
+        return Apply(report, history, report.GeneratedAt.ToUnixTimeMilliseconds(), pricing);
     }
 }

@@ -98,36 +98,6 @@ public static class Parts
         return meta;
     }
 
-    /* --------------------------------------------------------- Model cards */
-
-    /// <summary>One card per model, dearest first, in the model's own shade.</summary>
-    public static FitGrid ModelCards(IReadOnlyDictionary<string, UsageCell> perModel)
-    {
-        var grid = FitGrid.AutoFit(215, 16);
-        grid.Margin = new Thickness(0, 0, 0, 34);
-        var index = 0;
-        foreach (var (model, cell) in perModel.OrderByDescending(kv => kv.Value.CostUsd))
-        {
-            var stack = new StackPanel();
-            var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 9) };
-            label.Children.Add(Ui.Swatch(Palette.ModelColor(model)));
-            label.Children.Add(Ui.Text(Format.Model(model), 13.5, 500, Palette.TextFaintBrush));
-            if (cell.Unpriced) label.Children.Add(Ui.UnpricedPill());
-            stack.Children.Add(label);
-            var value = Ui.Text("", 33, 620, Palette.ModelBrush(model), -0.02, numeric: true);
-            if (cell.Unpriced) value.Text = "—";
-            else CountUp.Apply(value, cell.CostUsd, v => Format.Usd(v));
-            stack.Children.Add(value);
-            var sub = Ui.Text($"{Format.Tokens(cell.TotalTokens)} tokens · {Format.Duration(cell.RuntimeSeconds)}", 14, 400, Palette.TextFaintBrush, numeric: true);
-            sub.Margin = new Thickness(0, 7, 0, 0);
-            stack.Children.Add(sub);
-            var card = Ui.Card(stack, new Thickness(26, 24, 26, 24), hover: true);
-            Ui.Rise(card, index++ * 55);
-            grid.Children.Add(card);
-        }
-        return grid;
-    }
-
     /* --------------------------------------------------------- Token table */
 
     /// <summary>
@@ -315,7 +285,7 @@ public static class Parts
         if (models.Count == 0) return null;
         var one = models.Count == 1;
         var text = Ui.Paragraph(
-            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Add {(one ? "it" : "them")} to `{Config.RateCardHint(meta)}` to include {(one ? "it" : "them")}.",
+            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Set {(one ? "its" : "their")} price in Model prices at the bottom of this page.",
             14.5, Palette.TextMutedBrush);
         return Notice(text);
     }

@@ -80,7 +80,7 @@ public static partial class CodexParser
     {
         options ??= new ParseOptions();
         var home = options.Root ?? AppPaths.CodexHome;
-        var pricing = options.Pricing ?? AppConfig.LoadPricing(ProviderId.Codex);
+        var pricing = options.Pricing ?? ModelSettings.LoadEffectivePricing(ProviderId.Codex);
         var settings = options.Settings ?? AppConfig.LoadSettings();
         var projectConfig = options.ProjectConfig ?? AppConfig.LoadProjectConfig(ProviderId.Codex);
         var nowMs = (options.Now?.Invoke() ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds();
@@ -191,7 +191,7 @@ public static partial class CodexParser
 
                 if (ev.TimestampMs is { } t2 && Dates.LocalHour(t2, settings.LocalUtcOffsetHours) is { } hour)
                 {
-                    acc.HourHistogram[hour]++;
+                    acc.AddHour(projectId, hour);
                 }
 
                 acc.AddMessage(projectId, date, ev.Model, ev.Tokens, cost, rate is null);
@@ -247,7 +247,7 @@ public static partial class CodexParser
             };
         }).ToList();
 
-        return ReportShaping.Finish(ProviderId.Codex, sessionsRoot, settings, pricing, diagnostics, acc, projects, sessions, nowMs, excludeSyntheticFromFavorite: false);
+        return ReportShaping.Finish(ProviderId.Codex, sessionsRoot, settings, pricing, diagnostics, acc, projects, sessions, nowMs);
     }
 
     private static List<DiscoveredFile> Discover(string home, List<string> warnings)

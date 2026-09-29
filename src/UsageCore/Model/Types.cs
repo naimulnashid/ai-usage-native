@@ -203,6 +203,12 @@ public sealed class ProjectSummary
     public UsageCell Combined { get; init; } = new();
     public List<DailyEntry> Daily { get; init; } = [];
     public List<SessionSummary> Sessions { get; init; } = [];
+
+    /// <summary>
+    /// The same twelve activity stats the overview shows, for this project
+    /// alone. Null only on a report built by something other than the parsers.
+    /// </summary>
+    public ActivityStats? Activity { get; set; }
 }
 
 public sealed class ParseDiagnostics
@@ -315,4 +321,29 @@ public sealed class UsageReport
 
     /// <summary>Null only when the archive was not applied.</summary>
     public HistoryCoverage? Coverage { get; init; }
+
+    /// <summary>
+    /// The rate each model in the report is priced at, and where it came from.
+    /// Filled in by <c>UsageService</c>; null on a bare parser result.
+    /// </summary>
+    public Dictionary<string, ModelRateInfo>? ModelRates { get; set; }
 }
+
+/// <summary>Where one model's rate comes from, for the Model prices table.</summary>
+public enum RateSource
+{
+    /// <summary>The rate card (built in, or the config folder's replacement).</summary>
+    Card,
+
+    /// <summary>The user's own rate, set from the app. Wins over the card.</summary>
+    Custom,
+
+    /// <summary>Priced as another model (Codex's <c>codex-auto-review</c>).</summary>
+    Alias,
+
+    /// <summary>No rate anywhere: the model is UNPRICED.</summary>
+    None,
+}
+
+/// <param name="OnCard">True when the card has a rate of its own, so a custom rate can be reset to it.</param>
+public sealed record ModelRateInfo(ModelRate? Rate, RateSource Source, string? AliasOf, bool OnCard);

@@ -57,7 +57,7 @@ public sealed partial class MainWindow : Window
         _logos = logos;
         _settings = settings;
         _exit = exit;
-        _ctx = new PageContext { State = state, Logos = logos, Navigate = Navigate, Window = this };
+        _ctx = new PageContext { State = state, Logos = logos, Navigate = Navigate, Redraw = () => Rebuild(keepScroll: true), Window = this };
         _refresh = Ui.Button("", primary: true);
         _refresh.Click += (_, _) => _ = _state.RefreshAsync(_state.Provider);
 
@@ -521,7 +521,7 @@ public sealed partial class MainWindow : Window
         {
             PageKind.Projects => new ProjectsPage(_ctx),
             PageKind.Project => new ProjectDetailPage(_ctx, _route.ProjectId ?? ""),
-            PageKind.Activity => new ActivityPage(_ctx),
+            PageKind.Activity => new ActivityPage(_ctx, _route.ProjectId),
             _ => new OverviewPage(_ctx),
         };
         try
@@ -722,7 +722,8 @@ public sealed partial class MainWindow : Window
 
         foreach (var (kind, tab) in _tabs)
         {
-            var active = kind == _route.Kind || (kind == PageKind.Projects && _route.Kind == PageKind.Project) || (kind == PageKind.Overview && _route.Kind == PageKind.Activity);
+            var projectScoped = _route.Kind == PageKind.Project || (_route.Kind == PageKind.Activity && _route.ProjectId is not null);
+            var active = kind == _route.Kind || (kind == PageKind.Projects && projectScoped) || (kind == PageKind.Overview && _route.Kind == PageKind.Activity && _route.ProjectId is null);
             tab.Background = active ? Palette.AccentDim : Palette.TransparentBrush;
             tab.BorderBrush = active ? Palette.AccentBorder : Palette.TransparentBrush;
             if (tab.Content is TextBlock text) text.Foreground = active ? Palette.Accent : Palette.TextMutedBrush;

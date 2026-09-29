@@ -10,7 +10,10 @@ using UsageCore.View;
 
 namespace UsageApp.Views;
 
-/// <summary>One project: its headline, daily spend and tables, its models, and every session.</summary>
+/// <summary>
+/// One project: the overview's sections in the overview's order, at project
+/// scope, then what only a project has - its per-day tables and every session.
+/// </summary>
 public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
 {
     public UIElement Build()
@@ -23,9 +26,10 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         if (data.Report is null)
         {
             if (data.Error is not null && !data.Loading) return OverviewPage.ErrorView(meta, data.Error);
+            // Headline, daily spend, cost by model: the overview's opening, at project scope.
             page.Children.Add(Parts.Skeleton(359));
-            page.Children.Add(Parts.Skeleton(413));
-            page.Children.Add(Parts.Skeleton(560));
+            page.Children.Add(Parts.Skeleton(433));
+            page.Children.Add(Parts.Skeleton(393));
             return page;
         }
 
@@ -83,7 +87,9 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         var unpricedHere = project.PerModel.Where(kv => kv.Value.Unpriced).Select(kv => kv.Key).ToList();
         if (Parts.UnpricedNotice(meta, unpricedHere) is { } unpriced) page.Children.Add(unpriced);
 
-        // ---- Daily total: chart, then table ------------------------------------
+        // ---- The overview's sections, in the overview's order --------------------
+        // Same panels, same names, this project's data - so the two pages read
+        // as one page at two scopes. What only a project has comes after.
         UIElement? peakBox = null;
         if (peak is not null)
         {
@@ -97,22 +103,33 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
             box.Children.Add(line);
             peakBox = box;
         }
-        page.Children.Add(Ui.Panel("Daily total spend", "All models combined for this project. Days marked in red sit well above trend.", peakBox,
-            dated.Count > 0 ? new SpendAreaChart(dated, 280) : Parts.NoDaysInRange(daily, DayRange.All)));
-        page.Children.Add(Ui.Panel("Daily totals, combined", "Newest first. The bar shows each day against the peak.", null,
-            CombinedDailyTable(meta, daily, peak?.Combined.CostUsd ?? 0)));
+        var spend = Ui.Panel("Daily combined spend", "All models, this project. Days marked in red sit well above trend.", peakBox,
+            dated.Count > 0 ? new SpendAreaChart(dated) : Parts.NoDaysInRange(daily, DayRange.All));
+        Ui.Rise(spend, 100);
+        page.Children.Add(spend);
 
-        // ---- Per model ------------------------------------------------------------
-        page.Children.Add(Ui.SectionTitle("Breakdown by model"));
-        page.Children.Add(Parts.ModelCards(project.PerModel));
+        page.Children.Add(OverviewPage.CostPanel(report, project.PerModel, "Estimated spend per model in this project."));
+
+        if (project.Activity is { } activity)
+        {
+            page.Children.Add(Ui.SectionTitle("Activity"));
+            page.Children.Add(ScoreCards.Build(meta, activity, combined));
+        }
+        page.Children.Add(OverviewPage.ActivityPanel(ctx, report, daily, project.Id));
+
         var today = DayRanges.Today(report);
         page.Children.Add(Parts.StackedPanel("Daily tokens by model",
             "Stacked by model, most expensive at the bottom — so the darker the base of a column, the more of that day went on premium tokens.",
             daily, today, spend: false));
         page.Children.Add(Parts.StackedPanel("Daily spend by model",
-            "Stacked, so the height of each column is that day's combined total.",
+            "The same columns priced instead of counted — so a day that looks modest above and tall here went on the expensive models.",
             daily, today, spend: true));
-        page.Children.Add(Ui.Panel("Totals by model", null, null, Parts.ModelBreakdownTable(meta, project.PerModel, combined)));
+        page.Children.Add(OverviewPage.TokenPanel(meta, project.PerModel, combined));
+        page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, project.PerModel, report.ModelRates)));
+
+        // ---- This project's own tables ---------------------------------------------
+        page.Children.Add(Ui.Panel("Daily totals, combined", "Newest first. The bar shows each day against the peak.", null,
+            CombinedDailyTable(meta, daily, peak?.Combined.CostUsd ?? 0)));
         page.Children.Add(Ui.Panel("Daily breakdown by model", "One row per day and model, newest first.", null, ModelDailyTable(meta, daily)));
 
         // ---- Sessions ---------------------------------------------------------------

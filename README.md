@@ -83,6 +83,13 @@ unsigned: with Smart App Control on, Windows may block it.
   **Import project logos…** copies in a whole folder.
 - **Hide from project list** (⋯ menu) hides a project from the list only. Its
   spend still counts in every total and chart.
+- **Model prices**, the last panel on the overview and on a project page, lists
+  each model's rate. **Set price** (or **Edit**) gives a model the rate card
+  does not know yet a price of its own: it wins over the card, and every figure
+  is recomputed with it, archived days included. The same editor picks the
+  model's colour from shades of the agent's accent.
+- **A project page** has the overview's sections in the overview's order, for
+  that project, followed by its day-by-day tables and every session.
 
 ## Settings files
 
@@ -94,6 +101,7 @@ Everything the app writes is in `%LOCALAPPDATA%\AI Usage Native\`
 | `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes` |
 | `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
+| `model-settings.json`, `codex-model-settings.json` | prices and colours set in the Model prices table, one model at a time |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |
 
 Every key is optional. Refresh after editing.
@@ -111,7 +119,9 @@ Do not add the two together.
 
 - **Estimates, not bills.** Rates come from the built-in rate cards; the Cost
   by model panel says when each was last verified. A model missing from the
-  card is flagged as unpriced, never counted as free.
+  card is flagged as unpriced, never counted as free, until you set its price.
+  Claude Code's `<synthetic>` placeholder (a turn with no API call) is not
+  counted as a model or a message.
 - **Runtime is approximate**: the sum of gaps between transcript lines, with
   gaps over 30 minutes treated as time away.
 - **Codex fast mode** roughly doubles API rates and is not recorded in the

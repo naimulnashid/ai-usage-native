@@ -46,8 +46,8 @@ static int Parse(string[] args)
     var jsonOut = jsonIndex >= 0 && jsonIndex + 1 < args.Length ? args[jsonIndex + 1] : null;
 
     var clock = Stopwatch.StartNew();
-    var parsed = provider == ProviderId.Claude ? ClaudeParser.Parse() : CodexParser.Parse();
-    var report = useArchive ? HistoryArchive.WithHistory(parsed) : parsed;
+    // The same path the app takes: custom rates included, archive re-priced.
+    var report = UsageService.Load(provider, useArchive);
     var elapsed = clock.Elapsed;
     var d = report.Diagnostics;
 

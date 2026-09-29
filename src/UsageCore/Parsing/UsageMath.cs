@@ -81,6 +81,20 @@ internal sealed class Accumulator(bool tracksReasoning)
     public Dictionary<string, ProjectBuilder> Projects { get; } = new(StringComparer.Ordinal);
     public int[] HourHistogram { get; } = new int[24];
 
+    /// <summary>The same histogram per project, for each project page's Peak hour.</summary>
+    public Dictionary<string, int[]> ProjectHours { get; } = new(StringComparer.Ordinal);
+
+    public void AddHour(string projectId, int hour)
+    {
+        HourHistogram[hour]++;
+        if (!ProjectHours.TryGetValue(projectId, out var hours))
+        {
+            hours = new int[24];
+            ProjectHours[projectId] = hours;
+        }
+        hours[hour]++;
+    }
+
     public ProjectBuilder Project(string id)
     {
         if (!Projects.TryGetValue(id, out var project))

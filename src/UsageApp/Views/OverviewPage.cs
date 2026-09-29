@@ -10,8 +10,9 @@ using UsageCore.View;
 namespace UsageApp.Views;
 
 /// <summary>
-/// One agent's overview: the headline, daily spend, the per-model breakdown,
-/// the twelve activity cards, the stacked daily charts and the heat map.
+/// One agent's overview: the headline, daily spend, cost by model, the twelve
+/// activity cards and the heat map, the stacked daily charts, then the token
+/// and price tables. A project page is the same page at project scope.
 /// </summary>
 public sealed class OverviewPage(PageContext ctx) : IPage
 {
@@ -90,30 +91,13 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         Ui.Rise(spend, 100);
         page.Children.Add(spend);
 
-        // ---- Per model ---------------------------------------------------------
-        page.Children.Add(Ui.SectionTitle("Breakdown by model"));
-        page.Children.Add(Parts.ModelCards(global.PerModel));
+        // ---- Cost by model -------------------------------------------------------
+        page.Children.Add(CostPanel(report, global.PerModel, "Estimated spend per model across every project."));
 
-        var costChart = new CostByModelChart(global.PerModel);
-        var rateNote = report.PricingLastVerified is { } verified
-            ? $" Rates from {(report.PricingSource == "built-in" ? "the built-in rate card" : $"`{report.PricingSource}`")}, last verified {Format.DateStamp(verified)}."
-            : "";
-        var costPanel = Ui.Panel("Cost by model", "Estimated spend per model across every project." + rateNote, null,
-            costChart.IsEmpty ? Ui.Text("No model usage found.", 15, 400, Palette.TextFaintBrush) : costChart);
-        Ui.Rise(costPanel, 140);
-        page.Children.Add(costPanel);
-
-        var tokenPanel = Ui.Panel("Token detail by model",
-            meta.HasCacheWrites
-                ? "Cache writes are split by TTL internally and priced separately; the column below shows their sum."
-                : "Input counts only the uncached remainder of each prompt — the cached part is billed at a tenth of the rate and has its own column.",
-            null, Parts.ModelBreakdownTable(meta, global.PerModel, global.Combined));
-        Ui.Rise(tokenPanel, 180);
-        page.Children.Add(tokenPanel);
-
-        // ---- Activity -----------------------------------------------------------
+        // ---- Activity: the cards, the heat map, then the daily charts ----------
         page.Children.Add(Ui.SectionTitle("Activity"));
         page.Children.Add(ScoreCards.Build(meta, report.Activity, global.Combined));
+        page.Children.Add(ActivityPanel(ctx, report, daily, projectId: null));
 
         var today = DayRanges.Today(report);
         page.Children.Add(Parts.StackedPanel("Daily tokens by model",
@@ -123,14 +107,40 @@ public sealed class OverviewPage(PageContext ctx) : IPage
             "The same columns priced instead of counted — so a day that looks modest above and tall here went on the expensive models.",
             daily, today, spend: true));
 
-        page.Children.Add(ActivityPanel(report));
+        // ---- The detail tables: tokens, then the rates behind the costs --------
+        page.Children.Add(TokenPanel(meta, global.PerModel, global.Combined));
+        page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, global.PerModel, report.ModelRates)));
         return page;
     }
 
-    /// <summary>The heat map, with the week-on-week trend and, when there is older history, Expand.</summary>
-    private Border ActivityPanel(UsageReport report)
+    /// <summary>The Cost by model panel, with where the rates came from. Shared with a project page.</summary>
+    internal static Border CostPanel(UsageReport report, IReadOnlyDictionary<string, UsageCell> perModel, string lead)
     {
-        var daily = report.Daily;
+        var costChart = new CostByModelChart(perModel);
+        var rateNote = report.PricingLastVerified is { } verified
+            ? $" Rates from {(report.PricingSource == "built-in" ? "the built-in rate card" : $"`{report.PricingSource}`")}, last verified {Format.DateStamp(verified)}."
+            : "";
+        var panel = Ui.Panel("Cost by model", lead + rateNote, null,
+            costChart.IsEmpty ? Ui.Text("No model usage found.", 15, 400, Palette.TextFaintBrush) : costChart);
+        Ui.Rise(panel, 140);
+        return panel;
+    }
+
+    /// <summary>The Token detail by model panel. Shared with a project page.</summary>
+    internal static Border TokenPanel(UsageCore.ProviderMeta meta, IReadOnlyDictionary<string, UsageCell> perModel, UsageCell combined) =>
+        Ui.Panel("Token detail by model",
+            meta.HasCacheWrites
+                ? "Cache writes are split by TTL internally and priced separately; the column below shows their sum."
+                : "Input counts only the uncached remainder of each prompt — the cached part is billed at a tenth of the rate and has its own column.",
+            null, Parts.ModelBreakdownTable(meta, perModel, combined));
+
+    /// <summary>
+    /// The heat map, with the week-on-week trend and, when there is older
+    /// history, Expand - to the agent's full history, or with a project id to
+    /// that project's. Shared with a project page.
+    /// </summary>
+    internal static Border ActivityPanel(PageContext ctx, UsageReport report, List<DailyEntry> daily, string? projectId)
+    {
         // The last seven recorded days against the seven before them.
         var recent = daily.TakeLast(7).Sum(d => d.Combined.CostUsd);
         var previous = daily.SkipLast(7).TakeLast(7).Sum(d => d.Combined.CostUsd);
@@ -153,7 +163,7 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         if (Heatmap.HasHistoryBeforeWindow(daily, today, first))
         {
             expand = Ui.Button("Expand", fontSize: 13.5, padding: new Thickness(14, 5, 14, 5));
-            expand.Click += (_, _) => ctx.Navigate(new Route(PageKind.Activity));
+            expand.Click += (_, _) => ctx.Navigate(new Route(PageKind.Activity, projectId));
         }
         var figure = HeatmapFigure.Build(layout, report.Settings.WeekStartsOn, "in the last 6 months", labelStrips: false, expand);
         return Ui.Panel("Daily activity", "Spend per day over the last 6 months. Brighter means a more expensive day.", trend, figure);
@@ -163,18 +173,19 @@ public sealed class OverviewPage(PageContext ctx) : IPage
     {
         var page = new StackPanel { Padding = new Thickness(0, 34, 0, 0) };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(page, "Loading the dashboard");
+        var ring = new ProgressRing { IsActive = true, Width = 28, Height = 28, Foreground = Palette.Accent, Margin = new Thickness(0, 0, 0, 16), HorizontalAlignment = HorizontalAlignment.Left };
+        page.Children.Add(ring);
+        // The page's own sections, in order: headline, daily spend, cost by
+        // model, the Activity title and its cards, the heat map.
         page.Children.Add(Parts.Skeleton(269));
         page.Children.Add(Parts.Skeleton(433));
-        page.Children.Add(Parts.Skeleton(13, 170, 18));
-        var grid = FitGrid.AutoFit(215, 16);
-        grid.Margin = new Thickness(0, 0, 0, 34);
-        for (var i = 0; i < 4; i++) grid.Children.Add(Parts.Skeleton(149, bottom: 0));
-        page.Children.Add(grid);
         page.Children.Add(Parts.Skeleton(393));
-        var ring = new ProgressRing { IsActive = true, Width = 28, Height = 28, Foreground = Palette.Accent, Margin = new Thickness(0, 10, 0, 0) };
-        page.Children.Insert(0, ring);
-        ring.Margin = new Thickness(0, 0, 0, 16);
-        ring.HorizontalAlignment = HorizontalAlignment.Left;
+        page.Children.Add(Parts.Skeleton(13, 110, 18));
+        var grid = FitGrid.AutoFit(215, 16);
+        grid.Margin = new Thickness(0, 0, 0, 26);
+        for (var i = 0; i < 4; i++) grid.Children.Add(Parts.Skeleton(128, bottom: 0));
+        page.Children.Add(grid);
+        page.Children.Add(Parts.Skeleton(457));
         return page;
     }
 

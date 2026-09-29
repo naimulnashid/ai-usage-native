@@ -109,6 +109,71 @@ internal static class ReportShaping
     }
 
     /// <summary>
+    /// The twelve activity stats, for the whole agent or for one project - one
+    /// function, so the overview and a project page cannot drift.
+    /// </summary>
+    public static ActivityStats BuildActivity(
+        IReadOnlyList<SessionSummary> sessions,
+        UsageCell combined,
+        IReadOnlyDictionary<string, UsageCell> perModel,
+        IReadOnlyList<DailyEntry> daily,
+        int[] hourHistogram,
+        IReadOnlyDictionary<string, string> projectNames,
+        Settings settings,
+        long nowMs)
+    {
+        var activeDates = daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToList();
+        var (current, longest) = Dates.Streaks(activeDates, Dates.LocalDate(nowMs, settings.LocalUtcOffsetHours));
+        int? peakHour = hourHistogram.Any(n => n > 0) ? Array.IndexOf(hourHistogram, hourHistogram.Max()) : null;
+        var favorite = perModel
+            .Where(kv => kv.Key != ClaudeParser.SyntheticModel)
+            .OrderByDescending(kv => kv.Value.TotalTokens)
+            .Select(kv => kv.Key)
+            .FirstOrDefault();
+        var (peak, longestSession) = SessionRecords(sessions, projectNames, settings.LocalUtcOffsetHours);
+        return new ActivityStats
+        {
+            Sessions = sessions.Count,
+            SubagentSessions = sessions.Count(s => s.IsSubagent),
+            Messages = combined.Messages,
+            TotalTokens = combined.TotalTokens,
+            ActiveDays = activeDates.Count,
+            CurrentStreakDays = current,
+            LongestStreakDays = longest,
+            PeakHour = peakHour,
+            HourHistogram = [.. hourHistogram],
+            FavoriteModel = favorite,
+            PeakSession = peak,
+            LongestSession = longestSession,
+        };
+    }
+
+    /// <summary>
+    /// Brings the day-derived stats back in line after the archive has changed
+    /// the days under them. Session-derived ones stay: sessions are not archived.
+    /// </summary>
+    public static ActivityStats RefreshActivity(ActivityStats? baseline, IReadOnlyList<DailyEntry> daily, UsageCell combined, double offsetHours, long nowMs)
+    {
+        var activeDates = daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToList();
+        var (current, longest) = Dates.Streaks(activeDates, Dates.LocalDate(nowMs, offsetHours));
+        return new ActivityStats
+        {
+            Sessions = baseline?.Sessions ?? 0,
+            SubagentSessions = baseline?.SubagentSessions ?? 0,
+            Messages = combined.Messages,
+            TotalTokens = combined.TotalTokens,
+            ActiveDays = activeDates.Count,
+            CurrentStreakDays = current,
+            LongestStreakDays = longest,
+            PeakHour = baseline?.PeakHour,
+            HourHistogram = baseline?.HourHistogram ?? new int[24],
+            FavoriteModel = baseline?.FavoriteModel,
+            PeakSession = baseline?.PeakSession,
+            LongestSession = baseline?.LongestSession,
+        };
+    }
+
+    /// <summary>
     /// The activity stats, the visible project list and the finished report.
     /// </summary>
     public static UsageReport Finish(
@@ -120,8 +185,7 @@ internal static class ReportShaping
         Accumulator acc,
         List<ProjectSummary> projects,
         List<SessionSummary> sessions,
-        long nowMs,
-        bool excludeSyntheticFromFavorite)
+        long nowMs)
     {
         var visible = new List<ProjectSummary>();
         foreach (var project in projects.OrderByDescending(p => p.Combined.CostUsd))
@@ -131,22 +195,20 @@ internal static class ReportShaping
         }
 
         var daily = acc.GlobalDaily.ToList();
-        var activeDates = daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToList();
-        var (current, longest) = Dates.Streaks(activeDates, Dates.LocalDate(nowMs, settings.LocalUtcOffsetHours));
-
-        var histogram = acc.HourHistogram;
-        int? peakHour = histogram.Any(n => n > 0) ? Array.IndexOf(histogram, histogram.Max()) : null;
-
-        var favorite = acc.Global.PerModel
-            .Where(kv => !excludeSyntheticFromFavorite || kv.Key != "<synthetic>")
-            .OrderByDescending(kv => kv.Value.TotalTokens)
-            .Select(kv => kv.Key)
-            .FirstOrDefault();
-
-        var (peak, longestSession) = SessionRecords(
-            sessions,
-            visible.ToDictionary(p => p.Id, p => p.Name, StringComparer.Ordinal),
-            settings.LocalUtcOffsetHours);
+        var names = visible.ToDictionary(p => p.Id, p => p.Name, StringComparer.Ordinal);
+        var activity = BuildActivity(sessions, acc.Global.Combined, acc.Global.PerModel, daily, acc.HourHistogram, names, settings, nowMs);
+        foreach (var project in visible)
+        {
+            project.Activity = BuildActivity(
+                project.Sessions,
+                project.Combined,
+                project.PerModel,
+                project.Daily,
+                acc.ProjectHours.TryGetValue(project.Id, out var hours) ? hours : new int[24],
+                names,
+                settings,
+                nowMs);
+        }
 
         return new UsageReport
         {
@@ -157,21 +219,7 @@ internal static class ReportShaping
             PricingLastVerified = pricing.LastVerified,
             PricingSource = pricing.Source,
             Diagnostics = diagnostics,
-            Activity = new ActivityStats
-            {
-                Sessions = sessions.Count,
-                SubagentSessions = sessions.Count(s => s.IsSubagent),
-                Messages = acc.Global.Combined.Messages,
-                TotalTokens = acc.Global.Combined.TotalTokens,
-                ActiveDays = activeDates.Count,
-                CurrentStreakDays = current,
-                LongestStreakDays = longest,
-                PeakHour = peakHour,
-                HourHistogram = histogram,
-                FavoriteModel = favorite,
-                PeakSession = peak,
-                LongestSession = longestSession,
-            },
+            Activity = activity,
             Global = acc.Global.ToBucket(),
             Daily = daily,
             Projects = visible,

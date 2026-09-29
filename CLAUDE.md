@@ -75,6 +75,7 @@ Everything it writes lives in `%LOCALAPPDATA%\AI Usage Native\`:
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that REPLACES the built-in one |
 | `project-logos\claude\`, `project-logos\codex\` | one image per project, named after it |
 | `hidden-projects.json`, `codex-hidden-projects.json` | projects hidden from the Projects list (ids only) |
+| `model-settings.json`, `codex-model-settings.json` | prices and colours set from the Model prices table |
 | `app-settings.json` | the app's own preferences: rail, auto-refresh, close to tray |
 | `history\claude-history.json`, `history\codex-history.json` | the archive |
 
@@ -184,7 +185,21 @@ negative usage (`CounterResets`). Codex has no cache-write rate
   but not a day: it sorts last and never enters a window.
 - **Merges never change the grand total**, only the grouping.
 - **Unpriced is never free.** A model missing from the rate card is flagged
-  and shown; `<synthetic>` is priced at zero on purpose.
+  and shown, and can be given a price in the app (below).
+- **`<synthetic>` is not counted** (`ClaudeParser.SyntheticModel`). Claude
+  Code writes it for a turn that made no API call: no tokens, no cost. It is
+  not a message, not a model, and not the current model for runtime - the gaps
+  either side stay with the model that was working. Cost and tokens did not
+  move at all when this changed; about 0.2% of messages and 0.05% of runtime
+  (a gap before any real model in its session) went. Archives written before
+  it drop the cell on load and take its messages out of the combined count, so
+  the merge still compares like for like.
+- **Custom rates** (`Config/ModelSettings.cs`): a rate set in the app's Model
+  prices table is laid over whichever card is in use, for that model only,
+  and wins until reset. Not written into `config\pricing.json`, because a card
+  there REPLACES the built-in one wholesale - pricing one new model that way
+  would freeze every other rate. `UsageService.Load` prices the parse and the
+  archive with it and fills `UsageReport.ModelRates` for the table.
 - **Sonnet 5 is $2/$10 permanently.** Cached vendor docs may still say $3/$15.
 
 ## The archive (`HistoryArchive`)
@@ -200,7 +215,12 @@ into a per-agent archive and the report is rebuilt from it.
 - **Fails soft.** Unreadable file → empty archive plus a warning; unreadable
   days are dropped one by one (`SanitizeDays`); the write is atomic.
 - **Not archived:** hour histogram and sessions. Peak hour, session counts and
-  the two records reflect live transcripts only.
+  the two records reflect live transcripts only - for the agent and for each
+  project's own Activity cards, whose day-derived stats the archive refreshes.
+- **Re-priced on the way out.** `Apply` takes the parse's pricing and prices
+  every stored day again (the archive keeps token counts). Otherwise a rate set
+  in the app would fix live days and leave archived ones at $0. A model with no
+  rate now keeps what was stored; the file itself is not rewritten.
 
 ## Verifying a parser change
 
@@ -322,6 +342,27 @@ slice fading the rest and the legend in step.
   InteractiveExperiences and DWrite directly. For the same reason the tray
   uses `H.NotifyIcon` (core), not `H.NotifyIcon.WinUI`, which depends on the
   1.x meta-package.
+
+### Project pages mirror the overview
+
+A project page is the overview at project scope - Daily combined spend, Cost
+by model, the Activity cards, Daily activity, the two stacked charts, Token
+detail by model, Model prices - with the same names, then what only a project
+has: its two per-day tables and the sessions. The per-model card grid
+("Breakdown by model") is gone from both; Cost by model shows the same numbers.
+`OverviewPage.CostPanel` / `TokenPanel` / `ActivityPanel` are shared, and the
+heat map's Expand opens `ActivityPage` scoped to the project.
+
+### Model prices and colours
+
+The last panel on both pages. Each row's **Edit** / **Set price** button opens a
+flyout: the rates (five for Claude Code, three for Codex), "Cache rates from
+input" (1.25x / 2x / 0.1x - a button, not a default, since cards do not always
+follow it), reset, and the colour. A price saves and refreshes the agent; a
+colour saves, updates `Palette`'s overrides and redraws, no parse. Colours are
+limited to `ModelColors.Palettes`, the agent's own ramp: every shade clears 3:1
+and every default is one of them. Flyouts are popups, so `PrintWindow` does not
+capture them - check with UI Automation (every field and swatch is named).
 
 ### Native-only features
 

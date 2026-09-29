@@ -1,3 +1,5 @@
+using UsageCore.Model;
+
 namespace UsageCore.View;
 
 /// <summary>
@@ -13,6 +15,10 @@ namespace UsageCore.View;
 /// only way a band can be read: every chart has a legend and a tooltip.</para>
 /// <para>Each agent's block must stay ordered by price. Adding a model, or a
 /// material rate change, means re-checking that a dearer model is darker.</para>
+/// <para><b>The user can override a model's shade</b> from the Model prices
+/// table, and give one to a model this table has never heard of. The choice is
+/// limited to <see cref="Palettes"/>, the agent's own ramp, so an overridden
+/// band still clears 3:1 and still reads as that agent's colour.</para>
 /// </remarks>
 public static class ModelColors
 {
@@ -55,6 +61,30 @@ public static class ModelColors
         ["codex-auto-review"] = "auto-review (5.3 Codex)",
     };
 
+    /// <summary>
+    /// The shades a model's colour can be set to, per agent, deepest first.
+    /// Every one clears 3:1 against the panel, and the ramp above is a subset,
+    /// so every default is also a choice.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<ProviderId, IReadOnlyList<string>> Palettes =
+        new Dictionary<ProviderId, IReadOnlyList<string>>
+        {
+            [ProviderId.Claude] =
+            [
+                "#A14324", "#AE4827", "#BA4D2A", "#C5512C", "#D0562F", "#D56743",
+                "#D97757", "#DF8B70", "#E19278", "#E39981", "#E7A893", "#EDC0B1",
+            ],
+            [ProviderId.Codex] =
+            [
+                "#0B6D55", "#0C7A5F", "#0E8A6C", "#0F9674", "#10A37F",
+                "#12B48C", "#13C69A", "#3FD2AC", "#6CDDBF", "#98E8D3",
+            ],
+        };
+
+    /// <summary>True when <paramref name="color"/> is one of the agent's palette shades (any case).</summary>
+    public static bool IsPaletteColor(ProviderId provider, string color) =>
+        Palettes[provider].Any(shade => string.Equals(shade, color, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>No API call, no cost - deliberately outside the accent family.</summary>
     public const string Synthetic = "#5D5D68";
 
@@ -65,6 +95,10 @@ public static class ModelColors
 
     public static string Hex(string model) =>
         model == "<synthetic>" ? Synthetic : Lookup.TryGetValue(model, out var s) ? s.Shade.Hex : Unknown;
+
+    /// <summary>A model's colour: the user's chosen shade when there is one, else its default.</summary>
+    public static string Hex(string model, IReadOnlyDictionary<string, string>? overrides) =>
+        overrides is not null && overrides.TryGetValue(model, out var chosen) ? chosen : Hex(model);
 
     /// <summary>
     /// Most expensive first, so legends and stacks read deep to light. Equal
