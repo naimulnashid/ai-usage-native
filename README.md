@@ -77,6 +77,10 @@ unsigned: with Smart App Control on, Windows may block it.
 
 - **Sidebar**: switch between Claude Code and Codex. **Top bar**: Overview and
   Projects, Refresh (or F5), and Settings.
+- **Zoom** like a browser: **Ctrl+Plus** / **Ctrl+Minus**, **Ctrl+mouse wheel**,
+  and **Ctrl+0** to reset, from 50% to 200%. The page reflows rather than
+  scrolling sideways, and the level is remembered. The same commands are in the
+  Settings menu.
 - **The tray icon** shows today's spend for each agent. Closing the window
   keeps the app there; right-click the icon to exit.
 - **Refresh when transcripts change** is on by default: while an agent is

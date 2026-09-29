@@ -18,6 +18,9 @@ public sealed class UiSettings
     /// <summary>Closing the window keeps the app in the tray rather than exiting.</summary>
     public bool CloseToTray { get; set; } = true;
 
+    /// <summary>Page zoom, 0.5 to 2 - Ctrl+Plus / Ctrl+Minus / Ctrl+0, as in a browser.</summary>
+    public double Zoom { get; set; } = 1;
+
     /// <summary>Whether the "still running in the tray" note has been shown once.</summary>
     public bool TrayNoteShown { get; set; }
 

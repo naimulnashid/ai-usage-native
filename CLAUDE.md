@@ -373,6 +373,31 @@ limited to `ModelColors.Palettes`, the agent's own ramp: every shade clears 3:1
 and every default is one of them. Flyouts are popups, so `PrintWindow` does not
 capture them - check with UI Automation (every field and swatch is named).
 
+### Page zoom
+
+Ctrl+Plus / Ctrl+Minus / Ctrl+0 and Ctrl+wheel, 50% to 200% in Chrome's steps
+(`Theme/Zoom.cs`), saved in `app-settings.json`. Everything below the title bar
+zooms; the title bar does not, as a browser's chrome does not.
+
+- **It reflows, like a browser's zoom** (`Controls/ZoomBox.cs`): the page is laid
+  out as if the window were `1/zoom` as wide, then scaled up. WinUI has no
+  LayoutTransform, so the panel is one - measure and arrange in unscaled units,
+  scale as a RenderTransform. A plain scale, or the ScrollViewer's own pinch
+  zoom, would magnify the page into a sideways scroll instead.
+- **Anything sized from the WINDOW must divide by `Zoom.Level`.** The headline's
+  "vw" sizing is the one case. And the headline total is now fitted to its own
+  column's width (the three columns are fixed star shares), because the older
+  "grid minus a reserve" form over-promised on a narrow window - which zoom makes
+  common - and ellipsised the total ("$86....").
+- **Popups are outside the tree and do not zoom.** Chart tooltips scale their
+  own card (`ChartTooltip.Show`); flyouts, menus and drop-downs stay at 100%.
+- **Ctrl+wheel reads the Ctrl key's state as well as `e.KeyModifiers`**, and is
+  registered with `handledEventsToo` on the root. The keys are root
+  accelerators, whose tooltip is hidden like F5's.
+- **Testing it with synthetic input:** send Ctrl-down, wait, wheel, wait,
+  Ctrl-up. Sent back to back, the wheel arrived with no modifier and the test
+  failed for a reason no person would meet.
+
 ### Native-only features
 
 - **Tray** (`TrayHost`): today's spend per agent in the tooltip, Codex's

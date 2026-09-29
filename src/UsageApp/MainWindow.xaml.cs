@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using UsageApp.Controls;
 using UsageApp.Imaging;
 using UsageApp.State;
 using UsageApp.Theme;
@@ -62,6 +63,8 @@ public sealed partial class MainWindow : Window
         _refresh.Click += (_, _) => _ = _state.RefreshAsync(_state.Provider);
 
         Palette.ApplyProvider(state.Meta);
+        Zoom.Set(settings.Zoom);
+        Zoom.Changed += OnZoomChanged;
         ConfigureWindow();
         BuildShell();
 
@@ -182,8 +185,12 @@ public sealed partial class MainWindow : Window
         var body = new Grid();
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Grid.SetRow(body, 1);
-        Root.Children.Add(body);
+        // Everything below the title bar zooms, as a browser zooms the page
+        // and not its own chrome. See Controls/ZoomBox.
+        _zoomBox = new ZoomBox(body) { Zoom = Zoom.Level };
+        Grid.SetRow(_zoomBox, 1);
+        Root.Children.Add(_zoomBox);
+        Root.Children.Add(ZoomIndicator());
 
         body.Children.Add(BuildRail());
 
@@ -216,6 +223,46 @@ public sealed partial class MainWindow : Window
             _ = _state.RefreshAsync(_state.Provider);
         };
         Root.KeyboardAccelerators.Add(f5);
+
+        // Page zoom, with a browser's keys: Ctrl with =/+ (and Shift, which
+        // "+" needs on most layouts), the numpad's + and -, and 0 to reset.
+        const Windows.System.VirtualKey Plus = (Windows.System.VirtualKey)0xBB, Minus = (Windows.System.VirtualKey)0xBD;
+        void ZoomKey(Windows.System.VirtualKey key, Func<bool> action, bool shift = false)
+        {
+            var accelerator = new KeyboardAccelerator
+            {
+                Key = key,
+                Modifiers = Windows.System.VirtualKeyModifiers.Control | (shift ? Windows.System.VirtualKeyModifiers.Shift : 0),
+            };
+            accelerator.Invoked += (_, e) =>
+            {
+                e.Handled = true;
+                action();
+            };
+            Root.KeyboardAccelerators.Add(accelerator);
+        }
+        ZoomKey(Plus, Zoom.In);
+        ZoomKey(Plus, Zoom.In, shift: true);
+        ZoomKey(Windows.System.VirtualKey.Add, Zoom.In);
+        ZoomKey(Minus, Zoom.Out);
+        ZoomKey(Windows.System.VirtualKey.Subtract, Zoom.Out);
+        ZoomKey(Windows.System.VirtualKey.Number0, Zoom.Reset);
+        ZoomKey(Windows.System.VirtualKey.NumberPad0, Zoom.Reset);
+        // Ctrl+wheel. handledEventsToo: the scroller below marks wheel events
+        // handled, and this has to see them anyway.
+        Root.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
+        {
+            // The event's own modifiers, or failing that the key's state:
+            // KeyModifiers was seen to arrive empty with Ctrl held.
+            var ctrl = e.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)
+                || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                    .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (!ctrl) return;
+            var delta = e.GetCurrentPoint(Root).Properties.MouseWheelDelta;
+            if (delta > 0) Zoom.In();
+            else if (delta < 0) Zoom.Out();
+            e.Handled = true;
+        }), handledEventsToo: true);
         // WinUI shows an element's accelerators as a tooltip on hover, and this
         // one lives on the root - so "F5" popped up over any spot without a
         // tooltip of its own, the title bar included. The key still works.
@@ -410,6 +457,54 @@ public sealed partial class MainWindow : Window
         return bar;
     }
 
+    private ZoomBox _zoomBox = null!;
+    private readonly TextBlock _zoomText = Ui.Text("", 14, 600, Palette.TextBrush, numeric: true, selectable: false);
+    private Border? _zoomPill;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _zoomTimer;
+
+    /// <summary>The level, shown for a moment after it changes - as a browser's address bar does.</summary>
+    private Border ZoomIndicator()
+    {
+        _zoomPill = new Border
+        {
+            Child = _zoomText,
+            Padding = new Thickness(14, 7, 14, 7),
+            CornerRadius = new CornerRadius(Ui.RadiusSmall),
+            Background = Palette.TooltipBgBrush,
+            BorderBrush = Palette.BorderBrightBrush,
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 14, 0, 0),
+            IsHitTestVisible = false,
+            Opacity = 0,
+            OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) },
+        };
+        Grid.SetRow(_zoomPill, 1);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(_zoomText, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
+        return _zoomPill;
+    }
+
+    private void OnZoomChanged()
+    {
+        _zoomBox.Zoom = Zoom.Level;
+        _settings.Zoom = Zoom.Level;
+        _settings.Save();
+        if (_zoomPill is null) return;
+        _zoomText.Text = Zoom.Label;
+        _zoomPill.Opacity = 1;
+        if (_zoomTimer is null)
+        {
+            _zoomTimer = DispatcherQueue.CreateTimer();
+            _zoomTimer.Interval = TimeSpan.FromMilliseconds(1300);
+            _zoomTimer.IsRepeating = false;
+            _zoomTimer.Tick += (_, _) => _zoomPill.Opacity = 0;
+        }
+        // Restarted on every step, so holding Ctrl+Plus keeps it up.
+        _zoomTimer.Stop();
+        _zoomTimer.Start();
+    }
+
     /// <summary>The app's own options, which the original had no need for.</summary>
     private Button SettingsButton()
     {
@@ -454,6 +549,20 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(login);
         flyout.Items.Add(auto);
         flyout.Items.Add(tray);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // The zoom keys, findable. The shortcut text is shown, not bound: the
+        // real accelerators live on the window, so they work with no menu open.
+        var zoomIn = new MenuFlyoutItem { Text = "Zoom in", KeyboardAcceleratorTextOverride = "Ctrl+Plus", Icon = new FontIcon { Glyph = "\uE8A3" } };
+        zoomIn.Click += (_, _) => Zoom.In();
+        var zoomOut = new MenuFlyoutItem { Text = "Zoom out", KeyboardAcceleratorTextOverride = "Ctrl+Minus", Icon = new FontIcon { Glyph = "\uE71F" } };
+        zoomOut.Click += (_, _) => Zoom.Out();
+        var zoomReset = new MenuFlyoutItem { KeyboardAcceleratorTextOverride = "Ctrl+0" };
+        zoomReset.Click += (_, _) => Zoom.Reset();
+        flyout.Opening += (_, _) => zoomReset.Text = $"Reset zoom ({Zoom.Label})";
+        flyout.Items.Add(zoomIn);
+        flyout.Items.Add(zoomOut);
+        flyout.Items.Add(zoomReset);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var import = new MenuFlyoutItem { Text = "Import project logos…", Icon = new FontIcon { Glyph = "" } };

@@ -59,11 +59,18 @@ public static class Parts
         // Size the figure to the card, as the original's container query did.
         grid.SizeChanged += (_, e) =>
         {
-            var windowWidth = grid.XamlRoot?.Size.Width ?? 1400;
+            // The window as the page sees it: zoomed in, the page is laid out
+            // narrower (see ZoomBox), and "vw" has to shrink with it.
+            var windowWidth = (grid.XamlRoot?.Size.Width ?? 1400) / Zoom.Level;
             var side = Math.Clamp(windowWidth * 0.034, 30, 42);
             var baseSize = Math.Clamp(windowWidth * 0.08, 58, 92);
-            var reserve = 2 * 44 + 6.6 * side;
-            var fit = (e.NewSize.Width - reserve) / (costText.Length * 0.55);
+            // The figure's own column, not the grid minus a reserve: the three
+            // columns here are fixed star shares (1.35 : 1 : 1), so the first is
+            // a known part of the grid. The reserve form over-promised on a
+            // narrow window - and page zoom makes narrow windows common - so the
+            // total was ellipsised ("$86....").
+            var figureColumn = (e.NewSize.Width - 2 * 44) * 1.35 / 3.35;
+            var fit = figureColumn / (costText.Length * 0.58);
             value.FontSize = Math.Max(24, Math.Min(baseSize, fit));
             value.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
             value.LineHeight = value.FontSize * 1.02;

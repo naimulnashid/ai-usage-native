@@ -200,7 +200,10 @@ public sealed class ChartTooltip
         _card.Child = content;
         _popup.XamlRoot = _host.XamlRoot;
         _card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var size = _card.DesiredSize;
+        // A popup sits outside the zoomed page, so it scales itself to match.
+        var zoom = Zoom.Level;
+        _card.RenderTransform = new Microsoft.UI.Xaml.Media.ScaleTransform { ScaleX = zoom, ScaleY = zoom };
+        var size = new Size(_card.DesiredSize.Width * zoom, _card.DesiredSize.Height * zoom);
         var window = _host.XamlRoot.Size;
         var at = _host.TransformToVisual(null).TransformPoint(pointInHost);
 
