@@ -394,6 +394,16 @@ zooms; the title bar does not, as a browser's chrome does not.
 - **Ctrl+wheel reads the Ctrl key's state as well as `e.KeyModifiers`**, and is
   registered with `handledEventsToo` on the root. The keys are root
   accelerators, whose tooltip is hidden like F5's.
+- **Nothing may re-lay out the page on every frame of an animation.** The
+  rail's width animation used to, and it was only smooth by luck: at 100% on a
+  wide screen the page sits at its max width, so a rail change just shifts it.
+  Zoomed (or in any narrower window) the column's width follows the rail, so
+  every frame rebuilt the charts - measured, 220ms of motion came out as 4-5
+  frames of 60-140ms each at 110%, against ~50 frames of 4ms at 100%. The page
+  frame now keeps its width while the rail moves (`_railMoving`) and is laid
+  out once when it stops: ~50 frames of 4ms at 110% and 150%, then one ~50ms
+  frame for that single re-layout. Measure frame times with
+  `CompositionTarget.Rendering` before and after any change like it.
 - **Testing it with synthetic input:** send Ctrl-down, wait, wheel, wait,
   Ctrl-up. Sent back to back, the wheel arrived with no modifier and the test
   failed for a reason no person would meet.

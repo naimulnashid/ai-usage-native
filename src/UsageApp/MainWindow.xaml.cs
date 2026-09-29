@@ -208,10 +208,17 @@ public sealed partial class MainWindow : Window
         // inside it. Handing the column to the scroller directly centred it by
         // its DESIRED width - so a page whose content asks for less than the
         // column (Projects: 1217 of 1384) slid ~80px right of the top bar.
-        var frame = new Grid();
-        frame.Children.Add(column);
-        _scroller.SizeChanged += (_, e) => frame.Width = e.NewSize.Width;
-        _scroller.Content = frame;
+        //
+        // While the rail animates, the frame keeps its width (see ApplyRail),
+        // so the page is laid out once when the rail settles rather than on
+        // every frame of its motion.
+        _frame = new Grid { HorizontalAlignment = HorizontalAlignment.Left };
+        _frame.Children.Add(column);
+        _scroller.SizeChanged += (_, e) =>
+        {
+            if (!_railMoving) _frame.Width = e.NewSize.Width;
+        };
+        _scroller.Content = _frame;
         Grid.SetRow(_scroller, 1);
         main.Children.Add(_scroller);
 
@@ -372,6 +379,9 @@ public sealed partial class MainWindow : Window
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(burger, label);
     }
 
+    private Grid _frame = null!;
+    private bool _railMoving;
+
     private void ApplyRail(bool animate)
     {
         var collapsed = _settings.RailCollapsed;
@@ -402,7 +412,19 @@ public sealed partial class MainWindow : Window
         Storyboard.SetTarget(anim, _rail);
         Storyboard.SetTargetProperty(anim, "Width");
         story.Children.Add(anim);
-        story.Completed += (_, _) => _rail.Width = target;
+        // The page's width is held while the rail moves, and re-laid out once
+        // when it stops. Re-laying it out per frame was cheap only while the
+        // page sat at its max width, where a rail change just shifts it; once
+        // the rail's width reaches the page - page zoom, or any narrower
+        // window - every frame rebuilt the charts, and 220ms of motion came
+        // out as four or five frames of 60-140ms each.
+        _railMoving = true;
+        story.Completed += (_, _) =>
+        {
+            _rail.Width = target;
+            _railMoving = false;
+            _frame.Width = _scroller.ActualWidth;
+        };
         story.Begin();
     }
 
