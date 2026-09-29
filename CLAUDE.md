@@ -60,7 +60,8 @@ src/UsageApp/            The WinUI 3 app.
 tests/UsageCore.Tests/   xUnit v3; fixtures written at run time.
 tools/Capture-Window.ps1 Launch the app and screenshot its window (optionally hovering).
 tools/Capture-Views.ps1  Screenshot any page/section on the demo data.
-tools/Install.ps1        Publish and install for this user, with a Start menu shortcut.
+tools/Install.ps1        Publish and install for this user: Start menu shortcut, Installed apps entry.
+tools/Uninstall.ps1      The uninstall, shared by Install.ps1 -Uninstall and the Installed apps entry.
 tools/make-icon.cs       Regenerate Assets/app.ico from Assets/app-icon.svg.
 ```
 
@@ -453,6 +454,27 @@ powershell -ExecutionPolicy Bypass -File tools\Install.ps1 -Uninstall  # remove 
 The build is self-contained (~190 MB: .NET and the Windows App SDK travel
 with it) and unsigned. It runs with Smart App Control off; with it on, an
 unsigned build may be blocked.
+
+**It is listed under Installed apps**, per user, through
+`HKCU\...\CurrentVersion\Uninstall\AIUsage` (no admin rights). That list only
+shows what has such an entry, which is why the app used to be missing from it:
+the script copies files and makes a shortcut, and Windows knows nothing else.
+Three things about the entry:
+
+- **Its uninstall command runs `Uninstall.ps1` copied into the program
+  folder**, not the repo's, so it keeps working after the repo moves or is
+  deleted. That copy is about to delete its own folder, so it first copies
+  itself to `%TEMP%` and hands over; the temp copy is removed afterwards.
+- **`Install.ps1 -Uninstall` runs the same script** (from `tools\`), so there
+  is one uninstall, not two that drift.
+- **Never name a variable `$uninstall` in `Install.ps1`.** PowerShell names are
+  case-insensitive, so it IS the `-Uninstall` switch, and assigning a string to
+  it fails the install halfway - after the old copy was already removed.
+
+Verified 2026-09-30: `winget list` shows the entry; running its exact
+`UninstallString` closed the running app and removed the folder, shortcut and
+entry, with every data file kept and no temp copy left; `Install.ps1
+-Uninstall` did the same.
 
 ## Publishing
 

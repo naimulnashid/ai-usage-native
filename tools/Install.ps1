@@ -10,9 +10,15 @@
   running copy is closed first, by the path it runs from - never by name, so
   a copy running from somewhere else is left alone.
 
-  -Uninstall removes the program folder, the shortcut and the start-at-login
-  entry. It leaves your data (%LOCALAPPDATA%\AI Usage Native: settings, the
-  archive, project logos) unless -RemoveData is also given.
+  It also registers the app under Settings -> Apps -> Installed apps (and
+  Control Panel's Programs and Features), per user, with Uninstall.ps1 copied
+  into the program folder as its uninstall command - so it can be removed from
+  there without this repo.
+
+  -Uninstall runs that same Uninstall.ps1: it removes the program folder, the
+  shortcut, the start-at-login entry and the Installed apps entry. It leaves
+  your data (%LOCALAPPDATA%\AI Usage Native: settings, the archive, project
+  logos) unless -RemoveData is also given.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\Install.ps1
@@ -42,17 +48,8 @@ function Stop-Installed {
 }
 
 if ($Uninstall) {
-  Stop-Installed
-  if (Test-Path $shortcut) { Remove-Item $shortcut -Force }
-  $run = Get-ItemProperty -Path $runKey -Name 'AI Usage' -ErrorAction SilentlyContinue
-  if ($run -and $run.'AI Usage' -like "*$exe*") { Remove-ItemProperty -Path $runKey -Name 'AI Usage' }
-  if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-  if ($RemoveData) {
-    $data = Join-Path $env:LOCALAPPDATA 'AI Usage Native'
-    if (Test-Path $data) { Remove-Item $data -Recurse -Force }
-    Write-Host "Removed $data"
-  }
-  Write-Host 'AI Usage is uninstalled.'
+  # One implementation, shared with the Installed apps entry.
+  & (Join-Path $PSScriptRoot 'Uninstall.ps1') -RemoveData:$RemoveData -Quiet
   return
 }
 
@@ -79,6 +76,33 @@ $link.IconLocation = "$exe,0"
 $link.Description = 'Claude Code and Codex usage, cost and runtime'
 $link.Save()
 
-$size = (Get-ChildItem $target -Recurse | Measure-Object Length -Sum).Sum / 1MB
-Write-Host ("Installed to {0} ({1:N0} MB) with a Start menu shortcut." -f $target, $size)
+Copy-Item (Join-Path $PSScriptRoot 'Uninstall.ps1') (Join-Path $target 'Uninstall.ps1') -Force
+
+$bytes = (Get-ChildItem $target -Recurse | Measure-Object Length -Sum).Sum
+$size = $bytes / 1MB
+
+# Settings -> Apps -> Installed apps, per user (HKCU needs no admin rights).
+# The uninstall command runs the copy in the program folder, which hands over
+# to a copy in %TEMP% before deleting the folder it came from.
+$version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props'))).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+$uninstallCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $target 'Uninstall.ps1')`""
+$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIUsage'
+New-Item -Path $key -Force | Out-Null
+$entry = @{
+  DisplayName = 'AI Usage'
+  DisplayVersion = [string]$version
+  Publisher = 'Naimul Nashid'
+  DisplayIcon = "$exe,0"
+  InstallLocation = $target
+  UninstallString = $uninstallCommand
+  QuietUninstallString = "$uninstallCommand -Quiet"
+  URLInfoAbout = 'https://github.com/naimulnashid/ai-usage-native'
+  InstallDate = (Get-Date -Format 'yyyyMMdd')
+}
+foreach ($name in $entry.Keys) { New-ItemProperty -Path $key -Name $name -Value $entry[$name] -PropertyType String -Force | Out-Null }
+# No Modify or Repair buttons: re-running this script is the repair.
+foreach ($name in 'NoModify', 'NoRepair') { New-ItemProperty -Path $key -Name $name -Value 1 -PropertyType DWord -Force | Out-Null }
+New-ItemProperty -Path $key -Name 'EstimatedSize' -Value ([int]($bytes / 1KB)) -PropertyType DWord -Force | Out-Null
+
+Write-Host ("Installed to {0} ({1:N0} MB) with a Start menu shortcut and an Installed apps entry." -f $target, $size)
 Write-Host 'Start it from the Start menu. "Start at login" is in its Settings menu and the tray menu.'

@@ -58,10 +58,17 @@ Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 powershell -ExecutionPolicy Bypass -File tools\Install.ps1
 ```
 
-That publishes a self-contained build to `%LOCALAPPDATA%\Programs\AI Usage`
-and adds **AI Usage** to the Start menu. The installed app carries its own .NET
-and Windows App SDK runtime (~190 MB), so it needs neither installed. Run the
-same command again to update; `-Uninstall` removes it and keeps your data.
+That publishes a self-contained build to `%LOCALAPPDATA%\Programs\AI Usage`,
+adds **AI Usage** to the Start menu, and lists it under **Settings → Apps →
+Installed apps** (and Control Panel's Programs and Features). The installed app
+carries its own .NET and Windows App SDK runtime (~190 MB), so it needs neither
+installed. Run the same command again to update.
+
+**To uninstall**, use **Uninstall** on its entry in Installed apps, or run
+`tools\Install.ps1 -Uninstall`. Either way your settings, archive and logos in
+`%LOCALAPPDATA%\AI Usage Native` are kept; add `-RemoveData` to the script to
+remove them too. The zip download is not installed at all: exit it from the
+tray and delete its folder.
 
 Windows 10 1809 or later, x64. Built and tested on Windows 11. The build is
 unsigned: with Smart App Control on, Windows may block it.
