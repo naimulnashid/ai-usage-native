@@ -244,14 +244,15 @@ public static class Parts
     }
 
     /// <summary>A panel whose body swaps when its range picker changes.</summary>
-    public static Border StackedPanel(string title, string subtitle, IReadOnlyList<DailyEntry> daily, string today, bool spend)
+    /// <param name="initial">The range it opens on: 30 days on the overview, every day on a project page.</param>
+    public static Border StackedPanel(string title, string subtitle, IReadOnlyList<DailyEntry> daily, string today, bool spend, DayRange initial = DayRange.Last30)
     {
         var body = new ContentControl
         {
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Content = StackedWithLegend(daily, DayRange.Last30, today, spend, animate: true),
+            Content = StackedWithLegend(daily, initial, today, spend, animate: true),
         };
-        var picker = RangePicker.Create($"Days shown in {title}", range => body.Content = StackedWithLegend(daily, range, today, spend, animate: true));
+        var picker = RangePicker.Create($"Days shown in {title}", range => body.Content = StackedWithLegend(daily, range, today, spend, animate: true), initial);
         return Ui.Panel(title, subtitle, picker, body);
     }
 
@@ -285,7 +286,7 @@ public static class Parts
         if (models.Count == 0) return null;
         var one = models.Count == 1;
         var text = Ui.Paragraph(
-            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Set {(one ? "its" : "their")} price in Model prices at the bottom of this page.",
+            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Set {(one ? "its" : "their")} price in Model prices at the bottom of the overview.",
             14.5, Palette.TextMutedBrush);
         return Notice(text);
     }

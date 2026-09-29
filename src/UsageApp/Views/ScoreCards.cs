@@ -17,7 +17,14 @@ public static class ScoreCards
 {
     private sealed record Card(string Label, string Icon, UIElement Value, string? Sub, bool ClipSub = false, string? Tip = null);
 
-    public static FitGrid Build(ProviderMeta meta, ActivityStats activity, UsageCell combined)
+    /// <summary>Cards shown without the third, "when" row: what was run, and what it consumed.</summary>
+    public const int WithoutWhen = 8;
+
+    /// <param name="showWhen">
+    /// The third row - active days, both streaks, peak hour. The project page
+    /// leaves it out; the overview shows all three rows.
+    /// </param>
+    public static FitGrid Build(ProviderMeta meta, ActivityStats activity, UsageCell combined, bool showWhen = true)
     {
         var written = combined.CacheWrite5m + combined.CacheWrite1h;
         var cachedTotal = combined.CacheRead + written;
@@ -94,6 +101,8 @@ public static class ScoreCards
 
         // Container steps, as the original's container query: a card falls
         // under ~210px, and starts wrapping its own label, below these widths.
+        // Rows of four, so dropping the last row keeps the other two whole.
+        if (!showWhen) cards = cards[..WithoutWhen];
         var grid = new FitGrid(width => width > 900 ? 4 : width > 450 ? 2 : 1) { Gap = 14, Margin = new Thickness(0, 0, 0, 26) };
         for (var i = 0; i < cards.Length; i++)
         {

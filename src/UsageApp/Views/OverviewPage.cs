@@ -181,9 +181,9 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         page.Children.Add(Parts.Skeleton(433));
         page.Children.Add(Parts.Skeleton(393));
         page.Children.Add(Parts.Skeleton(13, 110, 18));
-        var grid = FitGrid.AutoFit(215, 16);
-        grid.Margin = new Thickness(0, 0, 0, 26);
-        for (var i = 0; i < 4; i++) grid.Children.Add(Parts.Skeleton(128, bottom: 0));
+        // The score grid's own column steps, so the placeholder wraps as it does.
+        var grid = new FitGrid(width => width > 900 ? 4 : width > 450 ? 2 : 1) { Gap = 14, Margin = new Thickness(0, 0, 0, 26) };
+        for (var i = 0; i < 12; i++) grid.Children.Add(Parts.Skeleton(128, bottom: 0));
         page.Children.Add(grid);
         page.Children.Add(Parts.Skeleton(457));
         return page;

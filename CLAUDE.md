@@ -307,6 +307,11 @@ slice fading the rest and the legend in step.
 
 ### WinUI traps met while building it
 
+- **A keyboard accelerator shows its key as a tooltip.** The F5 refresh
+  accelerator lives on the window's root, so "F5" appeared over any spot with
+  no tooltip of its own - the title bar included. The root sets
+  `KeyboardAcceleratorPlacementMode.Hidden`; add accelerators the same way.
+
 - **`Border` is sealed.** Components that are "a border with behaviour" are
   factories (`ProjectLogoView.Create`), not subclasses.
 - **An element cannot have both a `RenderTransform` and a
@@ -347,15 +352,18 @@ slice fading the rest and the legend in step.
 
 A project page is the overview at project scope - Daily combined spend, Cost
 by model, the Activity cards, Daily activity, the two stacked charts, Token
-detail by model, Model prices - with the same names, then what only a project
-has: its two per-day tables and the sessions. The per-model card grid
+detail by model - with the same names, then what only a project has: its
+day-by-model table. By the owner's choice it leaves out the cards' third row
+(`ScoreCards.Build(showWhen: false)`), Model prices, the sessions table and
+the combined daily table, and its stacked charts open on All days
+(`StackedPanel(initial:)`) where the overview's open on 30. The per-model card grid
 ("Breakdown by model") is gone from both; Cost by model shows the same numbers.
 `OverviewPage.CostPanel` / `TokenPanel` / `ActivityPanel` are shared, and the
 heat map's Expand opens `ActivityPage` scoped to the project.
 
 ### Model prices and colours
 
-The last panel on both pages. Each row's **Edit** / **Set price** button opens a
+The last panel on the overview. Each row's **Edit** / **Set price** button opens a
 flyout: the rates (five for Claude Code, three for Codex), "Cache rates from
 input" (1.25x / 2x / 0.1x - a button, not a default, since cards do not always
 follow it), reset, and the colour. A price saves and refreshes the agent; a

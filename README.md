@@ -83,13 +83,15 @@ unsigned: with Smart App Control on, Windows may block it.
   **Import project logos…** copies in a whole folder.
 - **Hide from project list** (⋯ menu) hides a project from the list only. Its
   spend still counts in every total and chart.
-- **Model prices**, the last panel on the overview and on a project page, lists
+- **Model prices**, the last panel on the overview, lists
   each model's rate. **Set price** (or **Edit**) gives a model the rate card
   does not know yet a price of its own: it wins over the card, and every figure
   is recomputed with it, archived days included. The same editor picks the
   model's colour from shades of the agent's accent.
 - **A project page** has the overview's sections in the overview's order, for
-  that project, followed by its day-by-day tables and every session.
+  that project - without the third row of activity cards and the price table,
+  and with its stacked charts opening on every day - followed by a
+  day-by-model table.
 
 ## Settings files
 

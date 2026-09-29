@@ -216,6 +216,10 @@ public sealed partial class MainWindow : Window
             _ = _state.RefreshAsync(_state.Provider);
         };
         Root.KeyboardAccelerators.Add(f5);
+        // WinUI shows an element's accelerators as a tooltip on hover, and this
+        // one lives on the root - so "F5" popped up over any spot without a
+        // tooltip of its own, the title bar included. The key still works.
+        Root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
     }
 
     private static Border Footer()

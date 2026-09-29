@@ -12,7 +12,8 @@ namespace UsageApp.Views;
 
 /// <summary>
 /// One project: the overview's sections in the overview's order, at project
-/// scope, then what only a project has - its per-day tables and every session.
+/// scope - without the Activity cards' "when" row and the Model prices table -
+/// then what only a project has, its day-by-model table.
 /// </summary>
 public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
 {
@@ -26,10 +27,16 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         if (data.Report is null)
         {
             if (data.Error is not null && !data.Loading) return OverviewPage.ErrorView(meta, data.Error);
-            // Headline, daily spend, cost by model: the overview's opening, at project scope.
+            // The page's own sections, in order: headline, daily spend, cost by
+            // model, the Activity title and its two rows of cards, the heat map.
             page.Children.Add(Parts.Skeleton(359));
             page.Children.Add(Parts.Skeleton(433));
             page.Children.Add(Parts.Skeleton(393));
+            page.Children.Add(Parts.Skeleton(13, 110, 18));
+            var grid = new FitGrid(width => width > 900 ? 4 : width > 450 ? 2 : 1) { Gap = 14, Margin = new Thickness(0, 0, 0, 26) };
+            for (var i = 0; i < ScoreCards.WithoutWhen; i++) grid.Children.Add(Parts.Skeleton(128, bottom: 0));
+            page.Children.Add(grid);
+            page.Children.Add(Parts.Skeleton(457));
             return page;
         }
 
@@ -113,75 +120,22 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         if (project.Activity is { } activity)
         {
             page.Children.Add(Ui.SectionTitle("Activity"));
-            page.Children.Add(ScoreCards.Build(meta, activity, combined));
+            page.Children.Add(ScoreCards.Build(meta, activity, combined, showWhen: false));
         }
         page.Children.Add(OverviewPage.ActivityPanel(ctx, report, daily, project.Id));
 
         var today = DayRanges.Today(report);
         page.Children.Add(Parts.StackedPanel("Daily tokens by model",
             "Stacked by model, most expensive at the bottom — so the darker the base of a column, the more of that day went on premium tokens.",
-            daily, today, spend: false));
+            daily, today, spend: false, initial: DayRange.All));
         page.Children.Add(Parts.StackedPanel("Daily spend by model",
             "The same columns priced instead of counted — so a day that looks modest above and tall here went on the expensive models.",
-            daily, today, spend: true));
+            daily, today, spend: true, initial: DayRange.All));
         page.Children.Add(OverviewPage.TokenPanel(meta, project.PerModel, combined));
-        page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, project.PerModel, report.ModelRates)));
 
-        // ---- This project's own tables ---------------------------------------------
-        page.Children.Add(Ui.Panel("Daily totals, combined", "Newest first. The bar shows each day against the peak.", null,
-            CombinedDailyTable(meta, daily, peak?.Combined.CostUsd ?? 0)));
+        // ---- This project's own table ------------------------------------------------
         page.Children.Add(Ui.Panel("Daily breakdown by model", "One row per day and model, newest first.", null, ModelDailyTable(meta, daily)));
-
-        // ---- Sessions ---------------------------------------------------------------
-        var sessions = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        sessions.Content = SessionsTable(meta, project.Sessions, expanded: false, sessions);
-        page.Children.Add(Ui.Panel("Sessions", "Every transcript file in this project, ranked by cost.", null, sessions));
         return page;
-    }
-
-    /// <summary>One row per day, all models summed - "what did this cost me each day".</summary>
-    private static UIElement CombinedDailyTable(ProviderMeta meta, List<DailyEntry> daily, double peakCost)
-    {
-        var table = new DataTable(
-        [
-            new Column("Date"),
-            new Column("Models"),
-            new Column(meta.MessageNoun == "requests" ? "Requests" : "Messages"),
-            new Column("Tokens"),
-            new Column("Runtime", Parts.Runtime),
-            new Column("Cost"),
-            new Column("Share of peak day", Width: 170),
-        ]);
-        var rows = daily.OrderByDescending(d => d.Date, Comparer<string>.Create(Dates.CompareKeys)).ToList();
-        foreach (var row in rows)
-        {
-            var share = peakCost > 0 ? row.Combined.CostUsd / peakCost : 0;
-            // Radius is half the height: WinUI does not clamp an oversized
-            // radius the way CSS does, and 999 drew pointed ends.
-            var track = new Grid { Height = 7, CornerRadius = new CornerRadius(3.5), Background = Palette.TrackBrush, Width = 142 };
-            track.Children.Add(new Border { Background = Palette.Accent, HorizontalAlignment = HorizontalAlignment.Left, Width = 142 * share, CornerRadius = new CornerRadius(3.5, 0, 0, 3.5) });
-            table.AddRow(
-            [
-                DataTable.Cell(Format.DateLong(row.Date), weight: 550, numeric: false),
-                DataTable.Swatches(row.PerModel.Where(kv => kv.Value.TotalTokens > 0).Select(kv => kv.Key)),
-                DataTable.Cell(Format.Count(row.Combined.Messages)),
-                DataTable.Cell(Format.Tokens(row.Combined.TotalTokens)),
-                DataTable.Cell(Format.Duration(row.Combined.RuntimeSeconds)),
-                DataTable.Cost(Format.Usd(row.Combined.CostUsd)),
-                track,
-            ]);
-        }
-        table.AddFooter(
-        [
-            DataTable.Cell($"{rows.Count} days", numeric: false),
-            null,
-            DataTable.Cell(Format.Count(rows.Sum(r => r.Combined.Messages))),
-            DataTable.Cell(Format.Tokens(rows.Sum(r => r.Combined.TotalTokens))),
-            DataTable.Cell(Format.Duration(rows.Sum(r => r.Combined.RuntimeSeconds))),
-            DataTable.Cost(Format.Usd(rows.Sum(r => r.Combined.CostUsd))),
-            null,
-        ]);
-        return table.Build();
     }
 
     /// <summary>One row per (day, model), newest first; each new day ruled a shade brighter.</summary>
@@ -222,64 +176,5 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
             table.AddRow(cells, separatorAbove: newDay && i > 0);
         }
         return table.Build();
-    }
-
-    private const int InitialSessions = 12;
-
-    private static UIElement SessionsTable(ProviderMeta meta, List<SessionSummary> sessions, bool expanded, ContentControl host)
-    {
-        if (sessions.Count == 0) return Ui.Text("No sessions recorded.", 15, 400, Palette.TextFaintBrush);
-        var table = new DataTable(
-        [
-            new Column("Session"),
-            new Column("Models"),
-            new Column(meta.MessageNoun == "requests" ? "Requests" : "Messages"),
-            new Column("Tokens"),
-            new Column("Runtime", Parts.Runtime),
-            new Column("Open span", ("About open span", "First-to-last timestamp of the session file. Includes idle time, so it is always at least the runtime figure - shown for comparison only.")),
-            new Column("Cost"),
-        ]);
-        foreach (var session in expanded ? sessions : sessions.Take(InitialSessions))
-        {
-            var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
-            // Codex keeps a thread name; where there is one it is the better
-            // label, with the id alongside so the row can be traced to its file.
-            if (session.Title is { } threadName)
-            {
-                var name = Ui.Text(threadName, 15.5, 550);
-                name.MaxWidth = 260;
-                Ui.SetTip(name, threadName);
-                label.Children.Add(name);
-            }
-            var id = Ui.Mono(session.SessionId.Length > 8 ? session.SessionId[..8] : session.SessionId, 13.5);
-            id.VerticalAlignment = VerticalAlignment.Center;
-            label.Children.Add(id);
-            if (session.IsSubagent)
-            {
-                var pill = Ui.Pill(meta.SubagentNoun, Palette.TextFaintBrush, Palette.BorderBrightBrush);
-                if (session.SubagentKind is { } kind) Ui.SetTip(pill, $"Spawned by {meta.Label} as a \"{kind}\" subagent. Billed separately, and counted in these totals.");
-                label.Children.Add(pill);
-            }
-            table.AddRow(
-            [
-                label,
-                DataTable.Swatches(session.Models),
-                DataTable.Cell(Format.Count(session.Messages)),
-                DataTable.Cell(Format.Tokens(session.TotalTokens)),
-                DataTable.Cell(Format.Duration(session.RuntimeSeconds)),
-                DataTable.Cell(Format.Duration(session.SpanSeconds), Palette.TextFaintBrush),
-                DataTable.Cost(Format.Usd(session.CostUsd)),
-            ]);
-        }
-        var stack = new StackPanel();
-        stack.Children.Add(table.Build());
-        if (sessions.Count > InitialSessions)
-        {
-            var toggle = Ui.Button(expanded ? "Show fewer" : $"Show all {Format.Count(sessions.Count)} sessions");
-            toggle.Margin = new Thickness(0, 16, 0, 0);
-            toggle.Click += (_, _) => host.Content = SessionsTable(meta, sessions, !expanded, host);
-            stack.Children.Add(toggle);
-        }
-        return stack;
     }
 }

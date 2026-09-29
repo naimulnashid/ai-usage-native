@@ -12,7 +12,7 @@ namespace UsageApp.Controls;
 /// </summary>
 public static class RangePicker
 {
-    public static ComboBox Create(string automationName, Action<DayRange> onChange)
+    public static ComboBox Create(string automationName, Action<DayRange> onChange, DayRange initial = DayRange.Last30)
     {
         var box = new ComboBox
         {
@@ -39,7 +39,7 @@ public static class RangePicker
         {
             box.Items.Add(new ComboBoxItem { Content = DayRanges.Label(range), Tag = range, FontFamily = Fonts.Sans, FontSize = 14 });
         }
-        box.SelectedIndex = 0;
+        box.SelectedIndex = initial switch { DayRange.Last60 => 1, DayRange.All => 2, _ => 0 };
         box.SelectionChanged += (_, _) =>
         {
             if (box.SelectedItem is ComboBoxItem { Tag: DayRange range }) onChange(range);
