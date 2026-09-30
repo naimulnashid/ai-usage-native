@@ -5,10 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: the job builds and tests, and never writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   build:
     # WinUI 3 builds on Windows only; the core library and its tests would run
-    # anywhere, but one job keeps the minutes down on a private repo.
+    # anywhere, but one job is all the checking this project needs.
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
