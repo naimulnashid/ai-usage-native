@@ -13,15 +13,21 @@ Built with WinUI 3 on .NET 10. A native port of the
 [AI Usage Dashboard](https://github.com/naimulnashid/ai-usage-tracker) web app,
 sharing its design and its parsing rules but no code.
 
-![The whole Claude Code overview, top to bottom: total estimated spend, tokens and runtime; daily spend; the breakdown by model; cost by model; token detail; activity cards; daily tokens and spend by model; and the six-month heat map](docs/screenshots/overview-claude.webp)
+![The whole Claude Code overview, top to bottom: total estimated spend, tokens and runtime; daily spend; cost by model; activity cards; the six-month heat map; daily spend by project; daily tokens and spend by model; token detail and model prices](docs/screenshots/overview-claude.webp)
 
 <details>
-<summary><b>The projects page, and Codex</b></summary>
+<summary><b>The light theme, the projects page, and Codex</b></summary>
+
+A light theme sits beside the dark one - **Settings > Theme** picks Dark,
+Light, or the Windows setting.
+
+![The same Claude Code overview in the light theme: white cards on a grey page](docs/screenshots/overview-claude-light.webp)
 
 Projects open with a share-of-spend ring, because a ranked list looks the same
-whether the top project is 60% of your spend or 15%.
+whether the top project is 60% of your spend or 15%. Each project is drawn in
+its own colour - its logo's, or one you pick - and a slice opens it.
 
-![The projects page: a share-of-spend donut above the ranked list of projects, each with its share bar by model and its options menu](docs/screenshots/projects-claude.webp)
+![The projects page: a share-of-spend donut in per-project colours above the ranked list of projects, each with its share bar by model and its options menu](docs/screenshots/projects-claude.webp)
 
 Codex gets its own accent, and its headline says **API-equivalent spend**, not
 "total spend": it is commonly used on a flat subscription, where these tokens
