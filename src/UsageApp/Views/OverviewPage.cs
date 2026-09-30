@@ -278,12 +278,10 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         var today = Heatmap.Today(report);
         var first = Heatmap.FirstDay(report.Settings.WeekStartsOn);
         var layout = Heatmap.Recent(daily, today, first);
-        Button? expand = null;
-        if (Heatmap.HasHistoryBeforeWindow(daily, today, first))
-        {
-            expand = Ui.Button("Expand", fontSize: 13.5, padding: new Thickness(14, 5, 14, 5));
-            expand.Click += (_, _) => ctx.Navigate(new Route(PageKind.Activity, projectId));
-        }
+        // Always offered, by the owner's choice: it used to appear only once
+        // some day was older than the strip, a control that came and went.
+        var expand = Ui.Button("Expand", fontSize: 13.5, padding: new Thickness(14, 5, 14, 5));
+        expand.Click += (_, _) => ctx.Navigate(new Route(PageKind.Activity, projectId));
         var figure = HeatmapFigure.Build(layout, report.Settings.WeekStartsOn, "in the last 6 months", labelStrips: false, expand);
         // The ramp runs toward "more" against each theme's own ground: brighter
         // on the dark one, darker on the light one.

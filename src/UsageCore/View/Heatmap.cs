@@ -51,10 +51,6 @@ public static class Heatmap
     public static string? EarliestActiveDate(IEnumerable<DailyEntry> daily) =>
         daily.Where(d => Dates.IsDayKey(d.Date) && DayRanges.IsActive(d)).Select(d => d.Date).Order(StringComparer.Ordinal).FirstOrDefault();
 
-    /// <summary>True when some recorded day is older than the overview's strip - when Expand is offered.</summary>
-    public static bool HasHistoryBeforeWindow(IEnumerable<DailyEntry> daily, DateOnly today, DayOfWeek first) =>
-        EarliestActiveDate(daily) is { } earliest && string.CompareOrdinal(earliest, Dates.ToKey(WindowStart(today, first))) < 0;
-
     /// <summary>The first of the month holding the earliest recorded day.</summary>
     public static string? FullHistoryStart(IEnumerable<DailyEntry> daily) =>
         EarliestActiveDate(daily) is { } earliest ? earliest[..7] + "-01" : null;

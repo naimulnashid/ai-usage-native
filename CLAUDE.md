@@ -428,7 +428,9 @@ the combined daily table, and its stacked charts open on All days
 (`StackedPanel(initial:)`) where the overview's open on 30. The per-model card grid
 ("Breakdown by model") is gone from both; Cost by model shows the same numbers.
 `OverviewPage.CostPanel` / `TokenPanel` / `ActivityPanel` are shared, and the
-heat map's Expand opens `ActivityPage` scoped to the project.
+heat map's Expand opens `ActivityPage` scoped to the project. Expand is always shown, on
+both pages, by the owner's choice (2026-09-30); it used to appear only once
+some day was older than the six-month strip.
 
 ### Model prices and colours
 
