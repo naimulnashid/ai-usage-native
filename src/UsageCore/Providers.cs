@@ -69,7 +69,7 @@ public static class Providers
         HeatRamp = ["#161318", "#9D4224", "#BE4F2B", "#D3603B", "#D97757", "#E39981"],
         AccentLight = "#BA4D2A",
         AccentBrightLight = "#A14224",
-        HeatRampLight = ["#EBEDF1", "#D97554", "#CF552E", "#AF4827", "#933C21", "#75301A"],
+        HeatRampLight = ["#D9DDE4", "#D97554", "#CF552E", "#AF4827", "#933C21", "#75301A"],
     };
 
     public static readonly ProviderMeta Codex = new()
@@ -91,7 +91,7 @@ public static class Providers
         HeatRamp = ["#131817", "#0A6B53", "#0D8165", "#0E9372", "#10A37F", "#13C197"],
         AccentLight = "#0C7F63",
         AccentBrightLight = "#0A6B53",
-        HeatRampLight = ["#EBEFF0", "#10A37F", "#0E8D6D", "#0C765C", "#0A624D", "#084F3E"],
+        HeatRampLight = ["#D7DEE0", "#10A37F", "#0E8D6D", "#0C765C", "#0A624D", "#084F3E"],
     };
 
     public static readonly IReadOnlyList<ProviderMeta> All = [Claude, Codex];

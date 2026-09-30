@@ -58,10 +58,11 @@ public static class Palette
 
     /// <summary>A cool grey page, white cards; both greys of text clear 4.5:1 on each backdrop.</summary>
     private static readonly Tokens Light = new(
-        "#F4F5F8", "#FFFFFF", "#F3F4F7", "#E3E5EA", "#CDD1D9",
+        // SurfaceHover was #F3F4F7, 1.07:1 on white: a hovered row showed nothing.
+        "#F4F5F8", "#FFFFFF", "#E8EBF0", "#E3E5EA", "#CDD1D9",
         "#111318", "#3F4451", "#5F6472", "#FFFFFF",
         "#C62828", 0.07, 0.32, "#15803D",
-        Hex("#ECEEF2"), "#ECEEF2", Hex("#111318", 0.05));
+        Hex("#ECEEF2"), "#ECEEF2", Hex("#111318", 0.09));
 
     /// <summary>True while the light theme is on.</summary>
     public static bool IsLight { get; private set; }

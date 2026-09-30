@@ -131,6 +131,8 @@ public class ProjectColorTests
         {
             Assert.True(ProjectColors.Contrast(meta.AccentLight, "#FFFFFF") >= 4.5, meta.Label);
             Assert.True(ProjectColors.Contrast(meta.AccentBrightLight, "#F4F5F8") >= 4.5, meta.Label);
+            // An empty day must still read as a square on the white panel.
+            Assert.True(ProjectColors.Contrast(meta.HeatRampLight[0], "#FFFFFF") >= 1.3, $"{meta.Label} empty step");
             for (var i = 1; i < meta.HeatRampLight.Length; i++)
             {
                 Assert.True(ProjectColors.Contrast(meta.HeatRampLight[i], "#FFFFFF") >= 3, $"{meta.Label} step {i}");
