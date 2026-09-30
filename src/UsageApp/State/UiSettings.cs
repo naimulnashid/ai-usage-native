@@ -21,6 +21,9 @@ public sealed class UiSettings
     /// <summary>Page zoom, 0.5 to 2 - Ctrl+Plus / Ctrl+Minus / Ctrl+0, as in a browser.</summary>
     public double Zoom { get; set; } = 1;
 
+    /// <summary>"dark" (the default), "light", or "system" to follow Windows.</summary>
+    public string Theme { get; set; } = "dark";
+
     /// <summary>Whether the "still running in the tray" note has been shown once.</summary>
     public bool TrayNoteShown { get; set; }
 

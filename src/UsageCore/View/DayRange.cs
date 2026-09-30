@@ -7,6 +7,8 @@ public enum DayRange
 {
     Last30,
     Last60,
+    /// <summary>Daily spend by project only: projects change over months, models over weeks.</summary>
+    Last90,
     All,
 }
 
@@ -26,6 +28,7 @@ public static class DayRanges
     {
         DayRange.Last30 => "Last 30 days",
         DayRange.Last60 => "Last 60 days",
+        DayRange.Last90 => "Last 90 days",
         _ => "All days",
     };
 
@@ -42,7 +45,7 @@ public static class DayRanges
         if (range == DayRange.All || !Dates.IsDayKey(today)) return daily.ToList();
         var byDate = daily.ToDictionary(d => d.Date, StringComparer.Ordinal);
         var end = Dates.ToDate(today);
-        var count = range == DayRange.Last30 ? 30 : 60;
+        var count = range switch { DayRange.Last30 => 30, DayRange.Last60 => 60, _ => 90 };
         var days = new List<DailyEntry>(count);
         for (var i = count - 1; i >= 0; i--)
         {

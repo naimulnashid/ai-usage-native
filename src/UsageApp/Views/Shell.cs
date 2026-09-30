@@ -30,7 +30,7 @@ public static class Shell
             Content = Ui.Paragraph(message, 14.5, Palette.TextMutedBrush),
             CloseButtonText = "OK",
             XamlRoot = window.Content.XamlRoot,
-            RequestedTheme = ElementTheme.Dark,
+            RequestedTheme = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark,
         };
         await dialog.ShowAsync();
     }

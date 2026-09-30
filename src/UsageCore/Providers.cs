@@ -37,6 +37,15 @@ public sealed record ProviderMeta
     public required string Accent { get; init; }
     public required string AccentBright { get; init; }
     public required string[] HeatRamp { get; init; }
+
+    /// <summary>
+    /// The light theme's accent, darkened until it carries text at AA on white
+    /// (the dark accents are ~3:1 there), its hover shade - darker again, where
+    /// the dark theme's is brighter - and a heat ramp that DARKENS as spend rises.
+    /// </summary>
+    public required string AccentLight { get; init; }
+    public required string AccentBrightLight { get; init; }
+    public required string[] HeatRampLight { get; init; }
 }
 
 public static class Providers
@@ -58,6 +67,9 @@ public static class Providers
         Accent = "#D97757",
         AccentBright = "#F08A66",
         HeatRamp = ["#161318", "#9D4224", "#BE4F2B", "#D3603B", "#D97757", "#E39981"],
+        AccentLight = "#BA4D2A",
+        AccentBrightLight = "#A14224",
+        HeatRampLight = ["#EBEDF1", "#D97554", "#CF552E", "#AF4827", "#933C21", "#75301A"],
     };
 
     public static readonly ProviderMeta Codex = new()
@@ -77,6 +89,9 @@ public static class Providers
         Accent = "#10A37F",
         AccentBright = "#1FC79C",
         HeatRamp = ["#131817", "#0A6B53", "#0D8165", "#0E9372", "#10A37F", "#13C197"],
+        AccentLight = "#0C7F63",
+        AccentBrightLight = "#0A6B53",
+        HeatRampLight = ["#EBEFF0", "#10A37F", "#0E8D6D", "#0C765C", "#0A624D", "#084F3E"],
     };
 
     public static readonly IReadOnlyList<ProviderMeta> All = [Claude, Codex];

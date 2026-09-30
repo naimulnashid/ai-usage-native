@@ -99,7 +99,43 @@ public static class Ui
             Child = child,
         };
         if (hover) HoverLift(card);
+        Elevate(card, hover ? 40 : 24);
         return card;
+    }
+
+    /// <summary>
+    /// What the cards' shadows fall on: a plain surface behind the page's
+    /// scroller, set by the shell. A ThemeShadow in a WinUI 3 window draws
+    /// NOTHING without a receiver - measured, the light theme's cards came out
+    /// flat - and a receiver may not be an ancestor of the element casting onto
+    /// it, which is why this is a sibling behind the page rather than the page.
+    /// </summary>
+    public static UIElement? ShadowReceiver { get; set; }
+
+    /// <summary>Resting elevation in the light theme: enough shadow to lift a white card off the grey page.</summary>
+    private const float RestZ = 8;
+
+    /// <summary>
+    /// The light theme's shadows: every card rests slightly raised, and rises
+    /// further under the pointer - <paramref name="hoverZ"/>, higher for a card
+    /// that is a link than for a panel. A black shadow on black is invisible, so
+    /// the dark theme keeps to borders and this does nothing there.
+    /// </summary>
+    /// <remarks>
+    /// ThemeShadow draws from Translation.Z. The Z is set outright rather than
+    /// through a TranslationTransition: WinUI refuses a TranslationTransition on
+    /// an element that also has a RenderTransform, which the rise-in and the
+    /// hover lift use.
+    /// </remarks>
+    public static void Elevate(UIElement card, float hoverZ)
+    {
+        if (!Palette.IsLight) return;
+        var shadow = new ThemeShadow();
+        if (ShadowReceiver is { } receiver) shadow.Receivers.Add(receiver);
+        card.Shadow = shadow;
+        card.Translation = new Vector3(0, 0, RestZ);
+        card.PointerEntered += (_, _) => card.Translation = new Vector3(0, 0, hoverZ);
+        card.PointerExited += (_, _) => card.Translation = new Vector3(0, 0, RestZ);
     }
 
     /// <summary>

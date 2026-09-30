@@ -29,6 +29,9 @@ public sealed class DonutChart : Grid
 
     public event Action<string?>? ActiveChanged;
 
+    /// <summary>A project's slice was clicked. Never raised for the remainder, which is not one project.</summary>
+    public event Action<string>? SliceClicked;
+
     public DonutChart(IReadOnlyList<DonutSlice> slices, double total, int projectCount, double size = 260, bool animate = true)
     {
         _slices = slices.ToList();
@@ -90,7 +93,18 @@ public sealed class DonutChart : Grid
             {
                 SetActive(null, raise: true);
                 _tooltip.Hide();
+                ProtectedCursor = null;
             };
+            if (!slice.Remainder)
+            {
+                // A slice is a way into its project, like the card below it.
+                path.PointerEntered += (_, _) => ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
+                path.Tapped += (_, _) =>
+                {
+                    _tooltip.Hide();
+                    SliceClicked?.Invoke(captured.Id);
+                };
+            }
             _paths.Add(path);
             _canvas.Children.Add(path);
             angle += sweep;

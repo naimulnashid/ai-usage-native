@@ -58,11 +58,17 @@ public sealed partial class MainWindow : Window
         _logos = logos;
         _settings = settings;
         _exit = exit;
-        _ctx = new PageContext { State = state, Logos = logos, Navigate = Navigate, Redraw = () => Rebuild(keepScroll: true), Window = this };
+        _ctx = new PageContext { State = state, Logos = logos, Colors = new ProjectColorStore(logos), Navigate = Navigate, Redraw = () => Rebuild(keepScroll: true), Window = this };
         _refresh = Ui.Button("", primary: true);
         _refresh.Click += (_, _) => _ = _state.RefreshAsync(_state.Provider);
 
         Palette.ApplyProvider(state.Meta);
+        Palette.ApplyTheme(ResolveLight());
+        // "System" follows Windows while the app runs, not only at launch.
+        _systemColors.ColorValuesChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_settings.Theme == "system") ApplyThemeChoice();
+        });
         Zoom.Set(settings.Zoom);
         Zoom.Changed += OnZoomChanged;
         ConfigureWindow();
@@ -79,18 +85,60 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
 
-    private void ConfigureWindow()
+    /* -------------------------------------------------------------- Theme */
+
+    private readonly Windows.UI.ViewManagement.UISettings _systemColors = new();
+    private readonly List<(Image Image, string File, bool Codex)> _railMarks = [];
+
+    /// <summary>Whether the light theme is the one to show: the choice, or Windows' own for "system".</summary>
+    private bool ResolveLight()
     {
-        ExtendsContentIntoTitleBar = true;
+        if (_settings.Theme == "light") return true;
+        if (_settings.Theme != "system") return false;
+        // Windows' app mode shows in its background colour: white in light mode.
+        var background = _systemColors.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
+        return background.R > 128;
+    }
+
+    /// <summary>Applies the current choice to every token, the WinUI controls and the title bar, then redraws.</summary>
+    private void ApplyThemeChoice()
+    {
+        var light = ResolveLight();
+        if (light != Palette.IsLight) Palette.ApplyTheme(light);
+        ApplyControlTheme();
+        foreach (var (image, file, codex) in _railMarks) _ = LoadMark(image, file, codex);
+        UpdateChrome();
+        Rebuild(keepScroll: true);
+    }
+
+    /// <summary>WinUI's own controls (menus, combo boxes, scroll bars) and the caption buttons.</summary>
+    private void ApplyControlTheme()
+    {
+        Root.RequestedTheme = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
         var bar = AppWindow.TitleBar;
-        bar.ButtonBackgroundColor = Colors.Transparent;
-        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
         bar.ButtonForegroundColor = Palette.TextMuted;
         bar.ButtonInactiveForegroundColor = Palette.TextFaint;
         bar.ButtonHoverBackgroundColor = Palette.SurfaceHover;
         bar.ButtonHoverForegroundColor = Palette.Text;
         bar.ButtonPressedBackgroundColor = Palette.BorderBright;
         bar.ButtonPressedForegroundColor = Palette.Text;
+    }
+
+    /// <summary>
+    /// An agent's mark. OpenAI's file is its white mark, invisible on the light
+    /// rail, so there it is drawn black - OpenAI's own black variant of the same
+    /// single-colour mark, not a colour of ours. The file is untouched.
+    /// </summary>
+    private static async Task LoadMark(Image mark, string file, bool codex) =>
+        mark.Source = await ImageLoader.LoadAsync(file, mark.Width, mark.XamlRoot?.RasterizationScale ?? 1, black: codex && Palette.IsLight);
+
+    private void ConfigureWindow()
+    {
+        ExtendsContentIntoTitleBar = true;
+        var bar = AppWindow.TitleBar;
+        bar.ButtonBackgroundColor = Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        ApplyControlTheme();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         AppWindow.Title = "AI Usage";
 
@@ -168,6 +216,7 @@ public sealed partial class MainWindow : Window
     private void BuildShell()
     {
         Root.Background = Palette.BgBrush;
+        Root.RequestedTheme = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
         Root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(36) });
         Root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
@@ -219,6 +268,11 @@ public sealed partial class MainWindow : Window
             if (!_railMoving) _frame.Width = e.NewSize.Width;
         };
         _scroller.Content = _frame;
+        // Behind the scroller: what the light theme's card shadows fall on.
+        var shadowReceiver = new Grid { Background = Palette.BgBrush };
+        Grid.SetRow(shadowReceiver, 1);
+        main.Children.Add(shadowReceiver);
+        Ui.ShadowReceiver = shadowReceiver;
         Grid.SetRow(_scroller, 1);
         main.Children.Add(_scroller);
 
@@ -334,7 +388,9 @@ public sealed partial class MainWindow : Window
             // 10px each side keeps a 24px footprint and makes the marks look
             // the same size. The files themselves are untouched.
             var markFile = Path.Combine(AppContext.BaseDirectory, "Assets", "AgentMarks", meta.Id == ProviderId.Claude ? "claude-code.svg" : "codex.svg");
-            mark.Loaded += async (_, _) => mark.Source = await ImageLoader.LoadAsync(markFile, mark.Width, mark.XamlRoot?.RasterizationScale ?? 1);
+            var isCodex = meta.Id == ProviderId.Codex;
+            _railMarks.Add((mark, markFile, isCodex));
+            mark.Loaded += async (_, _) => await LoadMark(mark, markFile, isCodex);
             var markBox = new Grid { Width = 24, Height = 24 };
             markBox.Children.Add(mark);
 
@@ -571,6 +627,23 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(login);
         flyout.Items.Add(auto);
         flyout.Items.Add(tray);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // Theme: Dark (the default), Light, or follow Windows.
+        var theme = new MenuFlyoutSubItem { Text = "Theme", Icon = new FontIcon { Glyph = "" } };
+        foreach (var (value, label) in new[] { ("dark", "Dark"), ("light", "Light"), ("system", "Use Windows setting") })
+        {
+            var item = new RadioMenuFlyoutItem { Text = label, GroupName = "theme" };
+            item.Click += (_, _) =>
+            {
+                _settings.Theme = value;
+                _settings.Save();
+                ApplyThemeChoice();
+            };
+            flyout.Opening += (_, _) => item.IsChecked = _settings.Theme == value;
+            theme.Items.Add(item);
+        }
+        flyout.Items.Add(theme);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // The zoom keys, findable. The shortcut text is shown, not bound: the

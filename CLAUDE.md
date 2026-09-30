@@ -49,7 +49,7 @@ src/UsageCli/            `aiusage parse <agent>` and `aiusage demo-data`.
 src/UsageApp/            The WinUI 3 app.
   Program.cs               Entry point: single instance (AppInstance redirect).
   MainWindow.xaml.cs       Shell: title bar, rail, top bar, page host, navigation.
-  Theme/Palette.cs         Colour tokens; the accent brushes swapped per agent.
+  Theme/Palette.cs         Colour tokens for both themes; every brush swapped in place.
   Theme/Ui.cs              Element builders: text, cards, panels, tips, buttons, motion.
   Charts/                  Hand-drawn charts on XAML shapes (see "Charts").
   Controls/                FitGrid, DataTable, CountUp, score icons, logos, range picker.
@@ -77,7 +77,8 @@ Everything it writes lives in `%LOCALAPPDATA%\AI Usage Native\`:
 | `project-logos\claude\`, `project-logos\codex\` | one image per project, named after it |
 | `hidden-projects.json`, `codex-hidden-projects.json` | projects hidden from the Projects list (ids only) |
 | `model-settings.json`, `codex-model-settings.json` | prices and colours set from the Model prices table |
-| `app-settings.json` | the app's own preferences: rail, auto-refresh, close to tray |
+| `project-colors.json`, `codex-project-colors.json` | colours chosen for projects (ids and `#RRGGBB` only) |
+| `app-settings.json` | the app's own preferences: rail, auto-refresh, close to tray, zoom, theme |
 | `history\claude-history.json`, `history\codex-history.json` | the archive |
 
 **`AIUSAGE_DATA_DIR` moves all of it, and anything reading demo transcripts
@@ -281,9 +282,11 @@ XAML templates - the equivalent of the original's shared CSS classes, so a
 card, a panel head or an info tip exists in exactly one definition. Sizes are
 the original's CSS pixels as effective pixels, one for one.
 
-- **Colours come from `Palette`, never literals.** The accent brushes are
-  shared instances whose `Color` is swapped by `Palette.ApplyProvider`, which
-  is how switching agent re-themes everything without rebuilding it.
+- **Colours come from `Palette`, never literals.** Every brush is a shared
+  instance whose `Color` is swapped in place - by `Palette.ApplyProvider` for
+  the agent and `Palette.ApplyTheme` for the theme - which is how switching
+  either re-themes the shell without rebuilding it. The page is rebuilt after a
+  theme change anyway, for the few colours read as values.
 - **Geist is bundled** (`Assets/Fonts`, OFL) and loaded as
   `ms-appx:///Assets/Fonts/Geist-Variable.ttf#Geist`. An absolute file path
   silently falls back to Segoe UI.
@@ -291,6 +294,71 @@ the original's CSS pixels as effective pixels, one for one.
   alpha mask (`Ui.Glow`) - XAML has no text-shadow.
 - **Motion** (the rise-in, count-ups, chart growth) is skipped when Windows
   has animations turned off (`Motion.Enabled`).
+
+### Two themes
+
+Dark (the default) and Light, or the Windows setting, from **Settings ->
+Theme**; saved as `Theme` in `app-settings.json`, and "system" keeps
+following Windows (`UISettings.ColorValuesChanged`). It matches the web
+dashboard's light theme token for token.
+
+- **Light is its own design**: white cards on a grey page, a border and a
+  shadow on each, accents darkened to carry text at AA on white
+  (`ProviderMeta.AccentLight`), hover going darker where the dark theme's goes
+  brighter, and a heat map that DARKENS with spend - so the heat map's subtitle
+  says "Darker" there and "Brighter" in the dark theme.
+- **Model shades are data**, stored as their dark palette hex, so they cannot
+  follow the theme on their own. `ModelColors.LightPalettes` holds a twin per
+  palette index and `Palette.ModelColor` swaps via `ModelColors.Themed`.
+- **WinUI's own controls** follow `Root.RequestedTheme`; the caption buttons
+  are recoloured by hand (`ApplyControlTheme`). `App.xaml` still says Dark,
+  which only sets the default an element-level theme overrides.
+- **OpenAI's mark is white**, invisible on the light rail, so there it is drawn
+  black through a Skia colour filter (`ImageLoader.RenderSvg(black:)`) - the
+  vendor's own black variant of the same single-colour mark. The file is
+  untouched.
+- **The headline glow is dark-theme only**; on white it is a smudge.
+
+### Shadows need a receiver (light theme)
+
+`Ui.Elevate` gives every card a `ThemeShadow` at rest (Z 8) and raises it on
+hover (24 for a panel, 40 for a card that is a link). **A ThemeShadow in this
+window draws nothing without a receiver** - measured, the first version's cards
+came out flat - and a receiver may not be an ancestor of the caster. The shell
+therefore puts a plain grid behind the page's scroller (`Ui.ShadowReceiver`)
+for every card's shadow to fall on. Z is set outright, never through a
+`TranslationTransition`, which WinUI refuses beside the cards' RenderTransform.
+
+### Project colours
+
+The charts split by project draw each in its own colour
+(`UsageCore.View.ProjectColors`, `State/ProjectColorStore`): the one chosen
+with **Change colour…** (WinUI's `ColorPicker`, hex field on), else the logo's
+dominant colour, else a fallback handed out in the report's order. Logo and
+fallback colours are fitted to luminance 0.12-0.29, which clears 3:1 on both
+themes' panels; a chosen colour is used as chosen.
+
+- **The logo's background is its outer BAND, a few pixels deep**, not its
+  outermost ring: an app-icon tile has a 1px border round a fill of another
+  colour, and reading only the ring called the border the background and let
+  the black fill win (two real logos came out grey in the web version).
+  Coloured pixels win over grey ones, and a plain glyph on a coloured tile
+  returns the tile.
+- Logos are read at 64px through Skia (`ImageLoader.Pixels`, straight RGBA),
+  cached per file and last-write time.
+- The donut's slices and legend rows open their project; "Others" does not.
+
+### Daily spend by project
+
+After the heat map on the overview (`OverviewPage.ProjectPanel`): stacked
+areas on the monotone curve (`ProjectAreaChart`), largest project at the
+bottom, the top eight over the days shown plus Other - which also takes every
+hidden project, as the donut does. Range 30 / 90 / all
+(`RangePicker.ProjectRanges`). The areas are painted back to front, each from
+its cumulative top down to the baseline, which leaves no seams between bands;
+fills are mixed toward the panel rather than translucent, since stacked
+translucent layers would darken where they overlap. The legend is centred chips
+(`CenteredWrapPanel`) of colour, logo and name only, by the owner's choice.
 
 ### Charts are hand-drawn
 
@@ -473,8 +541,10 @@ whole.
 
 ### Where this deliberately differs from the original
 
-- The heat map's subtitle says **"Brighter means a more expensive day."** The
-  original said "Darker", but its own ramp rises in luminance with spend.
+- The heat map's subtitle says **"Brighter means a more expensive day."** in
+  the dark theme and "Darker" in the light one, each true of its own ramp. The
+  original said "Darker" in both until it gained a light theme as well; it now
+  does the same as this.
 - No password, cookie, CSP or LAN mode: there is no listener to protect.
 - Loading placeholders are approximate; the original's pixel-measured
   skeletons existed to stop a browser layout jumping.

@@ -100,6 +100,7 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         page.Children.Add(ActivityPanel(ctx, report, daily, projectId: null));
 
         var today = DayRanges.Today(report);
+        page.Children.Add(ProjectPanel(report, today));
         page.Children.Add(Parts.StackedPanel("Daily tokens by model",
             "Stacked by model, most expensive at the bottom — so the darker the base of a column, the more of that day went on premium tokens.",
             daily, today, spend: false));
@@ -111,6 +112,124 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         page.Children.Add(TokenPanel(meta, global.PerModel, global.Combined));
         page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, global.PerModel, report.ModelRates)));
         return page;
+    }
+
+    /// <summary>How many projects get a band of their own; the rest, and every hidden one, are Other.</summary>
+    private const int MaxProjectBands = 8;
+
+    /// <summary>
+    /// Daily spend by project: stacked areas, each project in its own colour,
+    /// over the last 30 days (the default), the last 90 or every day. Which
+    /// projects get a band is decided over the days shown.
+    /// </summary>
+    private Border ProjectPanel(UsageReport report, string today)
+    {
+        var body = new ContentControl
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Content = ProjectChart(report, DayRange.Last30, today),
+        };
+        var picker = RangePicker.Create("Days shown in Daily spend by project", range => body.Content = ProjectChart(report, range, today), DayRange.Last30, RangePicker.ProjectRanges);
+        var panel = Ui.Panel("Daily spend by project",
+            "Each project in its own colour, largest at the bottom. The top eight over the days shown get a band; the rest are summed into Other.",
+            picker, body);
+        Ui.Rise(panel, 65);
+        return panel;
+    }
+
+    private UIElement ProjectChart(UsageReport report, DayRange range, string today)
+    {
+        var days = DayRanges.DaysIn(report.Daily, range, today);
+        var index = days.Select((d, i) => (d.Date, i)).ToDictionary(x => x.Date, x => x.i, StringComparer.Ordinal);
+        var hidden = ctx.State.Hidden.For(ctx.State.Provider);
+        var colors = ctx.Colors.For(ctx.State.Provider, report.Projects);
+
+        var perProject = report.Projects.Select(p =>
+        {
+            var values = new double[days.Count];
+            foreach (var day in p.Daily)
+            {
+                if (index.TryGetValue(day.Date, out var i) && day.Combined.CostUsd > 0) values[i] = day.Combined.CostUsd;
+            }
+            return (Project: p, Values: values, Cost: values.Sum());
+        }).Where(x => x.Cost > 0).ToList();
+        var ranked = perProject.Where(x => !hidden.Contains(x.Project.Id)).OrderByDescending(x => x.Cost).ToList();
+        var hiddenOnes = perProject.Where(x => hidden.Contains(x.Project.Id)).ToList();
+        // As the donut does: at exactly one over the cap, Other would stand for one project.
+        var collapse = hiddenOnes.Count > 0 || ranked.Count > MaxProjectBands + 1;
+        var banded = collapse ? ranked.Take(MaxProjectBands).ToList() : ranked;
+        var rest = collapse ? ranked.Skip(MaxProjectBands).Concat(hiddenOnes).ToList() : [];
+
+        var series = banded.Select(x => new ProjectSeries(x.Project.Id, x.Project.Name, Palette.Hex(colors[x.Project.Id].Hex), x.Values, 1)).ToList();
+        if (rest.Count > 0)
+        {
+            var sums = new double[days.Count];
+            foreach (var x in rest) for (var i = 0; i < sums.Length; i++) sums[i] += x.Values[i];
+            series.Add(new ProjectSeries(null, hiddenOnes.Count == rest.Count ? "Hidden" : "Other", Palette.OthersColor, sums, rest.Count));
+        }
+        if (series.Count == 0) return Parts.NoDaysInRange(report.Daily, range);
+
+        var stack = new StackPanel();
+        stack.Children.Add(new ProjectAreaChart(days.Select(d => d.Date).ToList(), series));
+        stack.Children.Add(ProjectLegend(series));
+        return stack;
+    }
+
+    /// <summary>
+    /// Chips in stack order: the colour, the logo where there is one, the name -
+    /// nothing else, by the owner's choice; the figures are in the tooltip.
+    /// Centred, each wrapped line too. A project's chip opens it.
+    /// </summary>
+    private UIElement ProjectLegend(List<ProjectSeries> series)
+    {
+        var panel = new CenteredWrapPanel { HorizontalSpacing = 10, VerticalSpacing = 8 };
+        foreach (var s in series)
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            content.Children.Add(Ui.Swatch(s.Color));
+            content.Children.Add(s.Id is not null
+                ? ProjectLogoView.Create(s.Name, ctx.Logos.PathFor(ctx.State.Provider, s.Name), 18)
+                : Ui.Text($"+{s.Projects}", 11.5, 620, Palette.TextFaintBrush, numeric: true, selectable: false));
+            var name = Ui.Text(s.Name, 14, 560, selectable: false);
+            name.VerticalAlignment = VerticalAlignment.Center;
+            content.Children.Add(name);
+            var chip = new Border
+            {
+                Child = content,
+                Padding = new Thickness(9, 5, 11, 5),
+                CornerRadius = new CornerRadius(15),
+                BorderThickness = new Thickness(1),
+                BorderBrush = Palette.BorderBrush,
+                Background = Palette.SurfaceBrush,
+            };
+            if (s.Id is { } id)
+            {
+                Ui.HoverLift(chip, 1);
+                chip.PointerEntered += (_, _) => chip.Background = Palette.SurfaceHoverBrush;
+                chip.PointerExited += (_, _) => chip.Background = Palette.SurfaceBrush;
+                chip.Tapped += (_, _) => ctx.Navigate(new Route(PageKind.Project, id));
+                chip.IsTabStop = true;
+                chip.UseSystemFocusVisuals = true;
+                chip.KeyDown += (_, e) =>
+                {
+                    if (e.Key is Windows.System.VirtualKey.Enter or Windows.System.VirtualKey.Space) ctx.Navigate(new Route(PageKind.Project, id));
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(chip, $"Open {s.Name}");
+            }
+            else
+            {
+                Ui.SetTip(chip, $"{s.Projects} {(s.Projects == 1 ? "project" : "projects")}, combined");
+            }
+            panel.Children.Add(chip);
+        }
+        return new Border
+        {
+            Child = panel,
+            Margin = new Thickness(0, 18, 0, 0),
+            Padding = new Thickness(0, 16, 0, 0),
+            BorderBrush = Palette.BorderBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+        };
     }
 
     /// <summary>The Cost by model panel, with where the rates came from. Shared with a project page.</summary>
@@ -166,7 +285,9 @@ public sealed class OverviewPage(PageContext ctx) : IPage
             expand.Click += (_, _) => ctx.Navigate(new Route(PageKind.Activity, projectId));
         }
         var figure = HeatmapFigure.Build(layout, report.Settings.WeekStartsOn, "in the last 6 months", labelStrips: false, expand);
-        return Ui.Panel("Daily activity", "Spend per day over the last 6 months. Brighter means a more expensive day.", trend, figure);
+        // The ramp runs toward "more" against each theme's own ground: brighter
+        // on the dark one, darker on the light one.
+        return Ui.Panel("Daily activity", $"Spend per day over the last 6 months. {(Palette.IsLight ? "Darker" : "Brighter")} means a more expensive day.", trend, figure);
     }
 
     public static UIElement Loading()

@@ -81,6 +81,44 @@ public static class ModelColors
             ],
         };
 
+    /// <summary>
+    /// The same palettes for the light theme, index for index. A chosen shade is
+    /// stored as its dark hex, so it cannot follow the theme by itself;
+    /// <see cref="Themed"/> swaps it for the twin at the same index at draw time.
+    /// The dark ramp gets LIGHTER toward the cheap end, since light stands out on
+    /// black; on white that would fade the cheap bands into the panel, so each
+    /// light ramp runs from a deep tone to the agent's accent, every step above
+    /// 3:1 on white. Darker still means dearer in both themes.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<ProviderId, IReadOnlyList<string>> LightPalettes =
+        new Dictionary<ProviderId, IReadOnlyList<string>>
+        {
+            [ProviderId.Claude] =
+            [
+                "#712E19", "#79321B", "#82361D", "#8C3A1F", "#963E21", "#A14224",
+                "#AD4727", "#B94C29", "#C6512C", "#D25A33", "#D56845", "#D97657",
+            ],
+            [ProviderId.Codex] =
+            [
+                "#074B3B", "#085340", "#095B47", "#0A624D", "#0B6C54",
+                "#0C755C", "#0D8164", "#0E8C6D", "#0F9876", "#10A580",
+            ],
+        };
+
+    private static readonly Dictionary<string, string> LightTwin = Palettes
+        .SelectMany(p => p.Value.Select((hex, i) => (hex, twin: LightPalettes[p.Key][i])))
+        .ToDictionary(x => x.hex, x => x.twin, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Synthetic's light-theme twin: 3.19:1 on white.</summary>
+    public const string SyntheticLight = "#8C909B";
+
+    /// <summary>
+    /// A model colour as it is drawn in the light theme when <paramref name="light"/>.
+    /// Anything not in a palette - Unknown clears 3:1 on both grounds - is kept.
+    /// </summary>
+    public static string Themed(string hex, bool light) =>
+        !light ? hex : hex == Synthetic ? SyntheticLight : LightTwin.GetValueOrDefault(hex, hex);
+
     /// <summary>True when <paramref name="color"/> is one of the agent's palette shades (any case).</summary>
     public static bool IsPaletteColor(ProviderId provider, string color) =>
         Palettes[provider].Any(shade => string.Equals(shade, color, StringComparison.OrdinalIgnoreCase));

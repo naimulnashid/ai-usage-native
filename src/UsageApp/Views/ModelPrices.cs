@@ -235,7 +235,8 @@ public static class ModelPrices
                 MinHeight = 0,
                 Padding = new Thickness(0),
                 CornerRadius = new CornerRadius(7),
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Palette.Hex(shade)),
+                // Stored as the dark shade; drawn as the theme's twin of it.
+                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Palette.PaletteShade(shade)),
                 BorderBrush = selected ? Palette.TextBrush : Palette.TransparentBrush,
                 BorderThickness = new Thickness(2),
             };

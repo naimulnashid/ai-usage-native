@@ -94,6 +94,16 @@ unsigned: with Smart App Control on, Windows may block it.
   **Import project logos…** copies in a whole folder.
 - **Hide from project list** (⋯ menu) hides a project from the list only. Its
   spend still counts in every total and chart.
+- **Project colours**: the charts split by project (the Projects page's donut
+  and the overview's Daily spend by project) draw each project in its own
+  colour - the one you pick with **Change colour…** in its ⋯ menu (a colour
+  picker with a hex field), else its logo's dominant colour with the logo's
+  background left out, else one from a fixed palette. Click a donut slice or a
+  legend row to open that project.
+- **Daily spend by project**, after the heat map on the overview: spend stacked
+  by project over the last 30 days, the last 90, or every day on record.
+- **Theme**: **Settings → Theme** picks Dark (the default), Light, or the
+  Windows setting.
 - **Model prices**, the last panel on the overview, lists
   each model's rate. **Set price** (or **Edit**) gives a model the rate card
   does not know yet a price of its own: it wins over the card, and every figure
@@ -115,6 +125,7 @@ Everything the app writes is in `%LOCALAPPDATA%\AI Usage Native\`
 | `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
 | `model-settings.json`, `codex-model-settings.json` | prices and colours set in the Model prices table, one model at a time |
+| `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |
 
 Every key is optional. Refresh after editing.

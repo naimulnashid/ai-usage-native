@@ -57,9 +57,10 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var total = report.Global.Combined.CostUsd;
         var hidden = ctx.State.Hidden.For(meta.Id);
 
+        var colors = ctx.Colors.For(meta.Id, report.Projects);
         var donutPanel = Ui.Panel("Share of spend",
-            "The largest projects as slices of the total, shaded by rank — so the ring reads in the same order as the list below. Anything past the top nine is summed into Others.",
-            null, ShareChart(report.Projects, total, hidden));
+            "The largest projects as slices of the total, each in its own colour — its logo's, or one you pick from its ⋯ menu. Anything past the top nine is summed into Others. Click a slice or a name to open the project.",
+            null, ShareChart(report.Projects, total, hidden, colors));
         Ui.Rise(donutPanel);
         page.Children.Add(donutPanel);
 
@@ -69,7 +70,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var listed = expanded ? report.Projects : report.Projects.Where(p => !hidden.Contains(p.Id)).ToList();
         for (var i = 0; i < listed.Count; i++)
         {
-            var card = ProjectCard(meta, listed[i], total, hidden.Contains(listed[i].Id));
+            var card = ProjectCard(meta, listed[i], total, hidden.Contains(listed[i].Id), colors[listed[i].Id]);
             Ui.Rise(card, i * 40);
             page.Children.Add(card);
         }
@@ -102,7 +103,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
 
     /* --------------------------------------------------------------- Donut */
 
-    private UIElement ShareChart(List<ProjectSummary> projects, double total, IReadOnlySet<string> hiddenIds)
+    private UIElement ShareChart(List<ProjectSummary> projects, double total, IReadOnlySet<string> hiddenIds, Dictionary<string, (string Hex, ProjectColorSource Source)> colors)
     {
         var ranked = projects.Where(p => p.Combined.CostUsd > 0).OrderByDescending(p => p.Combined.CostUsd).ToList();
         if (ranked.Count == 0 || total <= 0) return new Border();
@@ -116,7 +117,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var shown = collapse ? listed.Take(MaxSlices).ToList() : listed;
         var rest = collapse ? listed.Skip(MaxSlices).Concat(hidden).ToList() : [];
 
-        var slices = shown.Select((p, i) => new DonutSlice(p.Id, p.Name, p.Combined.CostUsd, p.Combined.TotalTokens, p.Combined.CostUsd / total * 100, Palette.RankColor(i, shown.Count), false, 1, 0)).ToList();
+        var slices = shown.Select((p, i) => new DonutSlice(p.Id, p.Name, p.Combined.CostUsd, p.Combined.TotalTokens, p.Combined.CostUsd / total * 100, Palette.Hex(colors[p.Id].Hex), false, 1, 0)).ToList();
         if (rest.Count > 0)
         {
             var cost = rest.Sum(p => p.Combined.CostUsd);
@@ -124,6 +125,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         }
 
         var donut = new DonutChart(slices, total, ranked.Count);
+        donut.SliceClicked += id => ctx.Navigate(new Route(PageKind.Project, id));
 
         // The legend: multi-column, filled top to bottom, so the left column is
         // the top of the ranking in order - the same order as the list below.
@@ -161,6 +163,19 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             var id = slice.Id;
             row.PointerEntered += (_, _) => { row.Background = Palette.SurfaceHoverBrush; donut.SetActive(id); Dim(rows, id); };
             row.PointerExited += (_, _) => { row.Background = Palette.TransparentBrush; donut.SetActive(null); Dim(rows, null); };
+            if (!slice.Remainder)
+            {
+                // A row opens its project, as its slice does. handledEventsToo:
+                // the selectable name marks a tap as handled.
+                row.AddHandler(UIElement.TappedEvent, new TappedEventHandler((_, _) => ctx.Navigate(new Route(PageKind.Project, id))), handledEventsToo: true);
+                row.IsTabStop = true;
+                row.UseSystemFocusVisuals = true;
+                row.KeyDown += (_, e) =>
+                {
+                    if (e.Key is Windows.System.VirtualKey.Enter or Windows.System.VirtualKey.Space) ctx.Navigate(new Route(PageKind.Project, id));
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(row, $"Open {slice.Name}, {Format.Usd(slice.Cost)}, {slice.Share:0.0}%");
+            }
             rows.Add(row);
         }
         donut.ActiveChanged += id => Dim(rows, id);
@@ -209,7 +224,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
 
     /* --------------------------------------------------------- Project card */
 
-    private Border ProjectCard(ProviderMeta meta, ProjectSummary project, double total, bool isHidden)
+    private Border ProjectCard(ProviderMeta meta, ProjectSummary project, double total, bool isHidden, (string Hex, ProjectColorSource Source) color)
     {
         var share = total > 0 ? project.Combined.CostUsd / total * 100 : 0;
         var content = new StackPanel();
@@ -270,7 +285,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         stats.Children.Add(left);
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         right.Children.Add(Ui.Text("View breakdown →", 14.5, 550, Palette.Accent));
-        right.Children.Add(Menu(meta, project, isHidden));
+        right.Children.Add(Menu(meta, project, isHidden, color));
         Grid.SetColumn(right, 1);
         stats.Children.Add(right);
         content.Children.Add(stats);
@@ -317,7 +332,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
     /// The card's options: hide it from this list (a view preference - its spend
     /// still counts everywhere), and its logo.
     /// </summary>
-    private Button Menu(ProviderMeta meta, ProjectSummary project, bool isHidden)
+    private Button Menu(ProviderMeta meta, ProjectSummary project, bool isHidden, (string Hex, ProjectColorSource Source) color)
     {
         var dots = new FontIcon { Glyph = "", FontSize = 14, Foreground = Palette.TextFaintBrush };
         var button = new Button
@@ -337,6 +352,11 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"Options for {project.Name}");
 
         var flyout = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
+        var recolour = new MenuFlyoutItem { Text = "Change colour…", Icon = new FontIcon { Glyph = "\uE790", Foreground = new SolidColorBrush(Palette.Hex(color.Hex)) } };
+        Ui.SetTip(recolour, "How it is drawn in the charts. " + SourceNote(color.Source));
+        // After the menu has closed: a flyout cannot open from inside another's Click.
+        recolour.Click += (_, _) => Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() => ColorEditor(meta, project, color).ShowAt(button));
+        flyout.Items.Add(recolour);
         var hide = new MenuFlyoutItem
         {
             Text = isHidden ? "Show in project list" : "Hide from project list",
@@ -364,6 +384,75 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         flyout.Items.Add(open);
         button.Flyout = flyout;
         return button;
+    }
+
+    private static string SourceNote(ProjectColorSource source) => source switch
+    {
+        ProjectColorSource.Custom => "Chosen by you.",
+        ProjectColorSource.Logo => "Taken from its logo.",
+        _ => "Picked automatically - it has no logo.",
+    };
+
+    /// <summary>
+    /// The colour editor: WinUI's own colour picker, which carries a hex field
+    /// for entering one exactly, then Save / Reset / Cancel. A save redraws; it
+    /// never re-parses, since a colour is a view preference.
+    /// </summary>
+    private Flyout ColorEditor(ProviderMeta meta, ProjectSummary project, (string Hex, ProjectColorSource Source) color)
+    {
+        var flyout = new Flyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
+        var root = new StackPanel { Spacing = 10, Width = 300 };
+        root.Children.Add(Ui.Text($"Colour for {project.Name}", 14, 600));
+        var picker = new ColorPicker
+        {
+            Color = Palette.Hex(color.Hex),
+            IsAlphaEnabled = false,
+            IsMoreButtonVisible = false,
+            IsColorSliderVisible = true,
+            IsColorChannelTextInputVisible = false,
+            IsHexInputVisible = true,
+            ColorSpectrumShape = ColorSpectrumShape.Box,
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, $"Colour for {project.Name}");
+        root.Children.Add(picker);
+        var note = SourceNote(color.Source);
+        if (color.Source == ProjectColorSource.Custom) note += " Reset goes back to the logo colour, or an automatic one.";
+        root.Children.Add(Ui.Paragraph(note, 13));
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var save = Ui.Button("Save", primary: true, fontSize: 14, padding: new Thickness(13, 6, 13, 6));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(save, "Save colour");
+        save.Click += (_, _) =>
+        {
+            var c = picker.Color;
+            flyout.Hide();
+            Guard(() =>
+            {
+                ctx.Colors.Save(meta.Id, project.Id, $"#{c.R:X2}{c.G:X2}{c.B:X2}");
+                Rebuild();
+            });
+        };
+        actions.Children.Add(save);
+        if (color.Source == ProjectColorSource.Custom)
+        {
+            var reset = Ui.Button("Reset", fontSize: 14, padding: new Thickness(13, 6, 13, 6));
+            reset.Click += (_, _) =>
+            {
+                flyout.Hide();
+                Guard(() =>
+                {
+                    ctx.Colors.Save(meta.Id, project.Id, null);
+                    Rebuild();
+                });
+            };
+            actions.Children.Add(reset);
+        }
+        var cancel = Ui.Button("Cancel", fontSize: 14, padding: new Thickness(13, 6, 13, 6));
+        cancel.Click += (_, _) => flyout.Hide();
+        actions.Children.Add(cancel);
+        root.Children.Add(actions);
+        flyout.Content = root;
+        return flyout;
     }
 
     private async Task PickLogo(ProviderMeta meta, ProjectSummary project)
@@ -404,7 +493,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         {
             action();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             _ = Shell.ShowMessage(ctx.Window, "Could not save", ex.Message);
         }

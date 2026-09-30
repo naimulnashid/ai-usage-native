@@ -18,6 +18,7 @@ public sealed class PageContext
 {
     public required AppState State { get; init; }
     public required LogoStore Logos { get; init; }
+    public required ProjectColorStore Colors { get; init; }
     public required Action<Route> Navigate { get; init; }
 
     /// <summary>Rebuilds the current page in place, keeping the scroll position.</summary>

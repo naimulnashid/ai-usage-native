@@ -21,7 +21,9 @@ namespace UsageApp.Imaging;
 public static class ImageLoader
 {
     /// <summary>PNG bytes for an SVG, fitted and centred in a square.</summary>
-    public static byte[]? RenderSvg(string path, int pixels)
+    /// <param name="black">Draw every opaque pixel black: OpenAI's white mark as its
+    /// official black variant, on the light theme's rail. Nothing else uses it.</param>
+    public static byte[]? RenderSvg(string path, int pixels, bool black = false)
     {
         try
         {
@@ -38,7 +40,15 @@ public static class ImageLoader
                 canvas.Translate((pixels - bounds.Width * scale) / 2, (pixels - bounds.Height * scale) / 2);
                 canvas.Scale(scale);
                 canvas.Translate(-bounds.Left, -bounds.Top);
-                canvas.DrawPicture(picture);
+                if (black)
+                {
+                    using var paint = new SKPaint { ColorFilter = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.SrcIn) };
+                    canvas.DrawPicture(picture, paint);
+                }
+                else
+                {
+                    canvas.DrawPicture(picture);
+                }
             }
             using var image = SKImage.FromBitmap(bitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
@@ -51,10 +61,57 @@ public static class ImageLoader
     }
 
     /// <summary>
+    /// A logo's pixels as straight RGBA, fitted and centred in a square of
+    /// <paramref name="pixels"/> - what the dominant-colour reading needs. SVG
+    /// through Svg.Skia like everything else, raster files decoded by Skia.
+    /// Null when the file cannot be read.
+    /// </summary>
+    public static byte[]? Pixels(string path, int pixels)
+    {
+        try
+        {
+            using var bitmap = new SKBitmap(new SKImageInfo(pixels, pixels, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(SKColors.Transparent);
+                if (path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var svg = new SKSvg();
+                    var picture = svg.Load(path);
+                    if (picture is null) return null;
+                    var bounds = picture.CullRect;
+                    if (bounds.Width <= 0 || bounds.Height <= 0) return null;
+                    var scale = pixels / Math.Max(bounds.Width, bounds.Height);
+                    canvas.Translate((pixels - bounds.Width * scale) / 2, (pixels - bounds.Height * scale) / 2);
+                    canvas.Scale(scale);
+                    canvas.Translate(-bounds.Left, -bounds.Top);
+                    canvas.DrawPicture(picture);
+                }
+                else
+                {
+                    using var source = SKBitmap.Decode(path);
+                    if (source is null || source.Width <= 0 || source.Height <= 0) return null;
+                    var scale = (float)pixels / Math.Max(source.Width, source.Height);
+                    var w = source.Width * scale;
+                    var h = source.Height * scale;
+                    using var paint = new SKPaint { IsAntialias = true };
+                    using var image = SKImage.FromBitmap(source);
+                    canvas.DrawImage(image, SKRect.Create((pixels - w) / 2, (pixels - h) / 2, w, h), new SKSamplingOptions(SKFilterMode.Linear), paint);
+                }
+            }
+            return bitmap.Bytes;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// An image source for any supported file, or null when it cannot be read.
     /// Call on the UI thread; the decoding work happens off it.
     /// </summary>
-    public static async Task<ImageSource?> LoadAsync(string path, double displaySize, double scale)
+    public static async Task<ImageSource?> LoadAsync(string path, double displaySize, double scale, bool black = false)
     {
         try
         {
@@ -62,7 +119,7 @@ public static class ImageLoader
             if (path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
             {
                 var pixels = (int)Math.Ceiling(displaySize * Math.Max(1, scale) * 2);
-                bytes = await Task.Run(() => RenderSvg(path, pixels));
+                bytes = await Task.Run(() => RenderSvg(path, pixels, black));
             }
             else
             {

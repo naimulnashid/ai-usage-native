@@ -12,8 +12,15 @@ namespace UsageApp.Controls;
 /// </summary>
 public static class RangePicker
 {
-    public static ComboBox Create(string automationName, Action<DayRange> onChange, DayRange initial = DayRange.Last30)
+    /// <summary>The per-model charts' choices.</summary>
+    public static readonly DayRange[] ModelRanges = [DayRange.Last30, DayRange.Last60, DayRange.All];
+
+    /// <summary>Daily spend by project's: a quarter rather than two months, since projects move slower than models.</summary>
+    public static readonly DayRange[] ProjectRanges = [DayRange.Last30, DayRange.Last90, DayRange.All];
+
+    public static ComboBox Create(string automationName, Action<DayRange> onChange, DayRange initial = DayRange.Last30, DayRange[]? options = null)
     {
+        options ??= ModelRanges;
         var box = new ComboBox
         {
             FontFamily = Fonts.Sans,
@@ -35,11 +42,11 @@ public static class RangePicker
         box.Resources["ComboBoxBorderBrushPressed"] = Palette.Accent;
         box.Resources["ComboBoxDropDownBackground"] = Palette.TooltipBgBrush;
         box.Resources["ComboBoxDropDownBorderBrush"] = Palette.BorderBrightBrush;
-        foreach (var range in new[] { DayRange.Last30, DayRange.Last60, DayRange.All })
+        foreach (var range in options)
         {
             box.Items.Add(new ComboBoxItem { Content = DayRanges.Label(range), Tag = range, FontFamily = Fonts.Sans, FontSize = 14 });
         }
-        box.SelectedIndex = initial switch { DayRange.Last60 => 1, DayRange.All => 2, _ => 0 };
+        box.SelectedIndex = Math.Max(0, Array.IndexOf(options, initial));
         box.SelectionChanged += (_, _) =>
         {
             if (box.SelectedItem is ComboBoxItem { Tag: DayRange range }) onChange(range);

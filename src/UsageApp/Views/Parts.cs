@@ -44,8 +44,9 @@ public static class Parts
         value.LineHeight = 0;
         CountUp.Apply(value, cost, v => Format.Usd(v));
         var accent = Palette.AccentColor;
-        // The original's text-shadow: 60px of the accent at 28%.
-        first.Children.Add(Ui.Glow(value, Windows.UI.Color.FromArgb(71, accent.R, accent.G, accent.B)));
+        // The original's text-shadow: 60px of the accent at 28%. Dark theme
+        // only - a glow is light on dark, and on white it is a smudge.
+        first.Children.Add(Palette.IsLight ? value : Ui.Glow(value, Windows.UI.Color.FromArgb(71, accent.R, accent.G, accent.B)));
         foreach (var extra in costExtras) first.Children.Add(extra);
         grid.Children.Add(first);
 
@@ -225,7 +226,7 @@ public static class Parts
         if (range == DayRange.All) text = "No dated activity found.";
         else
         {
-            var days = range == DayRange.Last30 ? 30 : 60;
+            var days = range switch { DayRange.Last30 => 30, DayRange.Last60 => 60, _ => 90 };
             var last = DayRanges.LastActiveDate(daily);
             text = $"No activity in the last {days} days." + (last is not null ? $" The most recent was on {Format.DateStamp(last)}." : "");
         }
