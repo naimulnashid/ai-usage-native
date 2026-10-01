@@ -646,3 +646,22 @@ commit messages — proportions, not totals.
 
 Conventional commits, authored by the repo owner alone — **never a
 `Co-Authored-By` trailer**.
+
+**Two repos, since 2026-10-01**, the same shape as the owner's other
+projects. The working copy pushes to a **private twin**, which holds the full
+history; the public repository receives **exports**. An export script kept in
+the twin copies the committed tree (never the working tree) into a sibling
+clone of the public repo, leaving out the twin's own tooling, `.claude/` and
+`.github/dependabot.yml`, and refuses while any personal term from its
+blocklist would go out. Commit and push that clone as a separate, deliberate
+step, one commit per release.
+
+- **This file IS exported**, unlike the other natives' design notes: it was
+  written as a public design record from the start, and the Privacy rule
+  above keeps it that way.
+- **Dependency updates run on the private twin only.** Dependabot alerts,
+  security fixes and `dependabot.yml` live there; fixes reach the public repo
+  through the next export. A Dependabot PR on the public repo would duplicate
+  that work.
+- Pull requests on the public repo are applied in the working copy and
+  re-exported, never merged on the public side.

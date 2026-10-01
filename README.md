@@ -180,7 +180,8 @@ data folder runs beside the one in your tray.
 | `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
 
 [CLAUDE.md](CLAUDE.md) explains how the numbers are computed and why, and the
-rules the UI follows.
+rules the UI follows. Issues are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md),
+and report security problems privately as [SECURITY.md](SECURITY.md) describes.
 
 ## License
 
