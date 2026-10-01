@@ -20,8 +20,9 @@ dotnet test --project tests\UsageCore.Tests\UsageCore.Tests.csproj
 ```
 
 The tests need no real transcripts: they write their fixtures at run time.
-If you touch a parser, read [CLAUDE.md](CLAUDE.md) first - it records the
-traps in both agents' file formats, each found on real data.
+If you touch a parser, add a test for the case you changed: both agents'
+file formats have traps, each found on real data, and the tests are where
+they are pinned down.
 
 ## Conventions
 

@@ -7,7 +7,7 @@
 // timeline, so this is a headline and a few words rather than a screenshot. It
 // is generated rather than exported from a design tool so it can be redrawn
 // when the wording changes, and so it never holds a pixel of real usage - the
-// privacy rules in CLAUDE.md apply to an image as much as to a commit.
+// privacy rules in CONTRIBUTING.md apply to an image as much as to a commit.
 //
 // Upload it by hand: Settings -> General -> Social preview. GitHub has no API
 // for it.

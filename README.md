@@ -53,7 +53,7 @@ installing. Windows 10 1809 or later, x64.
 The build is not code-signed, so SmartScreen will say it does not recognise the
 app: **More info → Run anyway**. With Smart App Control turned on, Windows may
 refuse it outright; build it yourself instead (below). Signing is being
-considered; the options are weighed in [CLAUDE.md](CLAUDE.md#code-signing-not-done-yet-deliberately-deferred).
+considered.
 
 ## Build and install from source
 
@@ -179,9 +179,8 @@ data folder runs beside the one in your tray.
 | `dotnet run tools/make-social-preview.cs` | Redraws `.github/social-preview.png` |
 | `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
 
-[CLAUDE.md](CLAUDE.md) explains how the numbers are computed and why, and the
-rules the UI follows. Issues are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md),
-and report security problems privately as [SECURITY.md](SECURITY.md) describes.
+Issues are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), and report
+security problems privately as [SECURITY.md](SECURITY.md) describes.
 
 ## License
 

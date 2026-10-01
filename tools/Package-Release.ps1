@@ -9,7 +9,7 @@
   SDK runtime.
 
   Refuses a build without AIUsage.pri, which would crash at startup - see
-  EnableMsixTooling in CLAUDE.md.
+  EnableMsixTooling in src\UsageApp\UsageApp.csproj.
 #>
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
