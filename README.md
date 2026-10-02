@@ -100,6 +100,14 @@ unsigned: with Smart App Control on, Windows may block it.
   **Import project logos…** copies in a whole folder.
 - **Hide from project list** (⋯ menu) hides a project from the list only. Its
   spend still counts in every total and chart.
+- **Rename…** (⋯ menu) changes the name a project is shown under. Only the
+  label changes - the folder is left alone - and logos are matched by the new
+  name. **Reset** goes back to the folder's name.
+- **Merge into…** (⋯ menu) counts one project as part of another - a folder
+  that moved, or a private and a public copy of the same work. Its spend,
+  sessions and history join the chosen project under that project's name; no
+  total changes. **Unmerge**, in the merged project's menu, separates them
+  again, except for days whose transcripts are already gone.
 - **Project colours**: the charts split by project (the Projects page's donut
   and the overview's Daily spend by project) draw each project in its own
   colour - the one you pick with **Change colour…** in its ⋯ menu (a colour
@@ -132,6 +140,7 @@ Everything the app writes is in `%LOCALAPPDATA%\AI Usage Native\`
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
 | `model-settings.json`, `codex-model-settings.json` | prices and colours set in the Model prices table, one model at a time |
 | `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
+| `project-settings.json`, `codex-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |
 
 Every key is optional. Refresh after editing.

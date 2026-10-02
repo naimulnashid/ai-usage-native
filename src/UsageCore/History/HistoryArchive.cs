@@ -264,10 +264,6 @@ public static class HistoryArchive
     }
 
     /// <summary>
-    /// Rebuilds the report from the archive, which by now holds the best known
-    /// version of every day, including the ones just parsed.
-    /// </summary>
-    /// <summary>
     /// A stored bucket priced at today's rates. The archive keeps the token
     /// counts, so a stored day can be priced again - without this, giving a new
     /// model a rate would fix every live day and leave its archived days at $0.
@@ -297,10 +293,23 @@ public static class HistoryArchive
         return (cells, total);
     }
 
-    public static UsageReport Apply(UsageReport report, HistoryFile history, long nowMs, PricingConfig? pricing = null)
+    /// <summary>
+    /// Rebuilds the report from the archive, which by now holds the best known
+    /// version of every day, including the ones just parsed. With <paramref name="projectConfig"/>,
+    /// stored days are grouped by today's merge rules and projects are named by
+    /// today's display names - see <see cref="RegroupProjects"/>.
+    /// </summary>
+    public static UsageReport Apply(UsageReport report, HistoryFile history, long nowMs, PricingConfig? pricing = null, ProjectConfig? projectConfig = null)
     {
         if (history.Days.Count == 0) return report;
         var tracksReasoning = report.Provider == ProviderId.Codex;
+        var merge = projectConfig?.Merge ?? ProjectConfig.None.Merge;
+        var displayNames = projectConfig?.DisplayNames ?? ProjectConfig.None.DisplayNames;
+        var foldedIn = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        var dayProjects = history.Days.ToDictionary(
+            kv => kv.Key,
+            kv => RegroupProjects(kv.Value.Projects, merge, foldedIn, report.Diagnostics.Warnings, tracksReasoning),
+            StringComparer.Ordinal);
         var archivedDates = history.Days.Keys.ToList(); // SortedDictionary: already in order
         var liveDates = report.Daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToHashSet(StringComparer.Ordinal);
 
@@ -318,7 +327,7 @@ public static class HistoryArchive
 
         var live = report.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
         var ids = new HashSet<string>(report.Projects.Select(p => p.Id), StringComparer.Ordinal);
-        foreach (var date in archivedDates) ids.UnionWith(history.Days[date].Projects.Keys);
+        foreach (var date in archivedDates) ids.UnionWith(dayProjects[date].Keys);
 
         var projects = ids.Select(id =>
             {
@@ -326,7 +335,7 @@ public static class HistoryArchive
                 var projectDaily = new List<DailyEntry>();
                 foreach (var date in archivedDates)
                 {
-                    if (history.Days[date].Projects.TryGetValue(id, out var bucket))
+                    if (dayProjects[date].TryGetValue(id, out var bucket))
                     {
                         var (perModel, combined) = Reprice(bucket.PerModel, bucket.Combined, pricing);
                         projectDaily.Add(new DailyEntry { Date = date, PerModel = perModel, Combined = combined });
@@ -335,13 +344,17 @@ public static class HistoryArchive
                 if (liveProject?.Daily.FirstOrDefault(d => d.Date == Dates.UnknownDate) is { } unknownDay) projectDaily.Add(unknownDay);
 
                 var rolled = RollUp(projectDaily.Select(d => (d.PerModel, d.Combined)), tracksReasoning);
-                history.ProjectMeta.TryGetValue(id, out var meta);
+                var sources = foldedIn.TryGetValue(id, out var folded) ? folded : [];
+                // A target known only through what was folded into it borrows
+                // the first source's path and name.
+                var meta = history.ProjectMeta.GetValueOrDefault(id)
+                           ?? sources.Select(s => history.ProjectMeta.GetValueOrDefault(s)).FirstOrDefault(m => m is not null);
                 return new ProjectSummary
                 {
                     Id = id,
                     Cwd = liveProject?.Cwd ?? meta?.Cwd,
-                    Name = liveProject?.Name ?? meta?.Name ?? id,
-                    MergedFrom = liveProject?.MergedFrom ?? [],
+                    Name = displayNames.TryGetValue(id, out var display) ? display : liveProject?.Name ?? meta?.Name ?? id,
+                    MergedFrom = (liveProject?.MergedFrom ?? []).Union(sources, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
                     PerModel = rolled.PerModel,
                     Combined = rolled.Combined,
                     Daily = projectDaily,
@@ -398,13 +411,52 @@ public static class HistoryArchive
     }
 
     /// <summary>Parse-time hook: fold in, persist, rebuild from the archive.</summary>
-    public static UsageReport WithHistory(UsageReport report, string? historyDir = null, PricingConfig? pricing = null)
+    public static UsageReport WithHistory(UsageReport report, string? historyDir = null, PricingConfig? pricing = null, ProjectConfig? projectConfig = null)
     {
         var warnings = report.Diagnostics.Warnings;
         var file = PathFor(report.Provider, historyDir);
         var history = Load(file, warnings);
         Merge(history, report, DateTimeOffset.UtcNow);
         Save(history, file, warnings);
-        return Apply(report, history, report.GeneratedAt.ToUnixTimeMilliseconds(), pricing);
+        return Apply(report, history, report.GeneratedAt.ToUnixTimeMilliseconds(), pricing, projectConfig);
+    }
+
+    /// <summary>
+    /// One stored day's projects, grouped by today's merge rules.
+    /// </summary>
+    /// <remarks>
+    /// <para>A day is stored under the ids it was parsed with, so without this a
+    /// merge would reach only the days whose transcripts are still on disk (the
+    /// next parse rewrites those): a day whose transcript is gone would keep the
+    /// merged-away project on the list, holding just its oldest history.</para>
+    /// <para>It cannot run the other way. A day stored while a merge was in
+    /// place holds the two as one, so separating them again splits only the days
+    /// still on disk; older ones stay with the project they were merged into.</para>
+    /// <para>The day's own totals are untouched - a merge only regroups.</para>
+    /// </remarks>
+    private static Dictionary<string, UsageBucket> RegroupProjects(
+        Dictionary<string, UsageBucket> stored,
+        IReadOnlyDictionary<string, string> merge,
+        Dictionary<string, SortedSet<string>> foldedIn,
+        List<string> warnings,
+        bool tracksReasoning)
+    {
+        if (merge.Count == 0) return stored;
+        var groups = new Dictionary<string, List<UsageBucket>>(StringComparer.Ordinal);
+        foreach (var (id, bucket) in stored)
+        {
+            var target = AppConfig.ResolveProjectId(id, merge, warnings);
+            if (target != id)
+            {
+                if (!foldedIn.TryGetValue(target, out var set)) foldedIn[target] = set = new SortedSet<string>(StringComparer.Ordinal);
+                set.Add(id);
+            }
+            if (!groups.TryGetValue(target, out var list)) groups[target] = list = [];
+            list.Add(bucket);
+        }
+        return groups.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.Count == 1 ? kv.Value[0] : RollUp(kv.Value.Select(b => (b.PerModel, b.Combined)), tracksReasoning),
+            StringComparer.Ordinal);
     }
 }

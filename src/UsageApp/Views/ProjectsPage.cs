@@ -7,6 +7,7 @@ using UsageApp.Charts;
 using UsageApp.Controls;
 using UsageApp.Theme;
 using UsageCore;
+using UsageCore.Config;
 using UsageCore.Model;
 using UsageCore.Parsing;
 using UsageCore.View;
@@ -68,9 +69,10 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var hiddenCount = report.Projects.Count(p => hidden.Contains(p.Id));
         var expanded = _showAll && hiddenCount > 0;
         var listed = expanded ? report.Projects : report.Projects.Where(p => !hidden.Contains(p.Id)).ToList();
+        var own = ProjectSettings.Load(meta.Id);
         for (var i = 0; i < listed.Count; i++)
         {
-            var card = ProjectCard(meta, listed[i], total, hidden.Contains(listed[i].Id), colors[listed[i].Id]);
+            var card = ProjectCard(meta, listed[i], total, hidden.Contains(listed[i].Id), colors[listed[i].Id], report.Projects, own);
             Ui.Rise(card, i * 40);
             page.Children.Add(card);
         }
@@ -224,7 +226,8 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
 
     /* --------------------------------------------------------- Project card */
 
-    private Border ProjectCard(ProviderMeta meta, ProjectSummary project, double total, bool isHidden, (string Hex, ProjectColorSource Source) color)
+    private Border ProjectCard(ProviderMeta meta, ProjectSummary project, double total, bool isHidden, (string Hex, ProjectColorSource Source) color,
+        List<ProjectSummary> all, ProjectConfig own)
     {
         var share = total > 0 ? project.Combined.CostUsd / total * 100 : 0;
         var content = new StackPanel();
@@ -285,7 +288,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         stats.Children.Add(left);
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         right.Children.Add(Ui.Text("View breakdown →", 14.5, 550, Palette.Accent));
-        right.Children.Add(Menu(meta, project, isHidden, color));
+        right.Children.Add(Menu(meta, project, isHidden, color, all, own));
         Grid.SetColumn(right, 1);
         stats.Children.Add(right);
         content.Children.Add(stats);
@@ -329,10 +332,14 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
     }
 
     /// <summary>
-    /// The card's options: hide it from this list (a view preference - its spend
-    /// still counts everywhere), and its logo.
+    /// The card's options: its colour, its name, merging it into another project
+    /// (and separating what was merged into it), hiding it from this list (a
+    /// view preference - its spend still counts everywhere), and its logo.
     /// </summary>
-    private Button Menu(ProviderMeta meta, ProjectSummary project, bool isHidden, (string Hex, ProjectColorSource Source) color)
+    /// <param name="own">The merges and names set from this page, which are the
+    /// ones it can undo; <c>projects.json</c>'s are edited there.</param>
+    private Button Menu(ProviderMeta meta, ProjectSummary project, bool isHidden, (string Hex, ProjectColorSource Source) color,
+        List<ProjectSummary> all, ProjectConfig own)
     {
         var dots = new FontIcon { Glyph = "", FontSize = 14, Foreground = Palette.TextFaintBrush };
         var button = new Button
@@ -357,6 +364,35 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         // After the menu has closed: a flyout cannot open from inside another's Click.
         recolour.Click += (_, _) => Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() => ColorEditor(meta, project, color).ShowAt(button));
         flyout.Items.Add(recolour);
+        var rename = new MenuFlyoutItem { Text = "Rename…", Icon = new FontIcon { Glyph = "\uE8AC" } };
+        Ui.SetTip(rename, "The name shown in this app. Nothing on disk is renamed.");
+        rename.Click += (_, _) => Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() => RenameEditor(meta, project, own).ShowAt(button));
+        flyout.Items.Add(rename);
+        var others = all.Where(p => p.Id != project.Id).ToList();
+        if (others.Count > 0)
+        {
+            var mergeInto = new MenuFlyoutItem { Text = "Merge into…", Icon = new FontIcon { Glyph = "\uE71B" } };
+            Ui.SetTip(mergeInto, "Counts it as part of another project, under that one's name.");
+            mergeInto.Click += (_, _) => Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() => MergeEditor(meta, project, others).ShowAt(button));
+            flyout.Items.Add(mergeInto);
+        }
+        // Only what this page merged can be separated here.
+        var separable = project.MergedFrom.Where(source => own.Merge.ContainsKey(source)).ToList();
+        foreach (var source in separable)
+        {
+            var unmerge = new MenuFlyoutItem
+            {
+                Text = separable.Count == 1 ? "Unmerge" : $"Unmerge {source}",
+                Icon = new FontIcon { Glyph = "\uE8C6" },
+            };
+            Ui.SetTip(unmerge, $"Lists {source} as a project of its own again. Days whose transcripts are already gone stay with {project.Name}.");
+            unmerge.Click += (_, _) => Guard(() =>
+            {
+                ProjectSettings.SaveMerge(meta.Id, source, null);
+                _ = ctx.State.RefreshAsync(meta.Id);
+            });
+            flyout.Items.Add(unmerge);
+        }
         var hide = new MenuFlyoutItem
         {
             Text = isHidden ? "Show in project list" : "Hide from project list",
@@ -451,6 +487,145 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         cancel.Click += (_, _) => flyout.Hide();
         actions.Children.Add(cancel);
         root.Children.Add(actions);
+        flyout.Content = root;
+        return flyout;
+    }
+
+    /// <summary>
+    /// The project's display name. A label only: the folder, the project's id
+    /// and its history stay as they are, and its colour and hidden state are
+    /// kept by id, so they survive a rename. Its logo is matched by this name.
+    /// </summary>
+    private Flyout RenameEditor(ProviderMeta meta, ProjectSummary project, ProjectConfig own)
+    {
+        var flyout = new Flyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
+        var root = new StackPanel { Spacing = 10, Width = 340 };
+        root.Children.Add(Ui.Text("Display name", 14, 600));
+        var box = new TextBox
+        {
+            Text = project.Name,
+            MaxLength = ProjectSettings.MaxNameLength,
+            FontFamily = Fonts.Sans,
+            FontSize = 15,
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, $"Display name for {project.Name}");
+        root.Children.Add(box);
+        root.Children.Add(Ui.Paragraph(
+            $"Only this app's label changes - the folder ({project.Cwd ?? project.Id}) is left as it is. Logos are matched by this name.", 13));
+        var error = Ui.Text("", 13.5, 400, Palette.WarnBrush, wrap: true);
+        error.Visibility = Visibility.Collapsed;
+
+        void Save(string? name)
+        {
+            try
+            {
+                ProjectSettings.SaveName(meta.Id, project.Id, name);
+                flyout.Hide();
+                _ = ctx.State.RefreshAsync(meta.Id);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                error.Text = ex.Message;
+                error.Visibility = Visibility.Visible;
+            }
+        }
+
+        var small = new Thickness(13, 6, 13, 6);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var save = Ui.Button("Save", primary: true, fontSize: 14, padding: small);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(save, "Save name");
+        save.Click += (_, _) => Save(box.Text);
+        actions.Children.Add(save);
+        if (own.DisplayNames.ContainsKey(project.Id))
+        {
+            var reset = Ui.Button("Reset", fontSize: 14, padding: small);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(reset, "Reset name");
+            Ui.SetTip(reset, "Goes back to the name taken from its folder.");
+            reset.Click += (_, _) => Save(null);
+            actions.Children.Add(reset);
+        }
+        var cancel = Ui.Button("Cancel", fontSize: 14, padding: small);
+        cancel.Click += (_, _) => flyout.Hide();
+        actions.Children.Add(cancel);
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            e.Handled = true;
+            Save(box.Text);
+        };
+        root.Children.Add(actions);
+        root.Children.Add(error);
+        flyout.Content = root;
+        flyout.Opened += (_, _) =>
+        {
+            box.Focus(FocusState.Programmatic);
+            box.SelectAll();
+        };
+        return flyout;
+    }
+
+    /// <summary>
+    /// Folds this project into another. Its usage, sessions and history join
+    /// the target's, under the target's name; no total changes. Undone from the
+    /// target's menu.
+    /// </summary>
+    private Flyout MergeEditor(ProviderMeta meta, ProjectSummary project, List<ProjectSummary> others)
+    {
+        var flyout = new Flyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
+        var root = new StackPanel { Spacing = 10, Width = 380 };
+        root.Children.Add(Ui.Text($"Merge {project.Name} into", 14, 600));
+        var picker = new ComboBox
+        {
+            FontFamily = Fonts.Sans,
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            PlaceholderText = "Choose a project",
+        };
+        picker.Resources["ComboBoxDropDownBackground"] = Palette.TooltipBgBrush;
+        picker.Resources["ComboBoxDropDownBorderBrush"] = Palette.BorderBrightBrush;
+        foreach (var other in others.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            // Two projects can share a name; the path tells them apart.
+            var item = new StackPanel();
+            item.Children.Add(Ui.Text(other.Name, 14, 550, selectable: false));
+            item.Children.Add(Ui.Text(other.Cwd ?? other.Id, 12.5, 400, Palette.TextFaintBrush, selectable: false));
+            var entry = new ComboBoxItem { Content = item, Tag = other.Id };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(entry, $"{other.Name}, {other.Cwd ?? other.Id}");
+            picker.Items.Add(entry);
+        }
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, $"Project to merge {project.Name} into");
+        root.Children.Add(picker);
+        root.Children.Add(Ui.Paragraph(
+            "Its spend, sessions and history become part of the chosen project, under that project's name. Totals do not change, and nothing on disk is touched. Unmerge it from the chosen project's ⋯ menu; days whose transcripts are already gone stay merged.", 13));
+        var error = Ui.Text("", 13.5, 400, Palette.WarnBrush, wrap: true);
+        error.Visibility = Visibility.Collapsed;
+
+        var small = new Thickness(13, 6, 13, 6);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var merge = Ui.Button("Merge", primary: true, fontSize: 14, padding: small);
+        merge.IsEnabled = false;
+        picker.SelectionChanged += (_, _) => merge.IsEnabled = picker.SelectedItem is ComboBoxItem;
+        merge.Click += (_, _) =>
+        {
+            if (picker.SelectedItem is not ComboBoxItem { Tag: string target }) return;
+            try
+            {
+                ProjectSettings.SaveMerge(meta.Id, project.Id, target);
+                flyout.Hide();
+                _ = ctx.State.RefreshAsync(meta.Id);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                error.Text = ex.Message;
+                error.Visibility = Visibility.Visible;
+            }
+        };
+        actions.Children.Add(merge);
+        var cancel = Ui.Button("Cancel", fontSize: 14, padding: small);
+        cancel.Click += (_, _) => flyout.Hide();
+        actions.Children.Add(cancel);
+        root.Children.Add(actions);
+        root.Children.Add(error);
         flyout.Content = root;
         return flyout;
     }

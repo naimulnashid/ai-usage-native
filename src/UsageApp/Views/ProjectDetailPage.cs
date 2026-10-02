@@ -74,7 +74,7 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         {
             var merged = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
             merged.Children.Add(Ui.Paragraph("Includes usage merged from " + string.Join(", ", project.MergedFrom.Select(m => $"`{m}`")), 13.5, Palette.TextMutedBrush));
-            merged.Children.Add(Ui.InfoTip("About merged projects", $"{meta.Label} keys projects by working directory, so renaming or moving a folder starts a new project and splits its history. These directories are stitched back together by {Config.ProjectsHint(meta)}."));
+            merged.Children.Add(Ui.InfoTip("About merged projects", $"{meta.Label} keys projects by working directory, so renaming or moving a folder starts a new project and splits its history. These directories are stitched back together by a merge - set from a project's ⋯ menu on the Projects page, or in {Config.ProjectsHint(meta)}."));
             head.Children.Add(merged);
         }
 

@@ -84,7 +84,7 @@ public static partial class ClaudeParser
         var projectsDir = options.Root ?? AppPaths.ClaudeProjectsDir;
         var pricing = options.Pricing ?? ModelSettings.LoadEffectivePricing(ProviderId.Claude);
         var settings = options.Settings ?? AppConfig.LoadSettings();
-        var projectConfig = options.ProjectConfig ?? AppConfig.LoadProjectConfig(ProviderId.Claude);
+        var projectConfig = options.ProjectConfig ?? ProjectSettings.LoadEffective(ProviderId.Claude);
         var nowMs = (options.Now?.Invoke() ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds();
 
         var diagnostics = new ParseDiagnostics();

@@ -82,7 +82,7 @@ public static partial class CodexParser
         var home = options.Root ?? AppPaths.CodexHome;
         var pricing = options.Pricing ?? ModelSettings.LoadEffectivePricing(ProviderId.Codex);
         var settings = options.Settings ?? AppConfig.LoadSettings();
-        var projectConfig = options.ProjectConfig ?? AppConfig.LoadProjectConfig(ProviderId.Codex);
+        var projectConfig = options.ProjectConfig ?? ProjectSettings.LoadEffective(ProviderId.Codex);
         var nowMs = (options.Now?.Invoke() ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds();
 
         var diagnostics = new ParseDiagnostics { ReconciledFiles = 0, ReconcileFailures = 0, CounterResets = 0 };
