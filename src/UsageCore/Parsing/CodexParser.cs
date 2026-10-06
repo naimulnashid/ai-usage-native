@@ -23,7 +23,10 @@ namespace UsageCore.Parsing;
 /// <para><b>Trap 4 - auto-review threads are separate files and real spend.</b>
 /// Counted, as their own model band (<c>codex-auto-review</c>, priced by alias).</para>
 /// <para><b>Trap 5 - the model is a state, not a per-event field.</b> It comes
-/// from the most recent <c>turn_context</c>, written only when it changes.</para>
+/// from the most recent <c>turn_context</c>, written only when it changes. A
+/// compacted auto-review thread opens with a <c>token_count</c> before any
+/// <c>turn_context</c>, carrying the running total of windows the file no
+/// longer holds; those readings take the file's first model.</para>
 /// The filename carries LOCAL time while every timestamp inside is UTC.
 /// </remarks>
 public static partial class CodexParser
@@ -370,6 +373,16 @@ public static partial class CodexParser
         string? currentModel = null, currentCwd = null;
         RawTotals previous = default;
         var havePrevious = false;
+        // Readings counted before the file named any model: always the first
+        // `unattributed` events, since a model once known stays known.
+        var unattributed = 0;
+
+        void SetModel(string model)
+        {
+            currentModel = pool.Get(model);
+            for (var i = 0; i < unattributed; i++) fr.Events[i] = fr.Events[i] with { Model = currentModel };
+            unattributed = 0;
+        }
 
         try
         {
@@ -420,11 +433,11 @@ public static partial class CodexParser
                         fr.SubagentKind ??= line.SubagentKind ?? "subagent";
                     }
                     // Some schema versions carried the model here.
-                    if (line.Model is { } model) currentModel = pool.Get(model);
+                    if (line.Model is { } model) SetModel(model);
                 }
                 else if (line.Type == "turn_context")
                 {
-                    if (line.Model is { } model) currentModel = pool.Get(model);
+                    if (line.Model is { } model) SetModel(model);
                     if (line.Cwd is { } cwd)
                     {
                         currentCwd = pool.Get(cwd);
@@ -466,6 +479,9 @@ public static partial class CodexParser
                         if (last.Total != derived) fr.Reconciled = false;
                     }
 
+                    // A file that never names a model keeps "(unknown)", which
+                    // the report then lists as unpriced rather than as $0.
+                    if (currentModel is null) unattributed++;
                     fr.Events.Add(new UsageEvent(ts, currentModel ?? "(unknown)", currentCwd, tokens));
                 }
 

@@ -122,6 +122,40 @@ public class CodexParserTests
     }
 
     [Fact]
+    public void Trap5_GivesReadingsBeforeTheFirstTurnContextTheFilesFirstModel()
+    {
+        // A compacted guardian thread: its first reading carries the running
+        // total of windows the file no longer holds, before any turn_context.
+        using var tmp = new TempDir();
+        var carried = new Totals("2026-08-01T10:00:10Z", 1_000_000, 0, 0, LastTotal: 100);
+        Rollout(tmp, Guardian,
+            SessionMeta("2026-08-01T10:00:00Z", Cwd, new JsonObject { ["thread_source"] = "subagent" }),
+            new JsonObject { ["type"] = "compacted", ["timestamp"] = "2026-08-01T10:00:05Z", ["payload"] = new JsonObject() },
+            TokenCount(carried),
+            TurnContext("2026-08-01T10:00:20Z", "codex-auto-review"),
+            TokenCount(new Totals("2026-08-01T10:00:30Z", 1_000_100, 0, 10), carried));
+
+        var report = Parse(tmp.Path);
+        Assert.False(report.Global.PerModel.ContainsKey("(unknown)"));
+        Assert.Empty(report.Diagnostics.UnpricedModels);
+        Assert.Equal(2, report.Global.PerModel["codex-auto-review"].Messages);
+        Assert.Equal(1_000_110, report.Global.PerModel["codex-auto-review"].TotalTokens);
+    }
+
+    [Fact]
+    public void Trap5_KeepsUnknownForAFileThatNeverNamesAModel()
+    {
+        using var tmp = new TempDir();
+        Rollout(tmp, Thread,
+            SessionMeta("2026-08-01T10:00:00Z", Cwd),
+            TokenCount(new Totals("2026-08-01T10:00:10Z", 100, 0, 10)));
+
+        var report = Parse(tmp.Path);
+        Assert.Equal(1, report.Global.PerModel["(unknown)"].Messages);
+        Assert.Contains("(unknown)", report.Diagnostics.UnpricedModels);
+    }
+
+    [Fact]
     public void TreatsAMidFileCounterResetAsANewBaseline_NotNegativeUsage()
     {
         using var tmp = new TempDir();
