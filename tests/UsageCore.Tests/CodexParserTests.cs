@@ -42,6 +42,44 @@ public class CodexParserTests
         Assert.Equal(100, report.Global.Combined.Output);
     }
 
+    /// <summary>Pricing with a long-context tier on test-model, at a 1M-token threshold.</summary>
+    public static Model.PricingConfig Tiered()
+    {
+        var pricing = Pricing();
+        pricing.Models["test-model"] = pricing.Models["test-model"] with { LongContext = new Model.LongContextRule(1_000_000, 2, 1.5) };
+        return pricing;
+    }
+
+    [Fact]
+    public void PricesALongPromptAtTheLongContextTier_DecidedPerRequest()
+    {
+        using var tmp = new TempDir();
+        // At the threshold, then a 2M-token prompt (half of it cached) over it.
+        var first = new Totals("2026-08-01T10:00:00Z", 1_000_000, 0, 1_000_000);
+        var second = new Totals("2026-08-01T10:01:00Z", 3_000_000, 1_000_000, 2_000_000);
+        Rollout(tmp, Thread,
+            SessionMeta("2026-08-01T10:00:00Z", Cwd),
+            TurnContext("2026-08-01T10:00:00Z", "test-model"),
+            TokenCount(first),
+            TokenCount(second, first));
+        // A compacted file's first reading carries a running total no prompt
+        // held: judged on the request's own prompt, it is not long-context.
+        Rollout(tmp, Guardian,
+            SessionMeta("2026-08-01T11:00:00Z", Cwd),
+            TurnContext("2026-08-01T11:00:00Z", "test-model"),
+            TokenCount(new Totals("2026-08-01T11:00:10Z", 5_000_000, 0, 0, LastTotal: 80_000, LastInput: 80_000)));
+
+        var report = CodexParser.Parse(Options(tmp.Path, Tiered()));
+        var cell = report.Global.Combined;
+        Assert.Equal(1, report.Diagnostics.LongContextRequests);
+        Assert.Equal(new Model.PricedTokens(1_000_000, 1_000_000, 1_000_000, 0, 0), cell.LongContext);
+        // Standard: 1M @ $10 + 1M out @ $50 = 60, and the carried 5M @ $10 = 50.
+        // Long: (1M @ $10 + 1M cached @ $1) x 2 + 1M out @ $50 x 1.5 = 97.
+        Assert.Equal(60 + 97 + 50, cell.CostUsd, 9);
+        // A subset, so the token totals do not move.
+        Assert.Equal(10_000_000, cell.TotalTokens);
+    }
+
     [Fact]
     public void Trap2_BillsOnlyTheUncachedPartOfThePrompt()
     {

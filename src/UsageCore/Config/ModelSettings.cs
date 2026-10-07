@@ -148,7 +148,13 @@ public static class ModelSettings
     {
         if (custom.Count == 0) return card;
         var models = new Dictionary<string, ModelRate>(card.Models, StringComparer.Ordinal);
-        foreach (var (model, rate) in custom) models[model] = rate;
+        // A custom rate replaces the per-token prices only. The long-context tier
+        // is how the vendor bills a long prompt, which the editor does not set,
+        // so it stays as the card has it - including a tier reached by an alias.
+        foreach (var (model, rate) in custom)
+        {
+            models[model] = AppConfig.GetRate(card, model)?.LongContext is { } tier ? rate with { LongContext = tier } : rate;
+        }
         return new PricingConfig
         {
             Currency = card.Currency,

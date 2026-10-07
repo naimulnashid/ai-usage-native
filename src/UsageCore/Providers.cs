@@ -24,7 +24,11 @@ public sealed record ProviderMeta
     /// </summary>
     public required string CostLabel { get; init; }
 
-    /// <summary>Codex's cache-write field has always been 0, so the column would be a stripe of zeroes.</summary>
+    /// <summary>
+    /// Codex's cache-write field has always been 0, so the column would be a stripe
+    /// of zeroes. Hidden for that reason, not for want of a rate: OpenAI does bill
+    /// cache writes on its newer models, and the rate card carries them.
+    /// </summary>
     public required bool HasCacheWrites { get; init; }
     public required bool HasReasoningTokens { get; init; }
     public required string CacheReadLabel { get; init; }

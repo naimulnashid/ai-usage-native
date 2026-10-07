@@ -73,7 +73,8 @@ public static class AppConfig
                     Rate(model.Value, "cacheWrite5m"),
                     Rate(model.Value, "cacheWrite1h"),
                     Rate(model.Value, "cacheRead"),
-                    Rate(model.Value, "output"));
+                    Rate(model.Value, "output"),
+                    LongContext(model.Value));
             }
 
             var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -101,6 +102,19 @@ public static class AppConfig
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// A model's long-context tier, or null. A tier that is incomplete or would
+    /// LOWER a price is ignored rather than guessed at.
+    /// </summary>
+    private static LongContextRule? LongContext(JsonElement model)
+    {
+        if (!Guards.TryObject(model, "longContext", out var tier)) return null;
+        var above = Rate(tier, "aboveInputTokens");
+        var input = Rate(tier, "inputMultiplier");
+        var output = Rate(tier, "outputMultiplier");
+        return above > 0 && input >= 1 && output >= 1 ? new LongContextRule((long)above, input, output) : null;
     }
 
     private static double Rate(JsonElement obj, string name) =>
@@ -231,12 +245,29 @@ public static class AppConfig
     /// than treating it as free). Reasoning is absent on purpose: it is already
     /// inside output and would be billed twice.
     /// </summary>
-    public static double CostOf(in TokenCounts tokens, ModelRate? rate) =>
-        rate is null
-            ? 0
-            : (tokens.Input * rate.Input
-               + tokens.CacheWrite5m * rate.CacheWrite5m
-               + tokens.CacheWrite1h * rate.CacheWrite1h
-               + tokens.CacheRead * rate.CacheRead
-               + tokens.Output * rate.Output) / 1_000_000d;
+    /// <remarks>
+    /// The long-context subset is inside the buckets too, so it is not priced
+    /// again in full: it adds only the tier's surcharge, the multiplier less one.
+    /// With no tier on the rate it adds nothing.
+    /// </remarks>
+    public static double CostOf(in TokenCounts tokens, ModelRate? rate)
+    {
+        if (rate is null) return 0;
+        var cost = Priced(tokens.Priced, rate);
+        if (rate.LongContext is { } rule && tokens.LongContext is { } longTokens)
+        {
+            var output = longTokens.Output * rate.Output;
+            cost += (rule.InputMultiplier - 1) * (Priced(longTokens, rate) - output);
+            cost += (rule.OutputMultiplier - 1) * output;
+        }
+        return cost / 1_000_000d;
+    }
+
+    /// <summary>The five buckets times their rates, in USD x 1e6.</summary>
+    private static double Priced(in PricedTokens tokens, ModelRate rate) =>
+        tokens.Input * rate.Input
+        + tokens.CacheWrite5m * rate.CacheWrite5m
+        + tokens.CacheWrite1h * rate.CacheWrite1h
+        + tokens.CacheRead * rate.CacheRead
+        + tokens.Output * rate.Output;
 }

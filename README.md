@@ -163,8 +163,13 @@ Do not add the two together.
   counted as a model or a message.
 - **Runtime is approximate**: the sum of gaps between transcript lines, with
   gaps over 30 minutes treated as time away.
-- **Codex fast mode** roughly doubles API rates and is not recorded in the
+- **Codex fast mode** doubles API rates and is not recorded in the
   transcripts, so heavy fast-mode use would cost more than shown.
+- **Codex long prompts are priced as OpenAI bills them.** On the models whose
+  card entry has a `longContext` tier, a request whose prompt is over 272K
+  tokens costs 2x the input and cache rates and 1.5x output; each request is
+  checked on its own. Cache-write rates are on the card too, though Codex has
+  not logged a cache write so far.
 
 ## Development
 

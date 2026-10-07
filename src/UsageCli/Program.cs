@@ -81,6 +81,7 @@ static int Parse(string[] args)
         Console.WriteLine($"  repeated readings skipped: {d.DuplicateLinesSkipped:#,0}");
         Console.WriteLine($"  files reconciled         : {d.ReconciledFiles} ok / {d.ReconcileFailures} mismatched");
         Console.WriteLine($"  counter resets           : {d.CounterResets}");
+        Console.WriteLine($"  long-context turns       : {d.LongContextRequests:#,0}");
     }
     Console.WriteLine($"  unpriced models          : {(d.UnpricedModels.Count > 0 ? string.Join(", ", d.UnpricedModels) : "none")}");
     if (d.EmptyProjectsHidden.Count > 0) Console.WriteLine($"  replay-only dirs hidden  : {d.EmptyProjectsHidden.Count}");

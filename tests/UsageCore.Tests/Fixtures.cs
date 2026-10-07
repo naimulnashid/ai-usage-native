@@ -105,7 +105,8 @@ public static class Fixtures
         return new JsonObject { ["type"] = "turn_context", ["timestamp"] = ts, ["payload"] = payload };
     }
 
-    public sealed record Totals(string Ts, long Input, long Cached, long Output, long Reasoning = 0, long? LastTotal = null);
+    /// <param name="LastInput">This turn's own prompt size; left off the line when null.</param>
+    public sealed record Totals(string Ts, long Input, long Cached, long Output, long Reasoning = 0, long? LastTotal = null, long? LastInput = null);
 
     /// <summary>A token_count whose running totals are <paramref name="t"/>.</summary>
     public static JsonObject TokenCount(Totals t, Totals? previous = null)
@@ -128,7 +129,9 @@ public static class Fixtures
                         ["reasoning_output_tokens"] = t.Reasoning,
                         ["total_tokens"] = t.Input + t.Output,
                     },
-                    ["last_token_usage"] = new JsonObject { ["total_tokens"] = t.LastTotal ?? derived },
+                    ["last_token_usage"] = t.LastInput is { } lastInput
+                        ? new JsonObject { ["total_tokens"] = t.LastTotal ?? derived, ["input_tokens"] = lastInput }
+                        : new JsonObject { ["total_tokens"] = t.LastTotal ?? derived },
                 },
             },
         };

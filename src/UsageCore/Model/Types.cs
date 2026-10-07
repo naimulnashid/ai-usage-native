@@ -16,12 +16,37 @@ public enum WeekStart
 }
 
 /// <summary>Rates in USD per million tokens.</summary>
+/// <param name="LongContext">
+/// A dearer tier for requests with a long prompt, as OpenAI bills its newer
+/// models. A property of the rate card rather than of a price: a custom rate set
+/// in the app keeps the card's tier (<c>ModelSettings.WithCustomRates</c>).
+/// </param>
 public sealed record ModelRate(
     double Input,
     double CacheWrite5m,
     double CacheWrite1h,
     double CacheRead,
-    double Output);
+    double Output,
+    LongContextRule? LongContext = null);
+
+/// <summary>
+/// A request whose prompt (cached part included) is over
+/// <see cref="AboveInputTokens"/> is billed at <see cref="InputMultiplier"/> x the
+/// input AND cache rates and <see cref="OutputMultiplier"/> x the output rate, for
+/// the whole request. Only the Codex parser classifies requests against it.
+/// </summary>
+public sealed record LongContextRule(long AboveInputTokens, double InputMultiplier, double OutputMultiplier);
+
+/// <summary>The five priced buckets on their own.</summary>
+public readonly record struct PricedTokens(long Input, long Output, long CacheRead, long CacheWrite5m, long CacheWrite1h)
+{
+    public PricedTokens Plus(in PricedTokens other) => new(
+        Input + other.Input,
+        Output + other.Output,
+        CacheRead + other.CacheRead,
+        CacheWrite5m + other.CacheWrite5m,
+        CacheWrite1h + other.CacheWrite1h);
+}
 
 public sealed class PricingConfig
 {
@@ -57,6 +82,9 @@ public sealed record Settings(
 /// remainder, because OpenAI's <c>input_tokens</c> already includes the cached
 /// part. <see cref="Reasoning"/> is NOT a sixth bucket: it is already inside
 /// <see cref="Output"/>, reported by Codex only, and never summed or priced.
+/// <see cref="LongContext"/> is not extra tokens either: it is the part of the
+/// five that came from long-context requests (Codex only), a subset kept so
+/// <c>CostOf</c> can charge the tier's surcharge on it.
 /// </remarks>
 public readonly record struct TokenCounts(
     long Input,
@@ -64,10 +92,14 @@ public readonly record struct TokenCounts(
     long CacheRead,
     long CacheWrite5m,
     long CacheWrite1h,
-    long? Reasoning = null)
+    long? Reasoning = null,
+    PricedTokens? LongContext = null)
 {
     /// <summary>The five priced buckets. Reasoning is deliberately left out.</summary>
     public long Total => Input + Output + CacheRead + CacheWrite5m + CacheWrite1h;
+
+    /// <summary>The five buckets alone.</summary>
+    public PricedTokens Priced => new(Input, Output, CacheRead, CacheWrite5m, CacheWrite1h);
 }
 
 /// <summary>A cell of aggregated usage: tokens, derived cost and runtime.</summary>
@@ -84,6 +116,17 @@ public sealed class UsageCell
     /// claim as a measured zero. Claude Code cells leave it null.
     /// </summary>
     public long? Reasoning { get; set; }
+
+    /// <summary>
+    /// The part of the five buckets that came from long-context requests; null
+    /// when none did. Kept on every cell, the archive's included, so a stored day
+    /// can be priced again without losing the surcharge. See <see cref="TokenCounts"/>.
+    /// </summary>
+    public PricedTokens? LongContext { get; set; }
+
+    /// <summary>The tokens this cell prices, long-context subset included.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public TokenCounts Tokens => new(Input, Output, CacheRead, CacheWrite5m, CacheWrite1h, Reasoning, LongContext);
 
     /// <summary>De-duplicated assistant messages (Codex: billed requests).</summary>
     public long Messages { get; set; }
@@ -106,6 +149,7 @@ public sealed class UsageCell
         CacheWrite5m += tokens.CacheWrite5m;
         CacheWrite1h += tokens.CacheWrite1h;
         if (Reasoning is not null) Reasoning += tokens.Reasoning ?? 0;
+        AddLongContext(tokens.LongContext);
         Messages += 1;
         TotalTokens += tokens.Total;
         CostUsd += cost;
@@ -120,11 +164,22 @@ public sealed class UsageCell
         CacheWrite5m += other.CacheWrite5m;
         CacheWrite1h += other.CacheWrite1h;
         if (other.Reasoning is not null) Reasoning = (Reasoning ?? 0) + other.Reasoning;
+        AddLongContext(other.LongContext);
         Messages += other.Messages;
         RuntimeSeconds += other.RuntimeSeconds;
         TotalTokens += other.TotalTokens;
         CostUsd += other.CostUsd;
         Unpriced |= other.Unpriced;
+    }
+
+    /// <summary>
+    /// Every sum of cells goes through here, because a sum that dropped the
+    /// subset would keep its cost right and lose the surcharge on the next
+    /// re-pricing.
+    /// </summary>
+    private void AddLongContext(PricedTokens? other)
+    {
+        if (other is { } add) LongContext = LongContext is { } have ? have.Plus(add) : add;
     }
 
     public UsageCell Clone() => (UsageCell)MemberwiseClone();
@@ -236,6 +291,12 @@ public sealed class ParseDiagnostics
 
     /// <summary>Codex only: running counter went backwards (context reset).</summary>
     public int? CounterResets { get; set; }
+
+    /// <summary>
+    /// Codex only: billed turns whose prompt was over their model's long-context
+    /// threshold, and so carry the tier's surcharge (<see cref="ModelRate.LongContext"/>).
+    /// </summary>
+    public long? LongContextRequests { get; set; }
 
     /// <summary>Timestamps before 2000 or over a year ahead. Their tokens still count.</summary>
     public long ImplausibleTimestamps { get; set; }

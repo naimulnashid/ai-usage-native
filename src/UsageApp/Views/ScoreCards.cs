@@ -80,7 +80,7 @@ public static class ScoreCards
                 meta.HasCacheWrites ? $"{Format.Tokens(combined.CacheRead)} read · {Format.Tokens(written)} written" : "prompt served from cache",
                 Tip: meta.HasCacheWrites
                     ? "Cache reads plus cache writes. Reads are billed at roughly a tenth of the input rate and writes at a premium, but the sheer volume of reads makes this the largest driver of total cost."
-                    : "Prompt tokens served from cache, billed at a tenth of the input rate. Codex resends the whole conversation every turn, so this is nearly all of the prompt — and, despite the discount, where most of the cost sits."),
+                    : "Prompt tokens served from cache, billed at a tenth of the input rate or less. Codex resends the whole conversation every turn, so this is nearly all of the prompt — and, despite the discount, where most of the cost sits."),
             new("Peak tokens", "peak",
                 peak is not null ? Count(peak.TotalTokens, Format.Tokens) : Ui.Text("—", 30, 640),
                 RecordSub(peak), ClipSub: true,

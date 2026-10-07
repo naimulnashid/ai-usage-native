@@ -43,12 +43,14 @@ public static class ModelColors
         // $5 - lightest
         ("claude-haiku-4-5", new("#EDC0B1", 5)),
 
-        // Codex: shades of the ChatGPT teal-green. $30 deepest.
-        ("gpt-5.6-sol", new("#0B6D55", 30)),
+        // Codex: shades of the ChatGPT teal-green. $20 deepest.
+        ("gpt-5.6-sol", new("#0B6D55", 20)),
         // $14. The auto-review band is the same model wearing a job title; it
         // gets its own lighter tone so self-review spend stays legible.
         ("gpt-5.3-codex", new("#10A37F", 14)),
         ("codex-auto-review", new("#13C69A", 14)),
+        // $10 - lightest.
+        ("gpt-6.1-sol", new("#3FD2AC", 10)),
     ];
 
     private static readonly Dictionary<string, (Shade Shade, int Order)> Lookup =
@@ -56,6 +58,7 @@ public static class ModelColors
 
     private static readonly Dictionary<string, string> DisplayNames = new(StringComparer.Ordinal)
     {
+        ["gpt-6.1-sol"] = "GPT-6.1 Sol",
         ["gpt-5.6-sol"] = "GPT-5.6 Sol",
         ["gpt-5.3-codex"] = "GPT-5.3 Codex",
         ["codex-auto-review"] = "auto-review (5.3 Codex)",

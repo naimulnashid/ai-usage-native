@@ -74,7 +74,29 @@ public static class ModelPrices
             cells.Add(edit);
             table.AddRow(cells);
         }
-        return table.Build();
+
+        // The rates alone no longer give the cost when a model has a long-context
+        // tier, so it is said under them - once per rule, naming its models.
+        var tiers = rows
+            .Where(r => r.Info.Rate?.LongContext is not null)
+            .GroupBy(r => r.Info.Rate!.LongContext!)
+            .ToList();
+        if (tiers.Count == 0) return table.Build();
+        var stack = new StackPanel { Spacing = 12 };
+        stack.Children.Add(table.Build());
+        foreach (var tier in tiers)
+        {
+            stack.Children.Add(Ui.Text(LongContextSentence(tier.Key, tier.Select(r => Format.Model(r.Model)).ToList()), 13, 400, Palette.TextFaintBrush, wrap: true));
+        }
+        return stack;
+    }
+
+    /// <summary>"GPT-5.6 Sol and GPT-6.1 Sol: a request whose prompt is over 272K tokens is billed at ..."</summary>
+    public static string LongContextSentence(LongContextRule rule, IReadOnlyList<string> models)
+    {
+        var above = rule.AboveInputTokens >= 1000 ? $"{Rate(rule.AboveInputTokens / 1000d)}K" : rule.AboveInputTokens.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var names = models.Count > 1 ? $"{string.Join(", ", models.Take(models.Count - 1))} and {models[^1]}" : models[0];
+        return $"{names}: a request whose prompt is over {above} tokens is billed at {Rate(rule.InputMultiplier)}× the input and cache rates and {Rate(rule.OutputMultiplier)}× output.";
     }
 
     private static string SourceLabel(ModelRateInfo info) => info.Source switch
@@ -143,7 +165,14 @@ public static class ModelPrices
         }
         root.Children.Add(fieldRow);
 
-        double Field(string key) => fields.FirstOrDefault(f => f.Key == key).Box?.Value ?? 0;
+        // A rate the editor does not show - cache writes, for an agent that hides
+        // that column - keeps its current value rather than being saved as 0.
+        double Field(string key) => fields.FirstOrDefault(f => f.Key == key).Box?.Value ?? key switch
+        {
+            "cacheWrite5m" => info.Rate?.CacheWrite5m ?? 0,
+            "cacheWrite1h" => info.Rate?.CacheWrite1h ?? 0,
+            _ => 0,
+        };
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         var small = new Thickness(13, 6, 13, 6);

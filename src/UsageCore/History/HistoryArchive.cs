@@ -112,6 +112,14 @@ public static class HistoryArchive
             CacheWrite5m = (long)Num(o["cacheWrite5m"]),
             CacheWrite1h = (long)Num(o["cacheWrite1h"]),
             Reasoning = o["reasoning"] is null ? null : (long)Num(o["reasoning"]),
+            LongContext = o["longContext"] is JsonObject lc
+                ? new PricedTokens(
+                    (long)Num(lc["input"]),
+                    (long)Num(lc["output"]),
+                    (long)Num(lc["cacheRead"]),
+                    (long)Num(lc["cacheWrite5m"]),
+                    (long)Num(lc["cacheWrite1h"]))
+                : null,
             Messages = (long)Num(o["messages"]),
             RuntimeSeconds = Num(o["runtimeSeconds"]),
             TotalTokens = (long)Num(o["totalTokens"]),
@@ -212,7 +220,18 @@ public static class HistoryArchive
         foreach (var entry in report.Daily)
         {
             if (entry.Date == Dates.UnknownDate) continue;
-            if (history.Days.TryGetValue(entry.Date, out var existing) && existing.Combined.Messages > entry.Combined.Messages) continue;
+            if (history.Days.TryGetValue(entry.Date, out var existing) && existing.Combined.Messages > entry.Combined.Messages)
+            {
+                BackfillLongContext(existing.PerModel, existing.Combined, entry.PerModel);
+                foreach (var (id, stored) in existing.Projects)
+                {
+                    if (projectDays.TryGetValue(id, out var days) && days.TryGetValue(entry.Date, out var fresh))
+                    {
+                        BackfillLongContext(stored.PerModel, stored.Combined, fresh.PerModel);
+                    }
+                }
+                continue;
+            }
 
             var projects = new Dictionary<string, UsageBucket>(StringComparer.Ordinal);
             foreach (var project in report.Projects)
@@ -237,6 +256,37 @@ public static class HistoryArchive
         history.Version = HistoryFile.CurrentVersion;
         history.UpdatedAt = now.ToString("O");
         return history;
+    }
+
+    /// <summary>
+    /// Gives a stored day the long-context subset (<see cref="UsageCell.LongContext"/>)
+    /// it was written without, from a fresh parse of the same day.
+    /// </summary>
+    /// <remarks>
+    /// Days archived before the subset existed have none, so a re-pricing charges
+    /// their long requests at the standard rate. A day the parse rewrites gets it
+    /// anyway; this is for the day the merge KEEPS, because its stored copy has
+    /// more messages than the transcripts still on disk. Copied per model, and
+    /// only when that model's five buckets match exactly - then both cells count
+    /// the same requests, so the subset is known rather than guessed.
+    /// </remarks>
+    private static void BackfillLongContext(Dictionary<string, UsageCell> stored, UsageCell storedCombined, Dictionary<string, UsageCell> fresh)
+    {
+        var changed = false;
+        foreach (var (model, cell) in stored)
+        {
+            if (cell.LongContext is not null || !fresh.TryGetValue(model, out var source) || source.LongContext is null) continue;
+            if (cell.Tokens.Priced != source.Tokens.Priced) continue;
+            cell.LongContext = source.LongContext;
+            changed = true;
+        }
+        if (!changed) return;
+        PricedTokens? sum = null;
+        foreach (var cell in stored.Values)
+        {
+            if (cell.LongContext is { } add) sum = sum is { } have ? have.Plus(add) : add;
+        }
+        storedCombined.LongContext = sum;
     }
 
     private static UsageBucket RollUp(IEnumerable<(Dictionary<string, UsageCell> PerModel, UsageCell Combined)> buckets, bool tracksReasoning)
@@ -283,7 +333,7 @@ public static class HistoryArchive
                 continue;
             }
             var priced = cell.Clone();
-            priced.CostUsd = AppConfig.CostOf(new TokenCounts(cell.Input, cell.Output, cell.CacheRead, cell.CacheWrite5m, cell.CacheWrite1h), rate);
+            priced.CostUsd = AppConfig.CostOf(cell.Tokens, rate);
             priced.Unpriced = false;
             delta += priced.CostUsd - cell.CostUsd;
             cells[model] = priced;

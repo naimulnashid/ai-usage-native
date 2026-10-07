@@ -35,7 +35,13 @@ public static partial class CodexParser
 
     private readonly record struct RawTotals(long Input, long Cached, long CacheWrite, long Output, long Reasoning, long Total);
 
-    private readonly record struct UsageEvent(long? TimestampMs, string Model, string? Cwd, TokenCounts Tokens);
+    /// <param name="PromptTokens">
+    /// This request's prompt, cached part included - what OpenAI's long-context
+    /// tier is decided on. From <c>last_token_usage</c>, the turn on its own, never
+    /// the delta: a compacted file's first delta is a running total carried over
+    /// from earlier windows (Trap 5), tens of millions of tokens no prompt held.
+    /// </param>
+    private readonly record struct UsageEvent(long? TimestampMs, string Model, string? Cwd, TokenCounts Tokens, long PromptTokens);
 
     private readonly record struct Tick(long TimestampMs, string? Model, string? Cwd);
 
@@ -88,7 +94,7 @@ public static partial class CodexParser
         var projectConfig = options.ProjectConfig ?? ProjectSettings.LoadEffective(ProviderId.Codex);
         var nowMs = (options.Now?.Invoke() ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds();
 
-        var diagnostics = new ParseDiagnostics { ReconciledFiles = 0, ReconcileFailures = 0, CounterResets = 0 };
+        var diagnostics = new ParseDiagnostics { ReconciledFiles = 0, ReconcileFailures = 0, CounterResets = 0, LongContextRequests = 0 };
         var sessionsRoot = SessionDirs(home).FirstOrDefault() ?? Path.Combine(home, "sessions");
         var files = Discover(home, diagnostics.Warnings);
         diagnostics.FilesScanned = files.Count;
@@ -186,7 +192,9 @@ public static partial class CodexParser
                 if (!sessionModels.Contains(ev.Model)) sessionModels.Add(ev.Model);
                 var rate = AppConfig.GetRate(pricing, ev.Model);
                 if (rate is null) unpriced.Add(ev.Model);
-                var cost = AppConfig.CostOf(ev.Tokens, rate);
+                var tokens = WithLongContext(ev, rate?.LongContext);
+                if (tokens.LongContext is not null) diagnostics.LongContextRequests++;
+                var cost = AppConfig.CostOf(tokens, rate);
 
                 var date = ev.TimestampMs is { } t ? Dates.LocalDate(t, settings.LocalUtcOffsetHours) : Dates.UnknownDate;
                 var projectId = ResolveProject(ev.Cwd ?? record.Cwd);
@@ -197,7 +205,7 @@ public static partial class CodexParser
                     acc.AddHour(projectId, hour);
                 }
 
-                acc.AddMessage(projectId, date, ev.Model, ev.Tokens, cost, rate is null);
+                acc.AddMessage(projectId, date, ev.Model, tokens, cost, rate is null);
                 sessionMessages++;
                 sessionTokens += ev.Tokens.Total;
                 sessionCost += cost;
@@ -350,10 +358,20 @@ public static partial class CodexParser
             Reasoning: reasoning);
     }
 
+    /// <summary>
+    /// A turn's tokens, marked as long-context when its prompt is over the model's
+    /// threshold: the whole request is then billed at the tier's rates, so all
+    /// five buckets go into the subset. Unchanged for a model with no tier.
+    /// </summary>
+    private static TokenCounts WithLongContext(in UsageEvent ev, LongContextRule? rule) =>
+        rule is not null && ev.PromptTokens > rule.AboveInputTokens
+            ? ev.Tokens with { LongContext = ev.Tokens.Priced }
+            : ev.Tokens;
+
     /// <summary>A running total as it appeared on a line, and whether it was there.</summary>
     private struct Usage
     {
-        public bool Present;
+        public bool Present, HasInput;
         public long Input, Cached, CacheWrite, Output, Reasoning, Total;
 
         public readonly RawTotals Totals => new(Input, Cached, CacheWrite, Output, Reasoning, Total);
@@ -482,7 +500,10 @@ public static partial class CodexParser
                     // A file that never names a model keeps "(unknown)", which
                     // the report then lists as unpriced rather than as $0.
                     if (currentModel is null) unattributed++;
-                    fr.Events.Add(new UsageEvent(ts, currentModel ?? "(unknown)", currentCwd, tokens));
+                    // Without Codex's own figure the delta is the best estimate; it
+                    // is the same number whenever the file reconciles.
+                    var prompt = last.Present && last.HasInput ? last.Input : tokens.Input + tokens.CacheRead;
+                    fr.Events.Add(new UsageEvent(ts, currentModel ?? "(unknown)", currentCwd, tokens, prompt));
                 }
 
                 if (ts is { } tickMs) fr.Ticks.Add(new Tick(tickMs, currentModel, currentCwd));
@@ -577,7 +598,11 @@ public static partial class CodexParser
         usage.Present = true;
         while (Json.NextProperty(ref r))
         {
-            if (r.ValueTextEquals("input_tokens"u8)) usage.Input = Json.Count(ref r);
+            if (r.ValueTextEquals("input_tokens"u8))
+            {
+                usage.Input = Json.Count(ref r);
+                usage.HasInput = true;
+            }
             else if (r.ValueTextEquals("cached_input_tokens"u8)) usage.Cached = Json.Count(ref r);
             else if (r.ValueTextEquals("cache_write_input_tokens"u8)) usage.CacheWrite = Json.Count(ref r);
             else if (r.ValueTextEquals("output_tokens"u8)) usage.Output = Json.Count(ref r);
