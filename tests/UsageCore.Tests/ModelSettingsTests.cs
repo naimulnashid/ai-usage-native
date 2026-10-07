@@ -174,6 +174,9 @@ public class ModelSettingsTests
         Assert.Equal(Rate with { LongContext = tier }, AppConfig.GetRate(pricing, "cheap-model"));
         Assert.Equal(Rate with { LongContext = tier }, AppConfig.GetRate(pricing, "review-bot"));
         Assert.Equal(Rate, AppConfig.GetRate(pricing, "brand-new"));
+        // The table describes the rate the parse charges, tier included.
+        var described = ModelSettings.DescribeRates(card, new Dictionary<string, ModelRate> { ["cheap-model"] = Rate }, ["cheap-model"]);
+        Assert.Equal(Rate with { LongContext = tier }, described["cheap-model"].Rate);
     }
 
     [Fact]

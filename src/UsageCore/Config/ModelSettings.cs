@@ -148,13 +148,7 @@ public static class ModelSettings
     {
         if (custom.Count == 0) return card;
         var models = new Dictionary<string, ModelRate>(card.Models, StringComparer.Ordinal);
-        // A custom rate replaces the per-token prices only. The long-context tier
-        // is how the vendor bills a long prompt, which the editor does not set,
-        // so it stays as the card has it - including a tier reached by an alias.
-        foreach (var (model, rate) in custom)
-        {
-            models[model] = AppConfig.GetRate(card, model)?.LongContext is { } tier ? rate with { LongContext = tier } : rate;
-        }
+        foreach (var (model, rate) in custom) models[model] = KeepCardTier(card, model, rate);
         return new PricingConfig
         {
             Currency = card.Currency,
@@ -164,6 +158,16 @@ public static class ModelSettings
             Source = card.Source,
         };
     }
+
+    /// <summary>
+    /// A custom rate replaces the per-token prices only. The long-context tier is
+    /// how the vendor bills a long prompt, which the editor does not set, so it
+    /// stays as the card has it - including a tier reached through an alias. Used
+    /// for pricing AND for describing the rate, so the table never names fewer
+    /// tiered models than the parse charges.
+    /// </summary>
+    private static ModelRate KeepCardTier(PricingConfig card, string model, ModelRate rate) =>
+        AppConfig.GetRate(card, model)?.LongContext is { } tier ? rate with { LongContext = tier } : rate;
 
     public static PricingConfig LoadEffectivePricing(ProviderId provider) =>
         WithCustomRates(AppConfig.LoadPricing(provider), Load(provider).Pricing);
@@ -184,7 +188,7 @@ public static class ModelSettings
             var cardRate = AppConfig.GetRate(card, model);
             var onCard = cardRate is not null;
             card.Aliases.TryGetValue(model, out var aliasOf);
-            if (custom.TryGetValue(model, out var own)) result[model] = new ModelRateInfo(own, RateSource.Custom, null, onCard);
+            if (custom.TryGetValue(model, out var own)) result[model] = new ModelRateInfo(KeepCardTier(card, model, own), RateSource.Custom, null, onCard);
             else if (card.Models.TryGetValue(model, out var direct)) result[model] = new ModelRateInfo(direct, RateSource.Card, null, onCard);
             else if (aliasOf is not null && cardRate is not null) result[model] = new ModelRateInfo(cardRate, RateSource.Alias, aliasOf, onCard);
             else result[model] = new ModelRateInfo(null, RateSource.None, null, onCard);
