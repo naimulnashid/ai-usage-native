@@ -115,7 +115,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
   background: transparent; color: var(--text-dim); cursor: pointer;
 }
 .icon-btn:hover { color: var(--text); background: var(--bg-inset); }
-.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 :root[data-theme='dark'] .i-moon, :root[data-theme='light'] .i-sun { display: none; }
 
 .btn {
