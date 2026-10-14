@@ -54,6 +54,7 @@ fill.Color = border; canvas.DrawRect(0, 3, W, 1, fill);
 // Wordmark: the app's icon and the repository's name.
 DrawSvg(canvas, Path.Combine(assets, "app-icon.svg"), Margin, Margin, 56);
 Text("ai-usage-native", Margin + 56 + 22, Margin + 40, Font(mono, 500, 30), text);
+SitePill("ai-usage-native-site.vercel.app", W - Margin, Margin + 28);
 
 // Every row is placed from a named baseline rather than stacked on the one
 // above, so moving one cannot silently shunt the rest into each other.
@@ -104,6 +105,27 @@ float DotLabel(float x, float baseline, SKColor colour, string label)
     canvas.DrawCircle(x + 7, baseline - 8, 7, paint);
     Text(label, x + 27, baseline, chip, muted);
     return x + 27 + chip.MeasureText(label) + 44;
+}
+
+// The project site's address in an outlined pill with a globe, right-aligned
+// to `right` and centred on `centreY`, so the card says where to see more.
+void SitePill(string url, float right, float centreY)
+{
+    var font = Font(mono, 450, 21);
+    const float padX = 18, icon = 18, iconGap = 10, height = 44;
+    var width = padX + icon + iconGap + font.MeasureText(url) + padX;
+    var rect = new SKRect(right - width, centreY - height / 2, right, centreY + height / 2);
+    using var paint = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, Color = claude.WithAlpha(115) };
+    canvas.DrawRoundRect(rect, height / 2, height / 2, paint);
+
+    // The globe: a circle, the equator and one meridian's two arcs.
+    var cx = rect.Left + padX + icon / 2;
+    paint.Color = claude; paint.StrokeWidth = 1.6f;
+    canvas.DrawCircle(cx, centreY, icon / 2, paint);
+    canvas.DrawLine(cx - icon / 2, centreY, cx + icon / 2, centreY, paint);
+    canvas.DrawOval(new SKRect(cx - icon / 4.5f, centreY - icon / 2, cx + icon / 4.5f, centreY + icon / 2), paint);
+
+    Text(url, rect.Left + padX + icon + iconGap, centreY + 7, font, text);
 }
 
 // A small app window: title bar, caption buttons, two placeholder text lines

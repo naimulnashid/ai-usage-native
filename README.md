@@ -3,6 +3,7 @@
 [![CI](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/naimulnashid/ai-usage-native)](https://github.com/naimulnashid/ai-usage-native/releases/latest)
 [![MIT license](https://img.shields.io/github/license/naimulnashid/ai-usage-native)](LICENSE)
+[![Project site](https://img.shields.io/website?url=https%3A%2F%2Fai-usage-native-site.vercel.app&label=project%20site&up_message=online&down_message=offline)](https://ai-usage-native-site.vercel.app/)
 
 A native Windows app that shows how much **Claude Code** and **Codex** you use:
 tokens, estimated cost and approximate runtime, overall, per project and per
