@@ -11,7 +11,10 @@ follow the app's own (`src/UsageCore/View/ModelColors.cs`, `Providers.cs`,
 `Pricing/*.json`, `src/UsageApp/Charts/`). The app screenshots come from
 `docs/screenshots/`, which `tools\Capture-Readme.ps1` regenerates in both
 themes from one demo run; the page shows the set matching its own theme, and
-the build copies them in rather than keeping a second set here.
+the build copies them in rather than keeping a second set here. It copies
+`.github/social-preview.png` (the repository's social card) in the same way,
+as the link preview image; the preview tags use absolute URLs to the deployed
+address, since link unfurlers need them.
 
 **Phones get the desktop layout, zoomed to fit**: the viewport tag is
 `width=1024` with no initial scale, so a phone lays the page out 1024px wide
@@ -39,8 +42,8 @@ command and output folder, and the security headers. Vercel's build can read
 files outside the root directory, which is how the screenshots get in.
 
 **A push builds only when the site could have changed**: something under
-`site/` or `docs/screenshots/` differs from the last successful deployment
-(`ignoreCommand`; exit 0 skips, anything else builds). With no previous
+`site/`, `docs/screenshots/` or the social card differs from the last
+successful deployment (`ignoreCommand`; exit 0 skips, anything else builds). With no previous
 deployment, or one whose commit is not in Vercel's clone, the command fails
 and the build runs, so it errs towards building. Any other folder the site
 starts reading from must be added to that path list.

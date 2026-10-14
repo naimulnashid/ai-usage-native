@@ -12,10 +12,14 @@ import { fileURLToPath } from 'node:url';
 const SITE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(SITE, 'dist');
 const SHOTS = join(SITE, '..', 'docs', 'screenshots');
+// The repository's social card doubles as the page's link preview (og:image).
+const CARD = join(SITE, '..', '.github', 'social-preview.png');
 
-if (!existsSync(SHOTS)) {
-  console.error(`No screenshots at ${SHOTS}; the site would render with broken images.`);
-  process.exit(1);
+for (const need of [SHOTS, CARD]) {
+  if (!existsSync(need)) {
+    console.error(`Missing ${need}; the site would render with broken images.`);
+    process.exit(1);
+  }
 }
 
 rmSync(OUT, { recursive: true, force: true });
@@ -23,5 +27,6 @@ mkdirSync(OUT, { recursive: true });
 for (const f of ['index.html', 'styles.css', 'site.js', 'favicon.svg']) {
   cpSync(join(SITE, f), join(OUT, f));
 }
+cpSync(CARD, join(OUT, 'social-preview.png'));
 cpSync(SHOTS, join(OUT, 'screenshots'), { recursive: true });
 console.log(`site built into ${OUT}`);
