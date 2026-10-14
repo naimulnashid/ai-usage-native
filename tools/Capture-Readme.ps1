@@ -29,24 +29,29 @@ Remove-Item -Recurse -Force (Join-Path $root 'demo-data') -ErrorAction SilentlyC
 dotnet run --project (Join-Path $root 'src\UsageCli') -- demo-data | Out-Null
 if ($LASTEXITCODE) { throw 'demo-data failed.' }
 
-$shots = [ordered]@{
+# The README shows the first three and the light overview; the project site
+# (site/) shows every page, in whichever theme it is viewed in.
+$pages = [ordered]@{
   'overview-claude' = 'claude,overview,0'
   'projects-claude' = 'claude,projects,0'
   'overview-codex'  = 'codex,overview,0'
+  'project-claude'  = 'claude,project,C--Users-you-Projects-Recipe-Box,0'
+  'activity-claude' = 'claude,activity,0'
 }
-& (Join-Path $PSScriptRoot 'Capture-Views.ps1') -Views ($shots.GetEnumerator() | ForEach-Object { "readme-$($_.Key)=$($_.Value)" }) -FullPage $Width -WaitSeconds 8
+& (Join-Path $PSScriptRoot 'Capture-Views.ps1') -Views ($pages.GetEnumerator() | ForEach-Object { "readme-$($_.Key)=$($_.Value)" }) -FullPage $Width -WaitSeconds 8
 
-# One shot in the light theme. The theme is an app setting, read at launch
-# from the demo's own data folder, so it is written there first - the dark
-# shots above ran on the default.
+# The same pages in the light theme, from the same demo data, so both sets
+# carry the same dates and figures. The theme is an app setting, read at
+# launch from the demo's own data folder, so it is written there first - the
+# dark shots above ran on the default.
 $appData = Join-Path $root 'demo-data\appdata'
 New-Item -ItemType Directory -Force $appData | Out-Null
 Set-Content -Path (Join-Path $appData 'app-settings.json') -Value '{ "Theme": "light", "TrayNoteShown": true }'
-& (Join-Path $PSScriptRoot 'Capture-Views.ps1') -Views @('readme-overview-claude-light=claude,overview,0') -FullPage $Width -WaitSeconds 8
+& (Join-Path $PSScriptRoot 'Capture-Views.ps1') -Views ($pages.GetEnumerator() | ForEach-Object { "readme-$($_.Key)-light=$($_.Value)" }) -FullPage $Width -WaitSeconds 8
 Remove-Item (Join-Path $appData 'app-settings.json')
-$shots['overview-claude-light'] = 'claude,overview,0'
 
-$pairs = foreach ($name in $shots.Keys) {
+$shots = @($pages.Keys) + @($pages.Keys | ForEach-Object { "$_-light" })
+$pairs = foreach ($name in $shots) {
   Join-Path $root "screenshots\readme-$name.png"
   Join-Path $root "docs\screenshots\$name.webp"
 }

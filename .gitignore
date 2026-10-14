@@ -16,3 +16,6 @@ out/
 # README's own, made from invented data by tools\Capture-Readme.ps1, live in
 # docs/screenshots/.
 /screenshots/
+
+# The project site build (site/build.mjs)
+site/dist/

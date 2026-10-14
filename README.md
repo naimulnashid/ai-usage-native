@@ -188,7 +188,8 @@ data folder runs beside the one in your tray.
 | Script | Does |
 |---|---|
 | `tools\Capture-Views.ps1` | Screenshots any page, at any scroll offset or top to bottom, on the demo data |
-| `tools\Capture-Readme.ps1` | Regenerates the screenshots above |
+| `tools\Capture-Readme.ps1` | Regenerates the screenshots above, in both themes |
+| `node site/build.mjs` | Builds the project site into `site/dist/` (see [site/README.md](site/README.md)) |
 | `tools\Package-Release.ps1` | Builds the release zip |
 | `dotnet run tools/make-social-preview.cs` | Redraws `.github/social-preview.png` |
 | `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
