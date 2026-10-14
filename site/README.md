@@ -1,8 +1,12 @@
 # Project site
 
 A one-page site that shows what this app is and does, for people who find
-the repository: what it reads, how the two parsers work, every page of the
-app, every chart it draws, and every feature.
+the repository: what it reads, how the two parsers work, every chart it
+draws, and every feature.
+
+**The screenshot tour is hidden** (2026-10-15, pending the owner's review):
+its section, nav link and script are all kept, and the comment above
+`<section id="tour">` in `index.html` says how to bring it back.
 
 Plain HTML, CSS and one script, with no framework and no dependencies. The
 charts are drawn in the browser from a fixed random seed, so they are the
@@ -10,7 +14,8 @@ same on every load and are nobody's usage; their colours, rates and rules
 follow the app's own (`src/UsageCore/View/ModelColors.cs`, `Providers.cs`,
 `Pricing/*.json`, `src/UsageApp/Charts/`). The app screenshots come from
 `docs/screenshots/`, which `tools\Capture-Readme.ps1` regenerates in both
-themes from one demo run; the page shows the set matching its own theme, and
+themes from one demo run; the (hidden) tour shows the set matching the
+page's theme, and
 the build copies them in rather than keeping a second set here. It copies
 `.github/social-preview.png` (the repository's social card) in the same way,
 as the link preview image; the preview tags use absolute URLs to the deployed
