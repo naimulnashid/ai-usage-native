@@ -1,4 +1,4 @@
-# AI Usage (native)
+# <img src="src/UsageApp/Assets/app-icon.svg" alt="AI Usage app icon: three ascending bars on a black tile" width="40" height="40" align="absmiddle"> AI Usage (native)
 
 [![CI](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/naimulnashid/ai-usage-native)](https://github.com/naimulnashid/ai-usage-native/releases/latest)
