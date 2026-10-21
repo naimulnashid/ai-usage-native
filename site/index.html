@@ -359,8 +359,9 @@
     <div class="feat card">
       <h3>Install, update, inspect</h3>
       <ul>
-        <li>A self-contained zip: unzip anywhere and run <code>AIUsage.exe</code>. It carries its own .NET and Windows App SDK.</li>
-        <li><code>tools\Install.ps1</code> builds from source, adds a Start menu entry and lists the app under <b>Installed apps</b>. Uninstalling keeps your data unless you ask.</li>
+        <li>A setup that installs for your account only, with no administrator rights: a Start menu entry, an entry under <b>Installed apps</b>, and upgrades in place. Uninstalling keeps your data.</li>
+        <li>Or a portable zip: unzip anywhere and run <code>AIUsage.exe</code>. Both carry their own .NET and Windows App SDK.</li>
+        <li><code>tools\Install.ps1</code> builds from source and installs the same way, for contributors.</li>
         <li><code>aiusage parse claude</code> or <code>codex</code> prints totals and diagnostics: duplicates skipped, output recovered, files reconciled.</li>
         <li><code>aiusage demo-data</code> writes invented transcripts for both agents, to try the app without your own.</li>
       </ul>

@@ -103,6 +103,10 @@ foreach ($name in $entry.Keys) { New-ItemProperty -Path $key -Name $name -Value 
 # No Modify or Repair buttons: re-running this script is the repair.
 foreach ($name in 'NoModify', 'NoRepair') { New-ItemProperty -Path $key -Name $name -Value 1 -PropertyType DWord -Force | Out-Null }
 New-ItemProperty -Path $key -Name 'EstimatedSize' -Value ([int]($bytes / 1KB)) -PropertyType DWord -Force | Out-Null
+# The release's setup.exe installs to the same folder under an entry of its
+# own; its files are gone now, so its entry would only uninstall this copy.
+$setupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIUsage_is1'
+if (Test-Path $setupKey) { Remove-Item $setupKey -Recurse -Force }
 
 Write-Host ("Installed to {0} ({1:N0} MB) with a Start menu shortcut and an Installed apps entry." -f $target, $size)
 Write-Host 'Start it from the Start menu. "Start at login" is in its Settings menu and the tray menu.'

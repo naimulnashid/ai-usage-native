@@ -59,6 +59,9 @@ try {
   $run = Get-ItemProperty -Path $runKey -Name 'AI Usage' -ErrorAction SilentlyContinue
   if ($run -and $run.'AI Usage' -like "*$exe*") { Remove-ItemProperty -Path $runKey -Name 'AI Usage' }
   if (Test-Path $uninstallKey) { Remove-Item $uninstallKey -Recurse -Force }
+  # Left by the release's setup.exe, if it installed here before Install.ps1 did.
+  $setupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIUsage_is1'
+  if (Test-Path $setupKey) { Remove-Item $setupKey -Recurse -Force }
   if (Test-Path $target) { Remove-Item $target -Recurse -Force }
   if ($RemoveData) {
     $data = Join-Path $env:LOCALAPPDATA 'AI Usage Native'

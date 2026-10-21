@@ -80,17 +80,23 @@ The images follow GitHub's theme: dark or light, as the app draws them.
 
 ### Download
 
-Get `AIUsage-<version>-win-x64.zip` from the
-[latest release](https://github.com/naimulnashid/ai-usage-native/releases/latest),
-unzip it anywhere, and run **`AIUsage.exe`** in the `AI Usage` folder. It
-carries its own .NET and Windows App SDK runtime, so nothing else needs
-installing. Windows 10 version 2004 or later, x64.
+Windows 10 version 2004 or later, x64. Both downloads carry their own .NET and
+Windows App SDK runtime, so nothing else needs installing.
 
-The download is a portable copy: it adds no Start menu entry. Building from
-source (below) installs the app properly.
+**Install (recommended):** get `AIUsage-<version>-win-x64-setup.exe` from the
+[latest release](https://github.com/naimulnashid/ai-usage-native/releases/latest)
+and run it. It installs for your Windows account only, so it needs no
+administrator rights: the app goes to `%LOCALAPPDATA%\Programs\AI Usage`, with
+a Start menu entry and an entry under **Settings → Apps → Installed apps**. To
+update, run a newer setup: it closes the running app and replaces it, and your
+settings and history are kept.
 
-The build is not code-signed, so SmartScreen will say it does not recognise the
-app: **More info → Run anyway**.
+**Portable:** get `AIUsage-<version>-win-x64.zip` instead, unzip it anywhere,
+and run **`AIUsage.exe`** in the `AI Usage` folder. Nothing is installed: no
+Start menu entry, and no Installed apps entry.
+
+The downloads are not code-signed, so SmartScreen will say it does not
+recognise the app: **More info → Run anyway**.
 
 **Smart App Control** blocks it outright when it is **On**: it lets an unsigned
 app run only if Microsoft's app intelligence already rates it safe, and today it
@@ -104,7 +110,8 @@ considered.
 
 ### Build and install from source
 
-Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
+For contributors, or to run your own changes; to use the app, the setup above
+is all you need. Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 (Visual Studio is not needed) and [Git](https://git-scm.com/download/win) to
 get the source. In PowerShell:
 
@@ -122,11 +129,9 @@ fine): the build writes files up to 150 characters deep inside it, and a
 longer path runs into Windows' 260-character limit and fails with "Could not
 find file".
 
-That publishes a self-contained build to `%LOCALAPPDATA%\Programs\AI Usage`,
-adds **AI Usage** to the Start menu, and lists it under **Settings → Apps →
-Installed apps** (and Control Panel's Programs and Features). The installed app
-carries its own .NET and Windows App SDK runtime (~190 MB), so it needs neither
-installed. Run the same command again to update.
+That publishes a self-contained build and installs it where the setup does,
+with the same Start menu and Installed apps entries; either one replaces the
+other. Run the same command again to update.
 
 Windows 10 version 2004 or later, x64. Built and tested on Windows 11. The
 build is unsigned, so Smart App Control blocks it the same way it blocks the
@@ -134,18 +139,21 @@ download (see [Download](#download)).
 
 ### First run
 
-Open **AI Usage** from the Start menu (or `AIUsage.exe` from the zip). It finds
+The setup offers to open the app when it finishes; after that, open **AI
+Usage** from the Start menu (or `AIUsage.exe` from the zip). It finds
 the transcripts in their default folders on its own, `%USERPROFILE%\.claude\projects\`
 for Claude Code and `%USERPROFILE%\.codex\sessions\` for Codex, and shows the
 overview for Claude Code. Switch agents from the sidebar.
 
 ### Uninstall
 
-Use **Uninstall** on its entry in Installed apps, or run
-`tools\Install.ps1 -Uninstall`. Either way your settings, archive and logos in
-`%LOCALAPPDATA%\AI Usage Native` are kept; add `-RemoveData` to the script to
-remove them too. The zip download is not installed at all: exit it from the
-tray and delete its folder.
+Use **Uninstall** on its entry in **Settings → Apps → Installed apps**, however
+it was installed (a source install can also run `tools\Install.ps1
+-Uninstall`). It closes the app and removes it, its Start menu entry and its
+start-at-login entry. Your settings, archive and logos in
+`%LOCALAPPDATA%\AI Usage Native` are kept; delete that folder to remove them
+too. The zip download is not installed at all: exit it from the tray and
+delete its folder.
 
 ## Configuration
 
@@ -279,6 +287,7 @@ flowchart LR
 | [`src/UsageApp`](src/UsageApp) | The WinUI 3 app. Pages are built in C# from one set of element builders; charts are drawn on XAML shapes rather than a chart library. [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) draws SVG logos, [H.NotifyIcon](https://github.com/HavenDV/H.NotifyIcon) the tray icon. |
 | [`src/UsageCli`](src/UsageCli) | `aiusage parse <agent>` prints the diagnostics and totals; `aiusage demo-data` writes invented transcripts. |
 | [`tests/UsageCore.Tests`](tests/UsageCore.Tests) | xUnit v3 tests for the parsers, pricing, archive and settings. Fixtures are written at run time. |
+| [`installer/`](installer) | The [Inno Setup](https://jrsoftware.org/isinfo.php) script for the release's per-user setup.exe. |
 | [`site/`](site) | The project site: plain HTML, CSS and JavaScript (see [site/README.md](site/README.md)). |
 
 Numbers are recomputed from disk on every refresh. Transcript lines are
@@ -326,7 +335,7 @@ data folder runs beside the one in your tray.
 | Script | Does |
 |---|---|
 | `tools\Install.ps1` | Builds a Release copy and installs it for this user (see [above](#build-and-install-from-source)) |
-| `tools\Package-Release.ps1` | Builds the release zip into `artifacts\` |
+| `tools\Package-Release.ps1` | Builds the release's setup.exe and zip into `artifacts\`. Needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install --id JRSoftware.InnoSetup -e --scope user` |
 | `tools\Capture-Views.ps1` | Screenshots any page, at any scroll offset or top to bottom, on the demo data |
 | `tools\Capture-Readme.ps1` | Regenerates the screenshots above, in both themes |
 | `node site/build.mjs` | Builds the project site into `site/dist/` (see [site/README.md](site/README.md)) |
