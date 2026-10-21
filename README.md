@@ -150,16 +150,25 @@ overview for Claude Code. Switch agents from the sidebar.
 Use **Uninstall** on its entry in **Settings → Apps → Installed apps**, however
 it was installed (a source install can also run `tools\Install.ps1
 -Uninstall`). It closes the app and removes it, its Start menu entry and its
-start-at-login entry. Your settings, archive and logos in
-`%LOCALAPPDATA%\AI Usage Native` are kept; delete that folder to remove them
-too. The zip download is not installed at all: exit it from the tray and
-delete its folder.
+start-at-login entry. Your settings, archive and logos are kept, in the data
+folder: `%LOCALAPPDATA%\AI Usage Native`, or the folder `AIUSAGE_DATA_DIR`
+names if you have set it.
+
+To remove them too, delete that folder, or from a source checkout run
+`tools\Install.ps1 -Uninstall -RemoveData`, which deletes only what the app
+wrote there (the files and folders listed under
+[Configuration](#configuration)), so other files in a folder you chose with
+`AIUSAGE_DATA_DIR` are left alone.
+
+The zip download is not installed at all: exit it from the tray and delete its
+folder.
 
 ## Configuration
 
 No configuration is needed: the app works with its defaults. What it does
-let you change lives in `%LOCALAPPDATA%\AI Usage Native\`
-(**Settings → Open settings folder**). Most of it is written by the app itself;
+let you change lives in `%LOCALAPPDATA%\AI Usage Native\`, or the folder
+`AIUSAGE_DATA_DIR` names (**Settings → Open settings folder** opens its
+`config\` folder). Most of it is written by the app itself;
 the `config\` files are yours to edit:
 
 | File | What |
@@ -301,7 +310,8 @@ small in memory even when a line holds megabytes of tool output.
   password, and stores none.
 - **It reads the transcripts and never changes them.** Only the folders above
   (or `CLAUDE_CONFIG_DIR` / `CODEX_HOME`).
-- **What it stores**, in `%LOCALAPPDATA%\AI Usage Native\`: numbers (tokens,
+- **What it stores**, in `%LOCALAPPDATA%\AI Usage Native\` (or the folder
+  `AIUSAGE_DATA_DIR` names): numbers (tokens,
   cost, runtime per day, project and model), project names and their working
   folder paths, your settings, and the logos you add. Never prompts, code or
   other transcript content.

@@ -17,8 +17,9 @@
 
   -Uninstall runs that same Uninstall.ps1: it removes the program folder, the
   shortcut, the start-at-login entry and the Installed apps entry. It leaves
-  your data (%LOCALAPPDATA%\AI Usage Native: settings, the archive, project
-  logos) unless -RemoveData is also given.
+  your data (settings, the archive, project logos, in %LOCALAPPDATA%\AI Usage
+  Native or the folder AIUSAGE_DATA_DIR names) unless -RemoveData is also
+  given, which deletes only what the app wrote there.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\Install.ps1
