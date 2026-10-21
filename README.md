@@ -52,18 +52,36 @@ carries its own .NET and Windows App SDK runtime, so nothing else needs
 installing. Windows 10 1809 or later, x64.
 
 The build is not code-signed, so SmartScreen will say it does not recognise the
-app: **More info → Run anyway**. With Smart App Control turned on, Windows may
-refuse it outright; build it yourself instead (below). Signing is being
-considered.
+app: **More info → Run anyway**.
+
+**Smart App Control** blocks it outright when it is **On**: it lets an unsigned
+app run only if Microsoft's app intelligence already rates it safe, and today it
+does not rate this one. Building it yourself does not get round this, since your own build is
+unsigned too. To run the app, turn Smart App Control off in **Windows Security
+→ App & browser control → Smart App Control**. Since the April 2026 Windows 11
+update it can be turned back on later; on older builds, turning it off could
+only be undone by resetting Windows. With it on **Evaluation** or **Off**,
+nothing extra is needed. Signing is being considered.
 
 ## Build and install from source
 
 Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
-(Visual Studio is not needed), then:
+(Visual Studio is not needed) and [Git](https://git-scm.com/download/win) to
+get the source. In PowerShell:
 
 ```powershell
+git clone https://github.com/naimulnashid/ai-usage-native.git
+cd ai-usage-native
 powershell -ExecutionPolicy Bypass -File tools\Install.ps1
 ```
+
+Without Git, use **Code → Download ZIP** on the repository page instead, unzip
+it, and run the last line from the unzipped folder.
+
+**Keep the folder's path short**, under about 100 characters (`C:\src` is
+fine): the build writes files up to 150 characters deep inside it, and a
+longer path runs into Windows' 260-character limit and fails with "Could not
+find file".
 
 That publishes a self-contained build to `%LOCALAPPDATA%\Programs\AI Usage`,
 adds **AI Usage** to the Start menu, and lists it under **Settings → Apps →
@@ -78,7 +96,8 @@ remove them too. The zip download is not installed at all: exit it from the
 tray and delete its folder.
 
 Windows 10 1809 or later, x64. Built and tested on Windows 11. The build is
-unsigned: with Smart App Control on, Windows may block it.
+unsigned, so Smart App Control blocks it the same way it blocks the download
+(see [Download](#download)).
 
 ## Using it
 
