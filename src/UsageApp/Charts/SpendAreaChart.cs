@@ -11,7 +11,7 @@ namespace UsageApp.Charts;
 
 /// <summary>
 /// Daily combined spend: a smooth area over every recorded day, with the days
-/// that sit well above trend marked in the warning colour.
+/// that sit well above trend marked in the agent's spike colour.
 /// </summary>
 public sealed class SpendAreaChart : ChartSurface
 {
@@ -31,7 +31,7 @@ public sealed class SpendAreaChart : ChartSurface
     }
 
     /// <summary>
-    /// Days whose spend sits well above the run of the series, so the warning
+    /// Days whose spend sits well above the run of the series, so the spike
     /// colour marks a real anomaly rather than decorating the chart.
     /// </summary>
     public static bool[] MarkSpikes(double[] values)
@@ -114,7 +114,7 @@ public sealed class SpendAreaChart : ChartSurface
             for (var i = 0; i < n; i++)
             {
                 if (!_spikes[i]) continue;
-                Canvas.Children.Add(Dot(_points[i], 4.5, Palette.WarnBrush));
+                Canvas.Children.Add(Dot(_points[i], 4.5, Palette.SpikeBrush));
             }
 
             if (animate) Reveal(fill, stroke, plotLeft, plotW);
@@ -190,7 +190,7 @@ public sealed class SpendAreaChart : ChartSurface
         body.Children.Add(ChartTooltip.Muted($"{Format.Tokens(day.Combined.TotalTokens)} tokens · {Format.Duration(day.Combined.RuntimeSeconds)}"));
         if (_spikes[index])
         {
-            var warn = Ui.Text("Well above trend", 13, 600, Palette.WarnBrush);
+            var warn = Ui.Text("Well above trend", 13, 600, Palette.SpikeBrush);
             warn.Margin = new Thickness(0, 8, 0, 0);
             body.Children.Add(warn);
         }

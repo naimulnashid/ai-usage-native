@@ -37,6 +37,9 @@ public sealed record ProviderMeta
     public required string SessionTip { get; init; }
     public required string SubagentNoun { get; init; }
 
+    /// <summary>How Daily combined spend marks a day well above trend: red for Claude Code, Codex's own accent for Codex.</summary>
+    public required string SpikeNote { get; init; }
+
     /// <summary>Accent colour and its heat-map ramp (step 0 is "no activity").</summary>
     public required string Accent { get; init; }
     public required string AccentBright { get; init; }
@@ -68,6 +71,7 @@ public static class Providers
         MessageTip = "One per billed API response. Claude Code writes the same message to disk several times (streaming updates, and replays when a session is resumed); those copies are collapsed here.",
         SessionTip = "Every transcript file found, including subagent transcripts nested under a session. The Claude Code app counts only top-level sessions.",
         SubagentNoun = "subagent",
+        SpikeNote = "Days marked in red sit well above trend.",
         Accent = "#D97757",
         AccentBright = "#F08A66",
         HeatRamp = ["#161318", "#9D4224", "#BE4F2B", "#D3603B", "#D97757", "#E39981"],
@@ -90,6 +94,7 @@ public static class Providers
         MessageTip = "One per billed API request. Codex reports a running total after each turn and sometimes repeats the last reading; repeats contribute nothing here.",
         SessionTip = "Every rollout file found, including the auto-review threads Codex spawns to check its own actions. Those are billed separately and are counted here.",
         SubagentNoun = "auto-review",
+        SpikeNote = "Days marked with a dot sit well above trend.",
         Accent = "#10A37F",
         AccentBright = "#1FC79C",
         HeatRamp = ["#131817", "#0A6B53", "#0D8165", "#0E9372", "#10A37F", "#13C197"],

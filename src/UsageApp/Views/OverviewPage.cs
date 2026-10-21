@@ -86,7 +86,7 @@ public sealed class OverviewPage(PageContext ctx) : IPage
             box.Children.Add(line);
             largest = box;
         }
-        var spend = Ui.Panel("Daily combined spend", "All models, all projects. Days marked in red sit well above trend.", largest,
+        var spend = Ui.Panel("Daily combined spend", $"All models, all projects. {meta.SpikeNote}", largest,
             daily.Any(d => Dates.IsDayKey(d.Date)) ? new SpendAreaChart(daily.Where(d => Dates.IsDayKey(d.Date)).ToList()) : Parts.NoDaysInRange(daily, DayRange.All));
         Ui.Rise(spend, 100);
         page.Children.Add(spend);

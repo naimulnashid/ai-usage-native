@@ -108,6 +108,13 @@ public static class Palette
     public static readonly SolidColorBrush AccentBorderStrong = new();
     public static readonly SolidColorBrush AccentFill = new();
 
+    /// <summary>
+    /// A day well above trend. Claude Code's is the warning red; red on Codex's
+    /// green read as Claude Code's colour, so Codex marks it in its own bright
+    /// accent instead.
+    /// </summary>
+    public static readonly SolidColorBrush SpikeBrush = new();
+
     /// <summary>Heat-map ramp: step 0 is "no activity", 1-5 rise with spend.</summary>
     public static readonly SolidColorBrush[] Heat = [new(), new(), new(), new(), new(), new()];
 
@@ -173,6 +180,7 @@ public static class Palette
         AccentBorder.Color = Hex(hex, IsLight ? 0.30 : codex ? 0.34 : 0.32);
         AccentBorderStrong.Color = Hex(hex, IsLight ? 0.45 : codex ? 0.46 : 0.42);
         AccentFill.Color = Hex(hex, IsLight ? 0.14 : codex ? 0.24 : 0.22);
+        SpikeBrush.Color = codex ? AccentBright.Color : Warn;
         var ramp = IsLight ? meta.HeatRampLight : meta.HeatRamp;
         for (var i = 0; i < Heat.Length; i++) Heat[i].Color = Hex(ramp[i]);
         SetModelSettings(UsageCore.Config.ModelSettings.Load(meta.Id));

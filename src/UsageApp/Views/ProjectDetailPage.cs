@@ -110,7 +110,7 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
             box.Children.Add(line);
             peakBox = box;
         }
-        var spend = Ui.Panel("Daily combined spend", "All models, this project. Days marked in red sit well above trend.", peakBox,
+        var spend = Ui.Panel("Daily combined spend", $"All models, this project. {meta.SpikeNote}", peakBox,
             dated.Count > 0 ? new SpendAreaChart(dated) : Parts.NoDaysInRange(daily, DayRange.All));
         Ui.Rise(spend, 100);
         page.Children.Add(spend);

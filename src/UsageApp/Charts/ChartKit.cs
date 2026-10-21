@@ -191,7 +191,8 @@ public sealed class ChartTooltip
         host.Unloaded += (_, _) => Hide();
     }
 
-    public void SetWarn(bool warn) => _card.BorderBrush = warn ? Palette.WarnBrush : Palette.BorderBrightBrush;
+    /// <summary>Only a day well above trend sets this, so it takes that day's colour.</summary>
+    public void SetWarn(bool warn) => _card.BorderBrush = warn ? Palette.SpikeBrush : Palette.BorderBrightBrush;
 
     /// <summary>Shows <paramref name="content"/> near <paramref name="pointInHost"/>.</summary>
     public void Show(UIElement content, Point pointInHost)
