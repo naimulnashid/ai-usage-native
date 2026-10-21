@@ -363,7 +363,7 @@ function drawSpend(d) {
   const y = (v) => H - B - ((H - B - T) * v) / top;
   const line = curve(days.map((dd, i) => [x(i), y(dd.combined.cost)]));
   const area = `${line}L${x(days.length - 1)},${y(0)}L${x(0)},${y(0)}Z`;
-  const dots = days.map((dd, i) => (marks[i] ? `<circle cx="${x(i)}" cy="${y(dd.combined.cost)}" r="4.5" fill="var(--danger)" class="fade"/>` : '')).join('');
+  const dots = days.map((dd, i) => (marks[i] ? `<circle cx="${x(i)}" cy="${y(dd.combined.cost)}" r="4.5" fill="var(--spike)" class="fade"/>` : '')).join('');
   const largest = d.projects[0];
   document.getElementById('v-spend').innerHTML =
     `<div class="chart-top"><div class="callout"><span class="callout-label">Largest project</span><span class="callout-name">${esc(largest.name)}</span> <span class="callout-value">${usd(largest.cost)}</span></div></div>
@@ -374,7 +374,7 @@ function drawSpend(d) {
       ${yAxis(ticks, L, W - R, y, (v) => '$' + v.toFixed(v < 10 && v % 1 ? 1 : 0))}
       <path d="${area}" fill="url(#g-spend)" class="fade"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" class="fade"/>
       ${dots}${xDates(days, x, H - 6, 10)}
-      ${hitStrips(days, x, T, H - B - T, (dd, i) => `<b>${fmtDayLong(dd.date)}</b><span style="color:${marks[i] ? 'var(--danger)' : 'var(--accent-bright)'};font-weight:650;font-size:15px">${usd(dd.combined.cost)}</span>${marks[i] ? ' <small>well above trend</small>' : ''}`)}
+      ${hitStrips(days, x, T, H - B - T, (dd, i) => `<b>${fmtDayLong(dd.date)}</b><span style="color:${marks[i] ? 'var(--spike)' : 'var(--accent-bright)'};font-weight:650;font-size:15px">${usd(dd.combined.cost)}</span>${marks[i] ? ' <small>well above trend</small>' : ''}`)}
     </svg>`;
 }
 
@@ -680,29 +680,40 @@ function drawTokens(d) {
 
 /* Model prices: an invented unpriced model shows how the app flags one. */
 const priceEdits = { claude: {}, codex: {} };
+/* The table's dragged order, per agent; empty is the default order (ModelSettings.Arrange). */
+const priceOrder = { claude: [], codex: [] };
 let editing = null;
+function arrange(rows, order) {
+  const rank = new Map(order.map((id, i) => [id, i]));
+  return rows.map((r, i) => [r, i])
+    .sort((a, b) => (rank.get(a[0].id) ?? Infinity) - (rank.get(b[0].id) ?? Infinity) || a[1] - b[1])
+    .map(([r]) => r);
+}
 function drawPrices(d) {
   const codex = d.key === 'codex';
   const fields = codex ? [['input', 'Input'], ['read', 'Cached input'], ['output', 'Output']]
     : [['input', 'Input'], ['w5', 'Write 5m'], ['w1', 'Write 1h'], ['read', 'Cache read'], ['output', 'Output']];
-  const rows = d.cfg.models.map((m) => ({ id: m.id, color: modelColor(m), rate: priceEdits[d.key][m.id]?.rate ?? m.rate, custom: !!priceEdits[d.key][m.id], alias: m.alias, long: m.long }));
+  const byDefault = d.cfg.models.map((m) => ({ id: m.id, color: modelColor(m), rate: priceEdits[d.key][m.id]?.rate ?? m.rate, long: m.long }));
   const preview = codex ? 'gpt-preview-1' : 'claude-preview-1';
   const pe = priceEdits[d.key][preview];
-  rows.push({ id: preview, color: isLight() ? '#8C909B' : '#9C7A6C', rate: pe?.rate ?? null, custom: !!pe, unpriced: !pe });
+  byDefault.push({ id: preview, color: isLight() ? '#8C909B' : '#9C7A6C', rate: pe?.rate ?? null, unpriced: !pe?.rate });
+  const rows = arrange(byDefault, priceOrder[d.key]);
+  const name = (r) => priceEdits[d.key][r.id]?.name || r.id;
   const money = (v) => (v === undefined || v === null ? '-' : '$' + (+v).toString());
-  const body = rows.map((r) => `<tr><td><span class="mcell"><i style="background:${priceEdits[d.key][r.id]?.color ?? r.color}"></i>${esc(r.id)}${r.unpriced ? '<span class="flag">unpriced</span>' : ''}</span></td>
+  const body = rows.map((r, i) => `<tr><td><span class="mcell"><button type="button" class="grip" data-grip="${i}" title="Drag to reorder" aria-label="Move ${esc(name(r))}: drag, or press the up and down arrow keys"></button><i style="background:${priceEdits[d.key][r.id]?.color ?? r.color}"></i>${esc(name(r))}${r.unpriced ? '<span class="flag">unpriced</span>' : ''}</span></td>
       ${fields.map(([k]) => `<td class="num">${r.rate ? money(r.rate[k]) : '-'}</td>`).join('')}
-      <td class="dim">${r.unpriced ? 'Not on the card' : r.custom ? 'Custom' : r.alias ? `Rate card, as ${r.alias}` : 'Rate card'}</td>
       <td class="num"><button type="button" class="tbl-btn${r.unpriced ? ' primary' : ''}" data-edit="${esc(r.id)}" aria-expanded="${editing === r.id}">${r.unpriced ? 'Set price' : 'Edit'}</button></td></tr>`).join('');
   const el = document.getElementById('v-prices');
   const editRow = rows.find((r) => r.id === editing);
   const swatches = d.cfg.swatches[isLight() ? 'light' : 'dark'];
+  const reorder = priceOrder[d.key].length ? '<div class="note"><button type="button" class="tbl-btn" data-act="order">Default order</button></div>' : '';
   el.innerHTML = `<div class="table-wrap"><table>
-      <thead><tr><th>Model</th>${fields.map(([, h]) => `<th class="num">${h}</th>`).join('')}<th>Source</th><th></th></tr></thead>
+      <thead><tr><th>Model</th>${fields.map(([, h]) => `<th class="num">${h}</th>`).join('')}<th></th></tr></thead>
       <tbody>${body}</tbody></table></div>
-    ${codex ? '<div class="note">On GPT-5.6 Sol and GPT-6.1 Sol, a request whose prompt is over 272K tokens is billed at 2x input and cache and 1.5x output, for the whole request.</div>' : '<div class="note">USD per million tokens.</div>'}
+    ${codex ? `<div class="note">On GPT-5.6 Sol and GPT-6.1 Sol, a request whose prompt is over 272K tokens is billed at 2x input and cache and 1.5x output, for the whole request.</div>` : '<div class="note">USD per million tokens.</div>'}${reorder}
     <div class="editor" ${editRow ? '' : 'hidden'}>
-      ${editRow ? `<h4>${esc(editRow.id)}</h4>
+      ${editRow ? `<label class="name-field">Name<input type="text" maxlength="60" data-name value="${esc(name(editRow))}" placeholder="${esc(editRow.id)}"></label>
+      <h4>Price for ${esc(editRow.id)}, USD per million tokens</h4>
       <div class="fields">${fields.map(([k, h]) => `<label>${h}<input type="number" min="0" step="0.01" data-f="${k}" value="${editRow.rate?.[k] ?? ''}"></label>`).join('')}</div>
       <div class="swatches" role="group" aria-label="Colour">${swatches.map((c) => `<button type="button" style="background:${c}" data-c="${c}" aria-label="${c}" aria-pressed="${(priceEdits[d.key][editRow.id]?.color ?? editRow.color).toUpperCase() === c}"></button>`).join('')}</div>
       <div class="ed-actions">
@@ -716,6 +727,62 @@ function drawPrices(d) {
     editing = editing === b.dataset.edit ? null : b.dataset.edit;
     drawPrices(d);
   }));
+  el.querySelector('[data-act="order"]')?.addEventListener('click', () => { priceOrder[d.key] = []; drawPrices(d); });
+
+  const move = (from, to, refocus) => {
+    const ids = rows.map((r) => r.id);
+    ids.splice(to, 0, ...ids.splice(from, 1));
+    priceOrder[d.key] = ids;
+    drawPrices(d);
+    if (refocus) el.querySelector(`[data-grip="${to}"]`)?.focus();
+  };
+  el.querySelectorAll('[data-grip]').forEach((grip) => {
+    const from = +grip.dataset.grip;
+    grip.addEventListener('keydown', (e) => {
+      const to = e.key === 'ArrowUp' ? from - 1 : e.key === 'ArrowDown' ? from + 1 : -1;
+      if (to < 0 || to >= rows.length) return;
+      e.preventDefault();
+      move(from, to, true);
+    });
+    // As in the app: the row follows the pointer, an accent rule marks where it lands.
+    grip.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      const trs = [...el.querySelectorAll('tbody tr')];
+      const boxes = trs.map((t) => t.getBoundingClientRect());
+      const row = trs[from];
+      row.classList.add('lifted');
+      el.classList.add('dragging');
+      // Over the lifted row, which would otherwise hide the rule where it lands.
+      const wrap = el.querySelector('.table-wrap');
+      const wrapTop = wrap.getBoundingClientRect().top;
+      const rule = document.createElement('div');
+      rule.className = 'drop-rule';
+      rule.hidden = true;
+      wrap.append(rule);
+      let to = from;
+      const onMove = (ev) => {
+        const dy = Math.max(boxes[0].top - boxes[from].top, Math.min(boxes.at(-1).bottom - boxes[from].bottom, ev.clientY - e.clientY));
+        row.style.transform = `translateY(${dy}px)`;
+        const middle = boxes[from].top + boxes[from].height / 2 + dy;
+        to = boxes.filter((b, i) => i !== from && b.top + b.height / 2 < middle).length;
+        rule.hidden = to === from;
+        rule.style.top = `${(to < from ? boxes[to].top : boxes[to].bottom) - wrapTop - 1}px`;
+      };
+      const onEnd = (ev) => {
+        grip.removeEventListener('pointermove', onMove);
+        grip.removeEventListener('pointerup', onEnd);
+        grip.removeEventListener('pointercancel', onEnd);
+        el.classList.remove('dragging');
+        if (ev.type === 'pointerup' && to !== from) move(from, to, false);
+        else drawPrices(d);
+      };
+      grip.addEventListener('pointermove', onMove);
+      grip.addEventListener('pointerup', onEnd);
+      grip.addEventListener('pointercancel', onEnd);
+    });
+  });
   if (!editRow) return;
   let color = priceEdits[d.key][editRow.id]?.color ?? null;
   el.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
@@ -735,7 +802,9 @@ function drawPrices(d) {
   el.querySelector('[data-act="save"]').addEventListener('click', () => {
     const rate = {};
     for (const [k] of fields) rate[k] = parseFloat(input(k).value) || 0;
-    priceEdits[d.key][editRow.id] = { rate, color };
+    // Blank, or the model string typed back, is no name at all.
+    const typed = el.querySelector('[data-name]').value.trim();
+    priceEdits[d.key][editRow.id] = { rate, color, name: typed && typed !== editRow.id ? typed : null };
     editing = null;
     drawPrices(d);
   });
