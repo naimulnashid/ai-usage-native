@@ -12,7 +12,7 @@ const sizes = '(min-width: 1180px) 1040px, calc(100vw - 48px)';
   <div class="container">
     <div class="hero-copy rise">
       <p class="eyebrow">Open source · Windows · Local-only</p>
-      <h1 id="hero-title">Claude Code and Codex usage, <span>counted on your own PC.</span></h1>
+      <h1 id="hero-title"><span class="line">Claude Code and Codex usage,</span> <span class="line accent">counted on your own PC.</span></h1>
       <p class="hero-lead">
         Reads both agents' own transcripts and shows tokens, estimated cost and runtime, per project and per day.
       </p>
@@ -67,24 +67,34 @@ const sizes = '(min-width: 1180px) 1040px, calc(100vw - 48px)';
       radial-gradient(760px 560px at 100% 52%, var(--codex-glow), transparent 70%);
   }
 
+  /* Two lines on wide screens, one phrase each; phones wrap within them. */
   h1 {
-    max-width: 16ch;
-    font-size: clamp(2.5rem, 6.8vw, 4.6rem);
+    font-size: clamp(2.3rem, 5.6vw, 4.4rem);
     font-weight: 680;
     letter-spacing: -0.045em;
-    line-height: 1.02;
+    line-height: 1.04;
   }
 
-  h1 span {
+  h1 .line {
+    display: block;
+  }
+
+  h1 .accent {
     color: var(--accent-bright);
   }
 
   .hero-lead {
-    max-width: 40rem;
     margin-top: 22px;
     color: var(--text-dim);
-    font-size: clamp(1.125rem, 2vw, 1.3rem);
+    font-size: clamp(1.125rem, 1.6vw, 1.25rem);
     line-height: 1.5;
+  }
+
+  /* One line where it fits; below that it wraps like any paragraph. */
+  @media (min-width: 1100px) {
+    .hero-lead {
+      white-space: nowrap;
+    }
   }
 
   .buttons {

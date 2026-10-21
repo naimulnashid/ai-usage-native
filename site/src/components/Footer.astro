@@ -16,7 +16,7 @@ const links = [
     <div class="brand">
       <img src="/favicon.svg" alt="" width="28" height="28" />
       <div>
-        <p class="name">{SITE.name}</p>
+        <p class="name">{SITE.name} <a class="version" href={LINKS.download}>{SITE.version}</a></p>
         <p class="by">By {SITE.author}. Free and open source.</p>
       </div>
     </div>
@@ -25,10 +25,6 @@ const links = [
         {links.map((l) => <li><a href={l.href}>{l.label === 'GitHub' && <Icon name="github" />}{l.label}</a></li>)}
       </ul>
     </nav>
-    <p class="marks">
-      Claude and Claude Code are trademarks of Anthropic; Codex and ChatGPT of OpenAI. Their marks are the vendors' own,
-      unmodified. Not affiliated with either.
-    </p>
   </div>
 </footer>
 
@@ -53,10 +49,6 @@ const links = [
     nav {
       justify-self: end;
     }
-
-    .marks {
-      grid-column: 1 / -1;
-    }
   }
 
   .brand {
@@ -70,8 +62,20 @@ const links = [
     letter-spacing: -0.02em;
   }
 
-  .by,
-  .marks {
+  /* The release the footer names, in the accent like a status pill. */
+  .version {
+    margin-left: 6px;
+    padding: 2px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-dim);
+    color: var(--accent-bright);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+  }
+
+  .by {
     color: var(--text-faint);
     font-size: 0.875rem;
   }

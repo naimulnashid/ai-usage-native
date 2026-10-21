@@ -3,7 +3,7 @@
   "framework": "astro",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ../docs/screenshots ../.github/social-preview.png ../src/UsageApp/Assets/AgentMarks",
+  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ../docs/screenshots ../.github/social-preview.png ../src/UsageApp/Assets/AgentMarks ../Directory.Build.props",
   "cleanUrls": true,
   "headers": [
     {

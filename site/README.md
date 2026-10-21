@@ -1,7 +1,7 @@
 # Project site
 
 The one-page site for people who find the repository: what the app does, all
-13 of its charts drawn live, its pages, how it works, and how to install it.
+13 of its charts drawn live, how it works, and how to install it.
 Built on the **Onyx** design system.
 
 | | |
@@ -42,7 +42,7 @@ the security headers and when to build at all.
   (`assetsInlineLimit: 0`). Styles allow `'unsafe-inline'`: the charts colour
   their shapes through style attributes.
 - **A push builds only when the site could have changed**: something under
-  `site/`, `docs/screenshots/`, `src/UsageApp/Assets/AgentMarks/` or the social
+  `site/`, `docs/screenshots/`, `src/UsageApp/Assets/AgentMarks/`, `Directory.Build.props` (the footer's version) or the social
   card differs from the last successful deployment (`ignoreCommand`; exit 0
   skips). With no previous deployment it builds. Any other folder the site
   starts reading from must be added to that list.
