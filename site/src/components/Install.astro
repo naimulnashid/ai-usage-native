@@ -1,0 +1,145 @@
+---
+import Icon from './Icon.astro';
+import { LINKS } from '../lib/site';
+
+const steps = [
+  { title: 'Download the setup', text: '<code>AIUsage-…-win-x64-setup.exe</code> from the latest release.' },
+  { title: 'Run it', text: 'If SmartScreen warns: <b>More info → Run anyway</b>. The build is not code-signed.' },
+  { title: 'Open AI Usage', text: 'From the Start menu. It finds both agents on its own.' },
+];
+
+const needs = ['Windows 10 2004 or later, x64', 'About 190 MB, .NET included', 'No administrator rights'];
+---
+
+<section class="section" id="install" aria-labelledby="install-title">
+  <div class="container install">
+    <div>
+      <div class="section-head">
+        <p class="eyebrow">Install</p>
+        <h2 id="install-title">Three steps, no admin rights.</h2>
+      </div>
+      <ol class="steps">
+        {
+          steps.map((s, i) => (
+            <li>
+              <span class="step-number" aria-hidden="true">{i + 1}</span>
+              <div>
+                <h3>{s.title}</h3>
+                <p class="muted" set:html={s.text} />
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <aside class="card needs">
+      <h3>You need</h3>
+      <ul>{needs.map((n) => <li><Icon name="check" />{n}</li>)}</ul>
+      <p class="sac">
+        <Icon name="shieldAlert" />
+        <span>Smart App Control <b>On</b> blocks unsigned apps. <a href={LINKS.smartAppControl}>What to do</a></span>
+      </p>
+      <div class="buttons">
+        <a class="button button-primary" href={LINKS.download}><Icon name="download" /> Download</a>
+        <a class="button button-secondary" href={LINKS.source}><Icon name="github" /> Build from source</a>
+      </div>
+      <p class="alt">Prefer no install? The release also has a portable zip.</p>
+    </aside>
+  </div>
+</section>
+
+<style>
+  .install {
+    display: grid;
+    gap: 40px;
+  }
+
+  @media (min-width: 960px) {
+    .install {
+      grid-template-columns: 1.2fr 1fr;
+      align-items: start;
+    }
+  }
+
+  .steps {
+    display: grid;
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .steps li {
+    display: flex;
+    gap: 16px;
+  }
+
+  .step-number {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: var(--accent-bright);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .steps h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 5px 0 4px;
+  }
+
+  .needs {
+    display: grid;
+    gap: 16px;
+  }
+
+  .needs ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+  }
+
+  .needs li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .needs li :global(svg) {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    color: var(--accent-bright);
+  }
+
+  .sac {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--warning-dim);
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+  }
+
+  .sac :global(svg) {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    color: var(--warning);
+  }
+
+  .alt {
+    color: var(--text-faint);
+    font-size: 0.875rem;
+  }
+</style>

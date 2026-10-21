@@ -1,0 +1,179 @@
+---
+/**
+ * Every chart in the app, drawn live by scripts/charts.js from a fixed seed:
+ * the same on every load, and nobody's usage. The ids are where the script
+ * draws; each card names the pages the chart is on.
+ */
+import '../styles/charts.css';
+import Icon from './Icon.astro';
+import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
+import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+---
+
+<section class="section" id="charts" data-agent="claude" aria-labelledby="charts-title">
+  <div class="container">
+    <div class="charts-head section-head">
+      <div>
+        <p class="eyebrow"><Icon name="chart" /> Live charts</p>
+        <h2 id="charts-title">Every chart in the app, live.</h2>
+        <p class="lead"><Icon name="pointer" class="inline-icon" /> Hover, switch and drag. Every number is invented.</p>
+      </div>
+      <div class="seg agent-seg" id="agent-seg" role="radiogroup" aria-label="Agent">
+        <button role="radio" aria-checked="true" data-agent="claude">
+          <span class="seg-mark"><img src={claudeMark.src} alt="" width="14" height="14" /></span>Claude Code
+        </button>
+        <button role="radio" aria-checked="false" data-agent="codex">
+          <span class="seg-mark seg-mark-codex"><img src={codexMark.src} alt="" width="14" height="14" /></span>Codex
+        </button>
+      </div>
+    </div>
+
+    <div class="gallery" id="gallery">
+      <article class="viz">
+        <header><h3>Headline</h3><span class="where">Overview</span></header>
+        <p>Counts up on open. Runtime leaves out gaps over 30 minutes.</p>
+        <div id="v-head"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily combined spend</h3><span class="where">Overview · Project page</span></header>
+        <p>A dot marks a day well above trend: <span class="spike-word">red</span> for Claude Code, bright green for Codex.</p>
+        <div class="chart" id="v-spend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Cost by model</h3><span class="where">Overview · Project page</span></header>
+        <p>Dearest first. A darker shade always means a dearer model.</p>
+        <div class="chart" id="v-cost"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Activity cards</h3><span class="where">Overview · Project page</span></header>
+        <p>Twelve figures; each tip says how it is measured.</p>
+        <div class="cards" id="v-cards"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily activity</h3><span class="where">Overview · Project page · Full history</span></header>
+        <p>26 weeks of spend. <span id="heat-word">Brighter</span> means a dearer day; <b>Expand</b> shows every day.</p>
+        <div class="chart" id="v-heat"></div>
+      </article>
+
+      <article class="viz">
+        <header>
+          <h3>Daily spend by project</h3><span class="where">Overview</span>
+          <div class="seg seg-sm" id="proj-range" role="radiogroup" aria-label="Range">
+            <button role="radio" aria-checked="true" data-range="30">Last 30 days</button>
+            <button role="radio" aria-checked="false" data-range="90">Last 90 days</button>
+            <button role="radio" aria-checked="false" data-range="all">All days</button>
+          </div>
+        </header>
+        <p>Top eight projects, largest at the bottom; the rest are Other.</p>
+        <div class="chart" id="v-proj"></div>
+        <div class="legend legend-chips" id="v-proj-legend"></div>
+      </article>
+
+      <article class="viz">
+        <header>
+          <h3>Daily tokens and spend by model</h3><span class="where">Overview · Project page</span>
+          <div class="seg seg-sm" id="stack-mode" role="radiogroup" aria-label="Measure">
+            <button role="radio" aria-checked="true" data-mode="tokens">Tokens</button>
+            <button role="radio" aria-checked="false" data-mode="spend">Spend</button>
+          </div>
+        </header>
+        <p>Dearest model at the base: a dark base means premium tokens.</p>
+        <div class="chart" id="v-stack"></div>
+        <div class="model-legend" id="v-stack-legend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Share of spend</h3><span class="where">Projects</span></header>
+        <p>Hover a slice. A slice or legend row opens its project.</p>
+        <div class="donut-wrap" id="v-donut"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Project cards</h3><span class="where">Projects</span></header>
+        <p>Spend, share and a bar by model. Try the <b>⋯</b> menu.</p>
+        <div id="v-pcards"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Token detail by model</h3><span class="where">Overview · Project page</span></header>
+        <p id="v-tokens-note"></p>
+        <div id="v-tokens"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Model prices</h3><span class="where">Overview</span></header>
+        <p><b>Edit</b> a price, name or colour; drag a row by its handle.</p>
+        <div id="v-prices"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily breakdown by model</h3><span class="where">Project page</span></header>
+        <p>One row per day and model, newest first.</p>
+        <div id="v-daily"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>The tray</h3><span class="where">Windows notification area</span></header>
+        <p>Hover for today's spend; right-click for the menu.</p>
+        <div class="tray" id="v-tray"></div>
+      </article>
+    </div>
+  </div>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+</section>
+
+<script>
+  import '../scripts/charts.js';
+</script>
+
+<style>
+  .charts-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+  }
+
+  .lead :global(.inline-icon) {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+    vertical-align: -3px;
+    color: var(--accent-bright);
+  }
+
+  .agent-seg button {
+    font-size: 15px;
+    padding: 8px 16px;
+  }
+
+  /* #charts carries the chosen agent, so this is that agent's colour. */
+  .agent-seg button[aria-checked='true'] {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .seg-mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--claude-dim);
+  }
+
+  .seg-mark-codex {
+    background: #000000;
+  }
+
+  .spike-word {
+    color: var(--danger);
+    font-weight: 600;
+  }
+</style>

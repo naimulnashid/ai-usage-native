@@ -1,0 +1,58 @@
+---
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import '../styles/onyx.css';
+import '../styles/global.css';
+// The repository's social card, used as the link preview so GitHub and the
+// site share one image.
+import socialPreview from '../../../.github/social-preview.png';
+import { SITE } from '../lib/site';
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(socialPreview.src, Astro.site);
+---
+
+<!doctype html>
+<html lang="en" data-agent="claude">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{SITE.title}</title>
+    <meta name="description" content={SITE.description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#000000" data-scheme="dark" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f5f7" data-scheme="light" media="(prefers-color-scheme: light)" />
+    <!-- Before first paint: the theme chosen with the header toggle on an
+         earlier visit, if any (ThemeToggle.astro). Inline, so no flash. The
+         CSP in vercel.json allows it by hash: editing it changes the hash,
+         and the build (scripts/check-csp.mjs) says what to put there. -->
+    <script is:inline>
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={geistLatin} as="font" type="font/woff2" crossorigin />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={SITE.title} />
+    <meta property="og:description" content={SITE.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content={String(socialPreview.width)} />
+    <meta property="og:image:height" content={String(socialPreview.height)} />
+    <meta property="og:image:alt" content="AI Usage: Claude Code and Codex token usage, native on Windows" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+  </body>
+</html>

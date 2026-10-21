@@ -1,0 +1,166 @@
+---
+/**
+ * The app's other pages, as the first screen of each capture. Without
+ * JavaScript every panel shows, one after the other; the script makes tabs.
+ */
+import Icon, { type IconName } from './Icon.astro';
+import Shot from './Shot.astro';
+import { screenshot } from '../lib/screenshots';
+
+const pages: { id: string; icon: IconName; label: string; shot: string; caption: string; alt: string }[] = [
+  {
+    id: 'projects',
+    icon: 'folder',
+    label: 'Projects',
+    shot: 'projects-claude',
+    caption: 'Share of spend, then every project ranked.',
+    alt: 'The Projects page: a share-of-spend ring in per-project colours above the ranked project cards',
+  },
+  {
+    id: 'project',
+    icon: 'layers',
+    label: 'A project',
+    shot: 'project-claude',
+    caption: "The overview's charts for one project, then its day-by-model table.",
+    alt: "A project page: the project's logo and name, its spend, tokens and runtime, and its daily spend",
+  },
+  {
+    id: 'history',
+    icon: 'archive',
+    label: 'Full history',
+    shot: 'activity-claude',
+    caption: 'Every day on record, six months to a row.',
+    alt: 'The full history: the spend heat map for every day on record, six months to a row',
+  },
+];
+---
+
+<section class="section" id="pages" aria-labelledby="pages-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Pages</p>
+      <h2 id="pages-title">Beyond the overview.</h2>
+    </div>
+
+    <div class="tabs" data-tabs>
+      <div class="tablist" role="tablist" aria-label="Pages" hidden>
+        {
+          pages.map((p, i) => (
+            <button
+              type="button"
+              role="tab"
+              id={`tab-${p.id}`}
+              aria-controls={`panel-${p.id}`}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              tabindex={i === 0 ? undefined : '-1'}
+            >
+              <Icon name={p.icon} />
+              {p.label}
+            </button>
+          ))
+        }
+      </div>
+      {
+        pages.map((p) => (
+          <figure class="panel" id={`panel-${p.id}`} role="tabpanel" aria-labelledby={`tab-${p.id}`}>
+            <Shot
+              class="frame"
+              shot={screenshot(p.shot)}
+              alt={p.alt}
+              widths={[640, 960, 1280, 1600]}
+              sizes="(min-width: 1180px) 1180px, calc(100vw - 48px)"
+              crop={16 / 10}
+            />
+            <figcaption>{p.caption}</figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-tabs]')) {
+    const list = root.querySelector<HTMLElement>('[role="tablist"]')!;
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const show = (tab: HTMLButtonElement, focus = false) => {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        root.querySelector<HTMLElement>(`#${t.getAttribute('aria-controls')}`)!.hidden = !on;
+      }
+      if (focus) tab.focus();
+    };
+    list.hidden = false;
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => show(tab));
+      tab.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (step) show(tabs[(i + step + tabs.length) % tabs.length], true);
+      });
+    });
+    show(tabs[0]);
+  }
+</script>
+
+<style>
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .tablist[hidden] {
+    display: none;
+  }
+
+  [role='tab'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-dim);
+    font: 500 0.9375rem var(--font-sans);
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  }
+
+  [role='tab'] :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  [role='tab']:hover {
+    color: var(--text);
+  }
+
+  [role='tab'][aria-selected='true'] {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent-bright);
+  }
+
+  .panel + .panel {
+    margin-top: 32px;
+  }
+
+  .panel[hidden] {
+    display: none;
+  }
+
+  /* With tabs on, only one panel shows: no gap above it. */
+  .tablist:not([hidden]) ~ .panel {
+    margin-top: 0;
+  }
+
+  figcaption {
+    margin-top: 14px;
+    color: var(--text-faint);
+    font-size: 0.9375rem;
+  }
+</style>

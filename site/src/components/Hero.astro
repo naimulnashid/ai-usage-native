@@ -1,0 +1,157 @@
+---
+import Icon from './Icon.astro';
+import Shot from './Shot.astro';
+import { screenshot } from '../lib/screenshots';
+import { LINKS } from '../lib/site';
+
+const widths = [640, 960, 1280, 1600];
+const sizes = '(min-width: 1180px) 1040px, calc(100vw - 48px)';
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container">
+    <div class="hero-copy rise">
+      <p class="eyebrow">Open source · Windows · Local-only</p>
+      <h1 id="hero-title">Claude Code and Codex usage, <span>counted on your own PC.</span></h1>
+      <p class="hero-lead">
+        Reads both agents' own transcripts and shows tokens, estimated cost and runtime, per project and per day.
+      </p>
+      <div class="buttons">
+        <a class="button button-primary" href={LINKS.download}>
+          <Icon name="download" />
+          Download for Windows
+        </a>
+        <a class="button button-secondary" href={LINKS.repo}>
+          <Icon name="github" />
+          View on GitHub
+        </a>
+      </div>
+      <ul class="hero-facts" aria-label="At a glance">
+        <li><Icon name="check" /> Free, MIT license</li>
+        <li><Icon name="check" /> Nothing leaves your PC</li>
+        <li><Icon name="check" /> Windows 10 2004+ · x64</li>
+      </ul>
+    </div>
+
+    <figure class="hero-shots rise" style="animation-delay: 80ms">
+      <div class="behind" data-agent="codex">
+        <Shot
+          class="frame"
+          shot={screenshot('overview-codex')}
+          alt="The Codex overview, in Codex's green: API-equivalent spend, tokens and runtime, then daily spend"
+          widths={widths}
+          sizes={sizes}
+          crop={16 / 10}
+        />
+      </div>
+      <Shot
+        class="frame front"
+        shot={screenshot('overview-claude')}
+        alt="The Claude Code overview: total estimated spend, tokens and runtime, then daily combined spend"
+        widths={widths}
+        sizes={sizes}
+        crop={16 / 10}
+        eager
+      />
+      <figcaption>The overview for each agent. Every number shown is invented.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: clamp(48px, 8vw, 96px);
+    padding-bottom: clamp(56px, 8vw, 104px);
+    background:
+      radial-gradient(900px 560px at 4% -12%, var(--claude-glow), transparent 70%),
+      radial-gradient(760px 560px at 100% 52%, var(--codex-glow), transparent 70%);
+  }
+
+  h1 {
+    max-width: 16ch;
+    font-size: clamp(2.5rem, 6.8vw, 4.6rem);
+    font-weight: 680;
+    letter-spacing: -0.045em;
+    line-height: 1.02;
+  }
+
+  h1 span {
+    color: var(--accent-bright);
+  }
+
+  .hero-lead {
+    max-width: 40rem;
+    margin-top: 22px;
+    color: var(--text-dim);
+    font-size: clamp(1.125rem, 2vw, 1.3rem);
+    line-height: 1.5;
+  }
+
+  .buttons {
+    margin-top: 30px;
+  }
+
+  .hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .hero-facts li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hero-facts :global(svg) {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-bright);
+  }
+
+  /* Claude Code's overview in front, Codex's behind it, raised and to the right. */
+  .hero-shots {
+    position: relative;
+    margin-top: clamp(48px, 7vw, 76px);
+    padding-top: clamp(28px, 4vw, 52px);
+  }
+
+  .hero-shots :global(.front) {
+    position: relative;
+    width: 90%;
+  }
+
+  .behind {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 90%;
+    opacity: 0.9;
+  }
+
+  .hero-shots figcaption {
+    margin-top: 16px;
+    color: var(--text-faint);
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 640px) {
+    .behind {
+      display: none;
+    }
+
+    .hero-shots {
+      padding-top: 0;
+    }
+
+    .hero-shots :global(.front) {
+      width: 100%;
+    }
+  }
+</style>

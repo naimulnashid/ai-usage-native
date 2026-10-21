@@ -297,7 +297,7 @@ flowchart LR
 | [`src/UsageCli`](src/UsageCli) | `aiusage parse <agent>` prints the diagnostics and totals; `aiusage demo-data` writes invented transcripts. |
 | [`tests/UsageCore.Tests`](tests/UsageCore.Tests) | xUnit v3 tests for the parsers, pricing, archive and settings. Fixtures are written at run time. |
 | [`installer/`](installer) | The [Inno Setup](https://jrsoftware.org/isinfo.php) script for the release's per-user setup.exe. |
-| [`site/`](site) | The project site: plain HTML, CSS and JavaScript (see [site/README.md](site/README.md)). |
+| [`site/`](site) | The project site: Astro, on the Onyx design system, with every chart drawn live (see [site/README.md](site/README.md)). |
 
 Numbers are recomputed from disk on every refresh. Transcript lines are
 scanned as bytes, pulling out only the fields used, so a full parse stays
@@ -348,7 +348,7 @@ data folder runs beside the one in your tray.
 | `tools\Package-Release.ps1` | Builds the release's setup.exe and zip into `artifacts\`. Needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install --id JRSoftware.InnoSetup -e --scope user` |
 | `tools\Capture-Views.ps1` | Screenshots any page, at any scroll offset or top to bottom, on the demo data |
 | `tools\Capture-Readme.ps1` | Regenerates the screenshots above, in both themes |
-| `node site/build.mjs` | Builds the project site into `site/dist/` (see [site/README.md](site/README.md)) |
+| `npm ci` then `npm run build`, in `site\` | Builds the project site into `site\dist\` (Node.js 22.12+; see [site/README.md](site/README.md)) |
 | `dotnet run tools/make-social-preview.cs` | Redraws `.github/social-preview.png` |
 | `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
 

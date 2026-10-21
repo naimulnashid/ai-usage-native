@@ -1,6 +1,6 @@
 /*
-  The project site's only script. It runs in <head>, so the theme is set
-  before first paint, then draws the chart gallery once the DOM exists.
+  The live chart gallery (Charts.astro). Moved here from the plain-HTML site
+  on 2026-10-21; the drawing code is unchanged.
 
   Every chart is generated from a fixed seed: identical on every load, and
   nobody's usage. Colours, rates and rules (model shades, spike threshold,
@@ -11,28 +11,12 @@
 
 /* ------------------------------------------------------------------ theme */
 
-const THEME_KEY = 'aiu-site-theme';
-
-function systemTheme() {
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
-function storedTheme() {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return t === 'light' || t === 'dark' ? t : null;
-  } catch { return null; }
-}
-
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', t === 'light' ? '#f4f5f8' : '#000000');
-}
-
-applyTheme(storedTheme() ?? systemTheme());
-
-const isLight = () => document.documentElement.dataset.theme === 'light';
+/* The page's theme: the visitor's choice (data-theme, set by ThemeToggle.astro),
+   else the system's. Chart colours are read from it on every draw. */
+const isLight = () => {
+  const chosen = document.documentElement.dataset.theme;
+  return chosen ? chosen === 'light' : matchMedia('(prefers-color-scheme: light)').matches;
+};
 
 /* ------------------------------------------------------------------ format */
 
@@ -259,7 +243,7 @@ function niceTicks(max) {
 }
 
 function yAxis(ticks, x0, x1, y, fmt) {
-  return ticks.map((v) => `<line x1="${x0}" x2="${x1}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`
+  return ticks.map((v) => `<line x1="${x0}" x2="${x1}" y1="${y(v)}" y2="${y(v)}" stroke="var(--chart-grid)"/>`
     + `<text x="${x0 - 8}" y="${y(v) + 4}" text-anchor="end">${esc(fmt(v))}</text>`).join('');
 }
 
@@ -386,7 +370,7 @@ function drawCost(d) {
   const x = (v) => L + ((W - L - R) * v) / ticks[4];
   let s = '';
   ticks.forEach((v) => {
-    s += `<line x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 22}" stroke="var(--grid)"/><text x="${x(v)}" y="${H - 6}" text-anchor="middle">$${v.toFixed(v % 1 ? 2 : 0)}</text>`;
+    s += `<line x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 22}" stroke="var(--chart-grid)"/><text x="${x(v)}" y="${H - 6}" text-anchor="middle">$${v.toFixed(v % 1 ? 2 : 0)}</text>`;
   });
   models.forEach(({ m, c }, i) => {
     const by = T + i * rowH + 8, bh = rowH - 16;
@@ -518,7 +502,7 @@ function drawProjects(d) {
   let layers = '';
   for (let k = series.length - 1; k >= 0; k--) {
     const line = curve(tops[k].map((v, i) => [x(i), y(v)]));
-    const fill = `color-mix(in srgb, ${series[k].color} 62%, var(--bg-panel))`;
+    const fill = `color-mix(in srgb, ${series[k].color} 62%, var(--surface))`;
     layers += `<path d="${line}L${x(days.length - 1)},${y(0)}L${x(0)},${y(0)}Z" style="fill:${fill}" class="fade"/>`
       + `<path d="${line}" fill="none" stroke="${series[k].color}" stroke-width="1.4" class="fade"/>`;
   }
@@ -874,64 +858,31 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
-/** tools\Capture-Readme.ps1 writes each page twice, from one demo run: dark, and `-light`. */
-function shotSrc(name) {
-  return `screenshots/${name}${isLight() ? '-light' : ''}.webp`;
-}
-
-function selectShot(btn) {
-  document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
-  const img = document.getElementById('shot-img');
-  img.src = shotSrc(btn.dataset.shot);
-  img.alt = btn.dataset.cap;
-  document.querySelector('.shot-scroll').scrollTop = 0;
-  // The Codex capture is in Codex's accent; the tabs follow it.
-  document.getElementById('tour').dataset.agent = btn.dataset.shot.endsWith('codex') ? 'codex' : 'claude';
-}
-
 function pickRadio(group, btn) {
   group.querySelectorAll('[role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === btn)));
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('theme-btn').addEventListener('click', () => {
-    const next = isLight() ? 'dark' : 'light';
-    applyTheme(next);
-    try { localStorage.setItem(THEME_KEY, next); } catch { /* private window: still switches */ }
-    retheme();
-  });
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (!storedTheme()) { applyTheme(systemTheme()); retheme(); }
-  });
-  function retheme() {
-    drawAll();
-    const tab = document.querySelector('.tabs [aria-selected="true"]');
-    if (tab) document.getElementById('shot-img').src = shotSrc(tab.dataset.shot);
-  }
+/* Module scripts run once the document is parsed, so the gallery exists. */
+const agentSeg = document.getElementById('agent-seg');
+const pickAgent = (b) => {
+  agent = b.dataset.agent;
+  pickRadio(agentSeg, b);
+  document.getElementById('charts').dataset.agent = agent;
+  editing = null;
+};
+agentSeg.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { pickAgent(b); drawAll(); }));
+// ?agent=codex opens the gallery on Codex, so either view can be linked.
+if (new URLSearchParams(location.search).get('agent') === 'codex') pickAgent(agentSeg.querySelector('[data-agent="codex"]'));
 
-  const tabs = document.querySelectorAll('.tabs [role="tab"]');
-  tabs.forEach((b) => b.addEventListener('click', () => selectShot(b)));
-  selectShot(tabs[0]);
+const range = document.getElementById('proj-range');
+range.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { projRange = b.dataset.range; pickRadio(range, b); drawProjects(DATA[agent]); }));
+const mode = document.getElementById('stack-mode');
+mode.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { stackMode = b.dataset.mode; pickRadio(mode, b); drawStack(DATA[agent]); }));
 
-  const agentSeg = document.querySelector('.charts-head .seg');
-  const pickAgent = (b) => {
-    agent = b.dataset.agent;
-    pickRadio(agentSeg, b);
-    document.getElementById('charts').dataset.agent = agent;
-    editing = null;
-  };
-  agentSeg.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { pickAgent(b); drawAll(); }));
-  // ?agent=codex opens the gallery on Codex, so either view can be linked.
-  if (new URLSearchParams(location.search).get('agent') === 'codex') pickAgent(agentSeg.querySelector('[data-agent="codex"]'));
+document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) closeMenus(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(); });
+// ThemeToggle.astro, and the system theme while no choice is pinned.
+document.addEventListener('themechange', drawAll);
 
-  const range = document.getElementById('proj-range');
-  range.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { projRange = b.dataset.range; pickRadio(range, b); drawProjects(DATA[agent]); }));
-  const mode = document.getElementById('stack-mode');
-  mode.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { stackMode = b.dataset.mode; pickRadio(mode, b); drawStack(DATA[agent]); }));
-
-  document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) closeMenus(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(); });
-
-  wireTooltip();
-  drawAll();
-});
+wireTooltip();
+drawAll();

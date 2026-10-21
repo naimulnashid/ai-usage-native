@@ -1,0 +1,46 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+
+const tiles: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'wifiOff', title: 'No network', text: 'No calls out, no server, no telemetry.' },
+  { icon: 'userX', title: 'No account', text: 'No sign-in, no API key, no password.' },
+  { icon: 'fileSearch', title: 'Read-only', text: 'Transcripts are read, never changed.' },
+  { icon: 'hardDrive', title: 'Numbers only', text: 'Kept on this PC as plain JSON. Never your prompts or code.' },
+];
+---
+
+<section class="section" id="privacy" aria-labelledby="privacy-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Privacy</p>
+      <h2 id="privacy-title">Your usage stays on your PC.</h2>
+    </div>
+    <ul class="grid tiles">
+      {
+        tiles.map((t) => (
+          <li class="card">
+            <span class="icon-tile"><Icon name={t.icon} /></span>
+            <h3>{t.title}</h3>
+            <p class="muted">{t.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .tiles {
+    --col-min: 220px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tiles h3 {
+    margin-bottom: 4px;
+  }
+
+  .tiles p {
+    font-size: 0.9375rem;
+  }
+</style>

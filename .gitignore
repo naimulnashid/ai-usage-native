@@ -17,5 +17,7 @@ out/
 # docs/screenshots/.
 /screenshots/
 
-# The project site build (site/build.mjs)
+# The project site (Astro): build output, its cache and its packages
 site/dist/
+site/.astro/
+site/node_modules/

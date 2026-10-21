@@ -1,0 +1,92 @@
+---
+import { LINKS } from '../lib/site';
+
+const faqs = [
+  {
+    q: 'Why does Codex say "API-equivalent"?',
+    a: 'Codex is often used on a flat ChatGPT plan. The figure is what the tokens would cost through the OpenAI API, not necessarily what you paid.',
+  },
+  {
+    q: 'How accurate are the numbers?',
+    a: 'Estimates at the built-in rates. Repeats are collapsed, unpriced models are flagged, and runtime skips gaps over 30 minutes.',
+  },
+  {
+    q: 'What happens when the agents delete old transcripts?',
+    a: 'Nothing is lost: a daily archive keeps every day it has seen.',
+  },
+  {
+    q: 'Windows won’t run it. Why?',
+    a: `The build is unsigned. Smart App Control <b>On</b> blocks it, a build from source too. <a href="${LINKS.smartAppControl}">How to turn it off</a>.`,
+  },
+  {
+    q: 'Where does it keep its data?',
+    a: `In <code>%LOCALAPPDATA%\\AI Usage Native</code>, or the folder <code>AIUSAGE_DATA_DIR</code> names. <a href="${LINKS.config}">What is in it</a>.`,
+  },
+  {
+    q: 'Is it free?',
+    a: `Yes, under the <a href="${LINKS.license}">MIT license</a>. Bugs and questions go to the <a href="${LINKS.issues}">issue tracker</a>.`,
+  },
+];
+---
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title">Questions, answered.</h2>
+    </div>
+    <div class="list">
+      {
+        faqs.map((item) => (
+          <details>
+            <summary>{item.q}</summary>
+            <p class="muted" set:html={item.a} />
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .list {
+    max-width: 52rem;
+    border-top: 1px solid var(--border);
+  }
+
+  details {
+    border-bottom: 1px solid var(--border);
+  }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 2px;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::after {
+    content: '+';
+    flex: none;
+    color: var(--accent-bright);
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+
+  details[open] summary::after {
+    content: '−';
+  }
+
+  details p {
+    padding: 0 2px 20px;
+  }
+</style>

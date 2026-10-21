@@ -1,0 +1,427 @@
+/* Copied unchanged from the Onyx design system (the Onyx design system's dist/web/onyx.css,
+   2026-10-21). Onyx is meant to be copied, not linked: refresh this file from there, never edit it here. */
+
+/* Onyx design tokens. Generated from tokens/tokens.json by scripts/build.mjs. Do not edit by hand.
+ *
+ * Themes: dark on :root and [data-theme="dark"]; light on [data-theme="light"],
+ * and also when the system asks for light and no data-theme pins dark.
+ * Accent: put data-accent="<blue|green|violet|teal>" on the app shell; blue is the default.
+ */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #000000;
+  --surface: #0a0a0b;
+  --surface-hover: #111114;
+  --surface-inset: #08080a;
+  --popover: #131317;
+  --border: #1e1e22;
+  --border-strong: #2c2c33;
+  --border-input: #5d5d64;
+  --text: #f5f5f7;
+  --text-dim: #a1a1aa;
+  --text-faint: #7c7c88;
+  --accent-blue: #2f80ed;
+  --accent-blue-bright: #4d97ff;
+  --accent-blue-fill: #1570eb;
+  --on-accent-blue: #ffffff;
+  --accent-blue-dim: rgba(47, 128, 237, 0.16);
+  --accent-blue-glow: rgba(47, 128, 237, 0.28);
+  --accent-green: #00e676;
+  --accent-green-bright: #00ff84;
+  --accent-green-fill: #00e676;
+  --on-accent-green: #000000;
+  --accent-green-dim: rgba(0, 230, 118, 0.16);
+  --accent-green-glow: rgba(0, 230, 118, 0.28);
+  --accent-violet: #8b5cf6;
+  --accent-violet-bright: #a78bfa;
+  --accent-violet-fill: #7c3aed;
+  --on-accent-violet: #ffffff;
+  --accent-violet-dim: rgba(139, 92, 246, 0.16);
+  --accent-violet-glow: rgba(139, 92, 246, 0.28);
+  --accent-teal: #2dd4bf;
+  --accent-teal-bright: #7fe3d6;
+  --accent-teal-fill: #2dd4bf;
+  --on-accent-teal: #04211d;
+  --accent-teal-dim: rgba(45, 212, 191, 0.16);
+  --accent-teal-glow: rgba(45, 212, 191, 0.28);
+  --accent: var(--accent-blue);
+  --accent-bright: var(--accent-blue-bright);
+  --accent-fill: var(--accent-blue-fill);
+  --on-accent: var(--on-accent-blue);
+  --accent-dim: var(--accent-blue-dim);
+  --accent-glow: var(--accent-blue-glow);
+  --focus-ring: var(--accent);
+  --danger: #ff4d4f;
+  --danger-dim: rgba(255, 77, 79, 0.14);
+  --success: #22c55e;
+  --success-dim: rgba(34, 197, 94, 0.14);
+  --warning: #ffb300;
+  --warning-dim: rgba(255, 179, 0, 0.14);
+  --series-1: #2e8eff;
+  --series-2: #ffb300;
+  --series-3: #9b5cff;
+  --series-4: #ff6bbf;
+  --series-5: #00d4f5;
+  --series-6: #ff7a00;
+  --series-7: #00ddb8;
+  --series-other: #7a8090;
+  --chart-grid: #1a1a1e;
+  --chart-cursor: rgba(255, 255, 255, 0.04);
+  --hm-none: #0b0b0d;
+  --hm-none-ring: #1e1e22;
+  --hm-0: #131519;
+  --hm-1: #12325c;
+  --hm-2: #17488a;
+  --hm-3: #1f62bd;
+  --hm-4: #2f80ed;
+  --hm-5: #6fb0ff;
+  --topbar-bg: rgba(0, 0, 0, 0.82);
+  --scrim: rgba(0, 0, 0, 0.72);
+  --plate: #ececf1;
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  --shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+  --shadow-pop: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+  --shadow-control-hover: none;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --canvas: #f4f5f7;
+    --surface: #ffffff;
+    --surface-hover: #eceff4;
+    --surface-inset: #eef0f3;
+    --popover: #ffffff;
+    --border: #e3e5ea;
+    --border-strong: #cfd2d9;
+    --border-input: #8a8a96;
+    --text: #16171a;
+    --text-dim: #52525b;
+    --text-faint: #6b6b76;
+    --accent-blue: #1664d9;
+    --accent-blue-bright: #0f5bc4;
+    --accent-blue-fill: #1664d9;
+    --on-accent-blue: #ffffff;
+    --accent-blue-dim: rgba(22, 100, 217, 0.1);
+    --accent-blue-glow: rgba(22, 100, 217, 0.24);
+    --accent-green: #007a3d;
+    --accent-green-bright: #006633;
+    --accent-green-fill: #007a3d;
+    --on-accent-green: #ffffff;
+    --accent-green-dim: rgba(0, 122, 61, 0.1);
+    --accent-green-glow: rgba(0, 122, 61, 0.24);
+    --accent-violet: #7c3aed;
+    --accent-violet-bright: #6d28d9;
+    --accent-violet-fill: #7c3aed;
+    --on-accent-violet: #ffffff;
+    --accent-violet-dim: rgba(124, 58, 237, 0.1);
+    --accent-violet-glow: rgba(124, 58, 237, 0.24);
+    --accent-teal: #00756a;
+    --accent-teal-bright: #005f56;
+    --accent-teal-fill: #00756a;
+    --on-accent-teal: #ffffff;
+    --accent-teal-dim: rgba(0, 117, 106, 0.1);
+    --accent-teal-glow: rgba(0, 117, 106, 0.24);
+    --accent: var(--accent-blue);
+    --accent-bright: var(--accent-blue-bright);
+    --accent-fill: var(--accent-blue-fill);
+    --on-accent: var(--on-accent-blue);
+    --accent-dim: var(--accent-blue-dim);
+    --accent-glow: var(--accent-blue-glow);
+    --focus-ring: var(--accent);
+    --danger: #b42318;
+    --danger-dim: rgba(217, 45, 32, 0.1);
+    --success: #15803d;
+    --success-dim: rgba(21, 128, 61, 0.1);
+    --warning: #9a5b00;
+    --warning-dim: rgba(154, 91, 0, 0.1);
+    --series-1: #1c6fd6;
+    --series-2: #a16207;
+    --series-3: #7c3aed;
+    --series-4: #c0267e;
+    --series-5: #0277bd;
+    --series-6: #c2410c;
+    --series-7: #0f766e;
+    --series-other: #6b7280;
+    --chart-grid: #e3e5ea;
+    --chart-cursor: rgba(16, 24, 40, 0.05);
+    --hm-none: #f6f7f9;
+    --hm-none-ring: #cdd1d8;
+    --hm-0: #e1e6ed;
+    --hm-1: #c7dcf8;
+    --hm-2: #94bdf2;
+    --hm-3: #5b99e8;
+    --hm-4: #2a74dc;
+    --hm-5: #1252b0;
+    --topbar-bg: rgba(255, 255, 255, 0.86);
+    --scrim: rgba(22, 23, 26, 0.4);
+    --plate: #ffffff00;
+    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.07);
+    --shadow-card-hover: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 12px 24px -4px rgba(16, 24, 40, 0.12);
+    --shadow-pop: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 16px 32px -4px rgba(16, 24, 40, 0.16);
+    --shadow-control-hover: 0 2px 6px rgba(16, 24, 40, 0.1);
+  }
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f4f5f7;
+  --surface: #ffffff;
+  --surface-hover: #eceff4;
+  --surface-inset: #eef0f3;
+  --popover: #ffffff;
+  --border: #e3e5ea;
+  --border-strong: #cfd2d9;
+  --border-input: #8a8a96;
+  --text: #16171a;
+  --text-dim: #52525b;
+  --text-faint: #6b6b76;
+  --accent-blue: #1664d9;
+  --accent-blue-bright: #0f5bc4;
+  --accent-blue-fill: #1664d9;
+  --on-accent-blue: #ffffff;
+  --accent-blue-dim: rgba(22, 100, 217, 0.1);
+  --accent-blue-glow: rgba(22, 100, 217, 0.24);
+  --accent-green: #007a3d;
+  --accent-green-bright: #006633;
+  --accent-green-fill: #007a3d;
+  --on-accent-green: #ffffff;
+  --accent-green-dim: rgba(0, 122, 61, 0.1);
+  --accent-green-glow: rgba(0, 122, 61, 0.24);
+  --accent-violet: #7c3aed;
+  --accent-violet-bright: #6d28d9;
+  --accent-violet-fill: #7c3aed;
+  --on-accent-violet: #ffffff;
+  --accent-violet-dim: rgba(124, 58, 237, 0.1);
+  --accent-violet-glow: rgba(124, 58, 237, 0.24);
+  --accent-teal: #00756a;
+  --accent-teal-bright: #005f56;
+  --accent-teal-fill: #00756a;
+  --on-accent-teal: #ffffff;
+  --accent-teal-dim: rgba(0, 117, 106, 0.1);
+  --accent-teal-glow: rgba(0, 117, 106, 0.24);
+  --accent: var(--accent-blue);
+  --accent-bright: var(--accent-blue-bright);
+  --accent-fill: var(--accent-blue-fill);
+  --on-accent: var(--on-accent-blue);
+  --accent-dim: var(--accent-blue-dim);
+  --accent-glow: var(--accent-blue-glow);
+  --focus-ring: var(--accent);
+  --danger: #b42318;
+  --danger-dim: rgba(217, 45, 32, 0.1);
+  --success: #15803d;
+  --success-dim: rgba(21, 128, 61, 0.1);
+  --warning: #9a5b00;
+  --warning-dim: rgba(154, 91, 0, 0.1);
+  --series-1: #1c6fd6;
+  --series-2: #a16207;
+  --series-3: #7c3aed;
+  --series-4: #c0267e;
+  --series-5: #0277bd;
+  --series-6: #c2410c;
+  --series-7: #0f766e;
+  --series-other: #6b7280;
+  --chart-grid: #e3e5ea;
+  --chart-cursor: rgba(16, 24, 40, 0.05);
+  --hm-none: #f6f7f9;
+  --hm-none-ring: #cdd1d8;
+  --hm-0: #e1e6ed;
+  --hm-1: #c7dcf8;
+  --hm-2: #94bdf2;
+  --hm-3: #5b99e8;
+  --hm-4: #2a74dc;
+  --hm-5: #1252b0;
+  --topbar-bg: rgba(255, 255, 255, 0.86);
+  --scrim: rgba(22, 23, 26, 0.4);
+  --plate: #ffffff00;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.07);
+  --shadow-card-hover: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 12px 24px -4px rgba(16, 24, 40, 0.12);
+  --shadow-pop: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 16px 32px -4px rgba(16, 24, 40, 0.16);
+  --shadow-control-hover: 0 2px 6px rgba(16, 24, 40, 0.1);
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --pad-card: 1.6rem;
+  --gap-grid: 1.15rem;
+  --gutter-page: 2.5rem;
+  --radius-xs: 4px;
+  --radius-sm: 9px;
+  --radius: 14px;
+  --radius-pill: 999px;
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+  --dur-count: 900ms;
+  --ease: cubic-bezier(0.22, 0.9, 0.3, 1);
+  --side-w: 232px;
+  --side-w-collapsed: 62px;
+  --topbar-min-h: 61px;
+  --col-min: 260px;
+  --col-min-wide: 340px;
+  --hm-cell-min: 11px;
+  --font-sans: Geist, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Cascadia Mono", ui-monospace, monospace;
+}
+
+/* Accent registry. Each block re-points the six accent roles (and the focus ring).
+   :root[...] matches the light-theme media block's specificity, so the accent also holds
+   when data-accent sits on <html>. */
+:root[data-accent="blue"],
+[data-accent="blue"] {
+  --accent: var(--accent-blue);
+  --accent-bright: var(--accent-blue-bright);
+  --accent-fill: var(--accent-blue-fill);
+  --on-accent: var(--on-accent-blue);
+  --accent-dim: var(--accent-blue-dim);
+  --accent-glow: var(--accent-blue-glow);
+  --focus-ring: var(--accent);
+}
+
+:root[data-accent="green"],
+[data-accent="green"] {
+  --accent: var(--accent-green);
+  --accent-bright: var(--accent-green-bright);
+  --accent-fill: var(--accent-green-fill);
+  --on-accent: var(--on-accent-green);
+  --accent-dim: var(--accent-green-dim);
+  --accent-glow: var(--accent-green-glow);
+  --focus-ring: var(--accent);
+}
+
+:root[data-accent="violet"],
+[data-accent="violet"] {
+  --accent: var(--accent-violet);
+  --accent-bright: var(--accent-violet-bright);
+  --accent-fill: var(--accent-violet-fill);
+  --on-accent: var(--on-accent-violet);
+  --accent-dim: var(--accent-violet-dim);
+  --accent-glow: var(--accent-violet-glow);
+  --focus-ring: var(--accent);
+}
+
+:root[data-accent="teal"],
+[data-accent="teal"] {
+  --accent: var(--accent-teal);
+  --accent-bright: var(--accent-teal-bright);
+  --accent-fill: var(--accent-teal-fill);
+  --on-accent: var(--on-accent-teal);
+  --accent-dim: var(--accent-teal-dim);
+  --accent-glow: var(--accent-teal-glow);
+  --focus-ring: var(--accent);
+}
+
+/* Type styles, one class per tokens.json style. */
+.onyx-hero {
+  font-family: var(--font-sans);
+  font-size: 5.4rem;
+  line-height: 1;
+  font-weight: 680;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.onyx-stat {
+  font-family: var(--font-sans);
+  font-size: 3rem;
+  line-height: 1.1;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.onyx-h1 {
+  font-family: var(--font-sans);
+  font-size: 2.2rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.onyx-h2 {
+  font-family: var(--font-sans);
+  font-size: 1.3rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.onyx-body {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.onyx-small {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.onyx-label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.onyx-mono {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.onyx-slide-figure {
+  font-family: var(--font-sans);
+  font-size: 160px;
+  line-height: 1;
+  font-weight: 680;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.onyx-slide-title {
+  font-family: var(--font-sans);
+  font-size: 88px;
+  line-height: 1.05;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.onyx-slide-heading {
+  font-family: var(--font-sans);
+  font-size: 56px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.onyx-slide-body {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.onyx-slide-label {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}

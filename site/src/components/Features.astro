@@ -1,0 +1,50 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+
+const features: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'copyCheck', title: 'Counts each message once', text: 'Repeated lines and running totals are collapsed, so cost is never inflated.' },
+  { icon: 'receipt', title: 'Built-in rate cards', text: 'Cache lifetimes and long-prompt tiers priced. Unknown models flagged, never free.' },
+  { icon: 'archive', title: 'History that stays', text: 'A daily archive keeps the days the agents delete.' },
+  { icon: 'folder', title: 'Projects', text: 'Rename, merge, hide; a logo, a colour and a page for each.' },
+  { icon: 'sliders', title: 'Model prices', text: 'Set a price, name and colour for any model; drag the table into your order.' },
+  { icon: 'appWindow', title: 'Lives in the tray', text: "Today's spend per agent, refreshed as transcripts change; starts at login." },
+  { icon: 'sunMoon', title: 'Dark and light', text: 'Or follow Windows. Zoom from 50% to 200%.' },
+  { icon: 'terminal', title: 'A CLI too', text: '<code>aiusage parse</code> prints the totals and every diagnostic.' },
+];
+---
+
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Features</p>
+      <h2 id="features-title">Honest numbers, from files already on disk.</h2>
+    </div>
+    <ul class="grid features">
+      {
+        features.map((f) => (
+          <li class="card">
+            <span class="icon-tile"><Icon name={f.icon} /></span>
+            <h3>{f.title}</h3>
+            <p class="muted" set:html={f.text} />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .features {
+    --col-min: 240px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .features h3 {
+    margin-bottom: 6px;
+  }
+
+  .features p {
+    font-size: 0.9375rem;
+  }
+</style>

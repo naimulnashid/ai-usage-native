@@ -1,0 +1,95 @@
+---
+// The vendors' own marks, as the app ships them (unmodified; see the footer).
+import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
+import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+
+const agents = [
+  {
+    key: 'claude',
+    name: 'Claude Code',
+    mark: claudeMark,
+    path: '%USERPROFILE%\\.claude\\projects\\',
+    label: 'Total estimated spend',
+    text: "Tokens at Anthropic's per-token API rates.",
+  },
+  {
+    key: 'codex',
+    name: 'Codex',
+    mark: codexMark,
+    path: '%USERPROFILE%\\.codex\\sessions\\',
+    label: 'API-equivalent spend',
+    text: 'What the tokens would cost through the OpenAI API. On a ChatGPT plan, not what you paid.',
+  },
+];
+---
+
+<section class="section" id="agents" aria-labelledby="agents-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Two agents</p>
+      <h2 id="agents-title">Each in its own colour, never added together.</h2>
+    </div>
+    <div class="grid agents">
+      {
+        agents.map((a) => (
+          <article class="card agent" data-agent={a.key}>
+            <div class="agent-top">
+              <span class={`mark mark-${a.key}`}>
+                <img src={a.mark.src} alt="" width="26" height="26" />
+              </span>
+              <h3>{a.name}</h3>
+            </div>
+            <p class="agent-label">{a.label}</p>
+            <p class="muted">{a.text}</p>
+            <code>{a.path}</code>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .agents {
+    --col-min: var(--col-min-wide);
+  }
+
+  .agent {
+    display: grid;
+    gap: 10px;
+    border-top: 3px solid var(--accent);
+  }
+
+  .agent-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
+  }
+
+  /* OpenAI's mark is white: it gets a black tile in both themes. */
+  .mark-codex {
+    background: #000000;
+  }
+
+  .agent-label {
+    color: var(--accent-bright);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  code {
+    justify-self: start;
+    color: var(--text-dim);
+  }
+</style>

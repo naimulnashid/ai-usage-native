@@ -1,0 +1,104 @@
+---
+import Icon from './Icon.astro';
+import { LINKS, SITE } from '../lib/site';
+
+const links = [
+  { href: LINKS.repo, label: 'GitHub' },
+  { href: LINKS.download, label: 'Releases' },
+  { href: LINKS.issues, label: 'Issues' },
+  { href: LINKS.security, label: 'Security' },
+  { href: LINKS.license, label: 'MIT license' },
+];
+---
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="brand">
+      <img src="/favicon.svg" alt="" width="28" height="28" />
+      <div>
+        <p class="name">{SITE.name}</p>
+        <p class="by">By {SITE.author}. Free and open source.</p>
+      </div>
+    </div>
+    <nav aria-label="Footer">
+      <ul>
+        {links.map((l) => <li><a href={l.href}>{l.label === 'GitHub' && <Icon name="github" />}{l.label}</a></li>)}
+      </ul>
+    </nav>
+    <p class="marks">
+      Claude and Claude Code are trademarks of Anthropic; Codex and ChatGPT of OpenAI. Their marks are the vendors' own,
+      unmodified. Not affiliated with either.
+    </p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding-block: 36px;
+  }
+
+  .footer-inner {
+    display: grid;
+    gap: 22px;
+  }
+
+  @media (min-width: 860px) {
+    .footer-inner {
+      grid-template-columns: auto 1fr;
+      align-items: center;
+    }
+
+    nav {
+      justify-self: end;
+    }
+
+    .marks {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .name {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .by,
+  .marks {
+    color: var(--text-faint);
+    font-size: 0.875rem;
+  }
+
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+  }
+
+  nav a:hover {
+    color: var(--text);
+  }
+
+  nav :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+</style>

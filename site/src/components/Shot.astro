@@ -1,0 +1,59 @@
+---
+/**
+ * A screenshot that follows the visitor's theme: the light capture under
+ * prefers-color-scheme: light, the dark one otherwise; data-scheme lets the
+ * theme toggle pin the query to the visitor's choice. Resized to the given
+ * widths, so phones never download the 2160 px originals.
+ *
+ * `crop` cuts the image to its first screen (width / height), from the top:
+ * the captures are whole pages, often several screens tall.
+ */
+import { getImage } from 'astro:assets';
+import type { Screenshot } from '../lib/screenshots';
+
+interface Props {
+  shot: Screenshot;
+  alt: string;
+  widths: number[];
+  sizes: string;
+  crop?: number;
+  eager?: boolean;
+  class?: string;
+}
+
+const { shot, alt, widths, sizes, crop, eager = false, class: className } = Astro.props;
+
+const width = Math.min(shot.dark.width, Math.max(...widths));
+const height = crop ? Math.round(width / crop) : Math.round((width * shot.dark.height) / shot.dark.width);
+const render = (src: Screenshot['dark']) =>
+  getImage({
+    src,
+    widths,
+    sizes,
+    format: 'webp',
+    quality: 82,
+    ...(crop ? { width, height, fit: 'cover', position: 'top' } : {}),
+  });
+const [dark, light] = await Promise.all([render(shot.dark), render(shot.light)]);
+---
+
+<picture class={className}>
+  <source
+    data-scheme="light"
+    media="(prefers-color-scheme: light)"
+    srcset={light.srcSet.attribute}
+    sizes={sizes}
+    type="image/webp"
+  />
+  <img
+    src={dark.src}
+    srcset={dark.srcSet.attribute}
+    sizes={sizes}
+    width={width}
+    height={height}
+    alt={alt}
+    loading={eager ? 'eager' : 'lazy'}
+    decoding={eager ? 'sync' : 'async'}
+    fetchpriority={eager ? 'high' : 'auto'}
+  />
+</picture>

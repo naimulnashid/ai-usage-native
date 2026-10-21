@@ -1,0 +1,213 @@
+---
+import Icon from './Icon.astro';
+import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
+import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+
+const traps = [
+  {
+    key: 'claude',
+    name: 'Claude Code',
+    items: [
+      'Subagent transcripts, nested in their session folder, are found and counted.',
+      'About half the lines repeat a message: each is counted once, credited to the original.',
+      'Placeholder output counts (1 to 4) are replaced by the real one.',
+      '5-minute and 1-hour cache writes are priced apart.',
+      "Projects are named from the folder the file really belongs to.",
+    ],
+  },
+  {
+    key: 'codex',
+    name: 'Codex',
+    items: [
+      'Running totals become per-turn usage; a reset starts a new baseline.',
+      'Cached tokens are taken out of input.',
+      'Reasoning is shown, never counted twice.',
+      'Auto-review threads count, as their own model.',
+      'Model and folder are followed turn by turn.',
+      "Prompts over 272K tokens are billed at OpenAI's higher tier.",
+    ],
+  },
+];
+---
+
+<section class="section" id="how" aria-labelledby="how-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">From transcript to chart, on your PC.</h2>
+    </div>
+
+    <ol class="flow" aria-label="The data path">
+      <li class="node sources">
+        <span class="node-title"><Icon name="fileText" /> Transcripts</span>
+        <span class="src" data-agent="claude"><img src={claudeMark.src} alt="" width="16" height="16" /><code>.claude\projects</code></span>
+        <span class="src" data-agent="codex"><span class="codex-tile"><img src={codexMark.src} alt="" width="12" height="12" /></span><code>.codex\sessions</code></span>
+      </li>
+      <li class="node">
+        <span class="node-title"><Icon name="scanSearch" /> Parsers</span>
+        <span class="muted">Read as bytes. Bad lines skipped, each message counted once.</span>
+      </li>
+      <li class="node">
+        <span class="node-title"><Icon name="database" /> Daily archive</span>
+        <span class="muted">Keeps every day after the agents delete it.</span>
+      </li>
+      <li class="node app">
+        <span class="node-title"><Icon name="monitor" /> The app</span>
+        <span class="muted">Pages, charts, tray. Plus <code>aiusage</code> on the command line.</span>
+      </li>
+    </ol>
+
+    <div class="traps">
+      {
+        traps.map((t) => (
+          <details class="card" data-agent={t.key}>
+            <summary>
+              <span>{t.name}: the {t.items.length} traps it handles</span>
+            </summary>
+            <ul>{t.items.map((item) => <li>{item}</li>)}</ul>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .flow {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .node {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    font-size: 0.9375rem;
+  }
+
+  .node-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .node-title :global(svg) {
+    width: 20px;
+    height: 20px;
+    color: var(--accent-bright);
+  }
+
+  .app {
+    border-color: var(--accent);
+  }
+
+  .src {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .codex-tile {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: #000000;
+  }
+
+  /* The arrow to the next step: down on phones, right on wide screens. */
+  .node:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -12px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-faint);
+    border-bottom: 2px solid var(--text-faint);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  @media (min-width: 900px) {
+    .flow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 28px;
+    }
+
+    .node:not(:last-child)::after {
+      left: auto;
+      right: -20px;
+      top: 50%;
+      bottom: auto;
+      transform: translateY(-50%) rotate(-45deg);
+    }
+  }
+
+  .traps {
+    display: grid;
+    gap: var(--gap-grid);
+    margin-top: 28px;
+  }
+
+  @media (min-width: 900px) {
+    .traps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+  }
+
+  details {
+    padding: 0;
+    border-top: 3px solid var(--accent);
+  }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::after {
+    content: '+';
+    color: var(--accent-bright);
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  details[open] summary::after {
+    content: '−';
+  }
+
+  details ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0 20px 18px 38px;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+  }
+
+  details li::marker {
+    color: var(--accent);
+  }
+</style>
