@@ -19,4 +19,9 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+
+  <!-- The README's example config files, so a test can load them the way the app does. -->
+  <ItemGroup>
+    <None Include="..\..\docs\config-examples\*.json" Link="config-examples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

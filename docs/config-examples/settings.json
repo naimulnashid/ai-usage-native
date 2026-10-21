@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to %LOCALAPPDATA%\\AI Usage Native\\config\\settings.json. Every key is optional; leave one out for its default. Keys starting with _ are ignored.",
+  "_localUtcOffsetHours": "Hours from UTC that days are counted in. Default: this PC's current offset.",
+  "localUtcOffsetHours": 1,
+  "_weekStartsOn": "monday (default), sunday or saturday.",
+  "weekStartsOn": "sunday",
+  "_maxIdleGapMinutes": "A gap between transcript lines longer than this counts as time away, not runtime. Default: 30.",
+  "maxIdleGapMinutes": 45
+}

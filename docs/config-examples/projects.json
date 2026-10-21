@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy to %LOCALAPPDATA%\\AI Usage Native\\config\\projects.json (Claude Code) or codex-projects.json (Codex). A project id is its working folder with the separators and punctuation turned into '-': C:\\Users\\you\\Projects\\old-name becomes C--Users-you-Projects-old-name. Keys starting with _ are ignored. The Projects page's Rename... and Merge into... do the same without editing this file.",
+  "merge": {
+    "_comment": "Count the first project as part of the second, e.g. a folder that was renamed or moved.",
+    "C--Users-you-Projects-old-name": "C--Users-you-Projects-new-name"
+  },
+  "displayNames": {
+    "_comment": "Show a project under this name instead of its folder's.",
+    "C--Users-you-Projects-new-name": "My App"
+  }
+}

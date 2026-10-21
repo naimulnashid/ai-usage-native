@@ -3,67 +3,106 @@
 [![CI](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/ai-usage-native/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/naimulnashid/ai-usage-native)](https://github.com/naimulnashid/ai-usage-native/releases/latest)
 [![MIT license](https://img.shields.io/github/license/naimulnashid/ai-usage-native)](LICENSE)
-[![Project site](https://img.shields.io/website?url=https%3A%2F%2Fai-usage-native-site.vercel.app&label=project%20site&up_message=online&down_message=offline)](https://ai-usage-native-site.vercel.app/)
+[![Website](https://img.shields.io/badge/website-live-D97757)](https://ai-usage-native-site.vercel.app/)
 
 A native Windows app that shows how much **Claude Code** and **Codex** you use:
 tokens, estimated cost and approximate runtime, overall, per project and per
-day. It reads the agents' own transcript files on this PC. Nothing leaves the
-machine: no network calls, no server, no account.
+day. It reads the agents' own transcript files on your PC, and nothing leaves
+the machine.
 
-Built with WinUI 3 on .NET 10. A native port of the
-[AI Usage Dashboard](https://github.com/naimulnashid/ai-usage-tracker) web app,
-sharing its design and its parsing rules but no code.
+## Screenshots
 
-![The whole Claude Code overview, top to bottom: total estimated spend, tokens and runtime; daily spend; cost by model; activity cards; the six-month heat map; daily spend by project; daily tokens and spend by model; token detail and model prices](docs/screenshots/overview-claude.webp)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-claude-light.webp">
+  <img src="docs/screenshots/overview-claude.webp" alt="The whole Claude Code overview, top to bottom: total estimated spend, tokens and runtime; daily spend; cost by model; activity cards; the six-month heat map; daily spend by project; daily tokens and spend by model; token detail and model prices">
+</picture>
 
 <details>
-<summary><b>The light theme, the projects page, and Codex</b></summary>
-
-A light theme sits beside the dark one - **Settings > Theme** picks Dark,
-Light, or the Windows setting.
-
-![The same Claude Code overview in the light theme: white cards on a grey page](docs/screenshots/overview-claude-light.webp)
+<summary><b>The projects page, and Codex</b></summary>
 
 Projects open with a share-of-spend ring, because a ranked list looks the same
 whether the top project is 60% of your spend or 15%. Each project is drawn in
 its own colour - its logo's, or one you pick - and a slice opens it.
 
-![The projects page: a share-of-spend donut in per-project colours above the ranked list of projects, each with its share bar by model and its options menu](docs/screenshots/projects-claude.webp)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/projects-claude-light.webp">
+  <img src="docs/screenshots/projects-claude.webp" alt="The projects page: a share-of-spend donut in per-project colours above the ranked list of projects, each with its share bar by model and its options menu">
+</picture>
 
 Codex gets its own accent, and its headline says **API-equivalent spend**, not
 "total spend": it is commonly used on a flat subscription, where these tokens
 were never billed individually.
 
-![The whole Codex overview, in its own teal accent, headed API-equivalent spend](docs/screenshots/overview-codex.webp)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-codex-light.webp">
+  <img src="docs/screenshots/overview-codex.webp" alt="The whole Codex overview, in its own teal accent, headed API-equivalent spend">
+</picture>
 
 </details>
 
-> **Every number in those images is invented.** They are captured from the
-> synthetic transcripts `demo-data` writes (see [Development](#development)).
-> A real screenshot of this app would be a screenshot of somebody's projects,
-> paths and spending.
+The images follow GitHub's theme: dark or light, as the app draws them.
 
-## Download
+> **Every number in those images is invented.** `tools\Capture-Readme.ps1`
+> writes synthetic transcripts and captures each page from them, in both
+> themes (see [Development](#development)). A real screenshot of this app would
+> be a screenshot of somebody's projects, paths and spending.
+
+## Features
+
+- **Both agents, side by side**: Claude Code and Codex, each with its own
+  pages, accent and cost label.
+- **Tokens, estimated cost and runtime** overall, per project, per day and per
+  model, with input, output, cache writes, cache reads and (for Codex)
+  reasoning tokens kept apart.
+- **Counts each message once.** Claude Code writes the same message to disk
+  several times (streaming updates, resumed sessions), and Codex repeats its
+  running totals; both are collapsed, so cost is not overstated.
+- **Built-in rate cards** for both vendors, including Claude Code's two cache
+  lifetimes and Codex's higher rate for prompts over 272K tokens. A model the
+  card does not know is flagged as unpriced, never counted as free, and can be
+  given a price in the app.
+- **History that outlives the transcripts.** Both agents delete old transcript
+  files (Claude Code after 30 days by default); the app keeps a daily archive
+  of the numbers, so past days do not vanish from the totals.
+- **Charts**: daily spend with unusual days marked, cost by model, a six-month
+  heat map, daily spend by project, daily tokens and spend stacked by model,
+  and a share-of-spend ring on the Projects page.
+- **Projects**: rename, merge, hide, a logo and a colour for each, and a page
+  per project with its own charts and a day-by-model table.
+- **Model prices**: set a price, a display name and a colour for any model,
+  and drag the table into your own order.
+- **Lives in the tray** with today's spend for each agent, refreshes itself
+  when transcripts change, and can start at login.
+- **Dark and light themes** (or follow Windows), and page zoom from 50% to
+  200%.
+
+## Installation and getting started
+
+### Download
 
 Get `AIUsage-<version>-win-x64.zip` from the
 [latest release](https://github.com/naimulnashid/ai-usage-native/releases/latest),
 unzip it anywhere, and run **`AIUsage.exe`** in the `AI Usage` folder. It
 carries its own .NET and Windows App SDK runtime, so nothing else needs
-installing. Windows 10 1809 or later, x64.
+installing. Windows 10 version 2004 or later, x64.
+
+The download is a portable copy: it adds no Start menu entry. Building from
+source (below) installs the app properly.
 
 The build is not code-signed, so SmartScreen will say it does not recognise the
 app: **More info → Run anyway**.
 
 **Smart App Control** blocks it outright when it is **On**: it lets an unsigned
 app run only if Microsoft's app intelligence already rates it safe, and today it
-does not rate this one. Building it yourself does not get round this, since your own build is
-unsigned too. To run the app, turn Smart App Control off in **Windows Security
-→ App & browser control → Smart App Control**. Since the April 2026 Windows 11
-update it can be turned back on later; on older builds, turning it off could
-only be undone by resetting Windows. With it on **Evaluation** or **Off**,
-nothing extra is needed. Signing is being considered.
+does not rate this one. Building it yourself does not get round this, since
+your own build is unsigned too. To run the app, turn Smart App Control off in
+**Windows Security → App & browser control → Smart App Control**. Since the
+April 2026 Windows 11 update it can be turned back on later; on older builds,
+turning it off could only be undone by resetting Windows. With it on
+**Evaluation** or **Off**, nothing extra is needed. Signing is being
+considered.
 
-## Build and install from source
+### Build and install from source
 
 Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 (Visual Studio is not needed) and [Git](https://git-scm.com/download/win) to
@@ -89,17 +128,56 @@ Installed apps** (and Control Panel's Programs and Features). The installed app
 carries its own .NET and Windows App SDK runtime (~190 MB), so it needs neither
 installed. Run the same command again to update.
 
-**To uninstall**, use **Uninstall** on its entry in Installed apps, or run
+Windows 10 version 2004 or later, x64. Built and tested on Windows 11. The
+build is unsigned, so Smart App Control blocks it the same way it blocks the
+download (see [Download](#download)).
+
+### First run
+
+Open **AI Usage** from the Start menu (or `AIUsage.exe` from the zip). It finds
+the transcripts in their default folders on its own, `%USERPROFILE%\.claude\projects\`
+for Claude Code and `%USERPROFILE%\.codex\sessions\` for Codex, and shows the
+overview for Claude Code. Switch agents from the sidebar.
+
+### Uninstall
+
+Use **Uninstall** on its entry in Installed apps, or run
 `tools\Install.ps1 -Uninstall`. Either way your settings, archive and logos in
 `%LOCALAPPDATA%\AI Usage Native` are kept; add `-RemoveData` to the script to
 remove them too. The zip download is not installed at all: exit it from the
 tray and delete its folder.
 
-Windows 10 1809 or later, x64. Built and tested on Windows 11. The build is
-unsigned, so Smart App Control blocks it the same way it blocks the download
-(see [Download](#download)).
+## Configuration
 
-## Using it
+No configuration is needed: the app works with its defaults. What it does
+let you change lives in `%LOCALAPPDATA%\AI Usage Native\`
+(**Settings → Open settings folder**). Most of it is written by the app itself;
+the `config\` files are yours to edit:
+
+| File | What |
+|---|---|
+| `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes` |
+| `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
+| `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
+| `model-settings.json`, `codex-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
+| `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
+| `project-settings.json`, `codex-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
+| `history\` | the daily archive that keeps days after the agents delete their transcripts |
+
+Every key is optional. Refresh after editing. Examples with placeholder values:
+[`settings.json`](docs/config-examples/settings.json) and
+[`projects.json`](docs/config-examples/projects.json) (the same shape serves
+`codex-projects.json`). A rate card has the shape of the built-in ones,
+[`pricing.json`](src/UsageCore/Pricing/pricing.json) (Claude Code) and
+[`codex-pricing.json`](src/UsageCore/Pricing/codex-pricing.json); a card in
+`config\` replaces the built-in one wholesale, so to price one model, use the
+Model prices table instead.
+
+Two environment variables move the transcript folders the app reads, as they
+do for the agents themselves: `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
+`AIUSAGE_DATA_DIR` moves everything the app writes.
+
+## Usage
 
 - **Sidebar**: switch between Claude Code and Codex. **Top bar**: Overview and
   Projects, Refresh (or F5), and Settings.
@@ -150,24 +228,7 @@ unsigned, so Smart App Control blocks it the same way it blocks the download
   and with its stacked charts opening on every day - followed by a
   day-by-model table.
 
-## Settings files
-
-Everything the app writes is in `%LOCALAPPDATA%\AI Usage Native\`
-(**Settings → Open settings folder**):
-
-| File | What |
-|---|---|
-| `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes` |
-| `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
-| `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
-| `model-settings.json`, `codex-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
-| `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
-| `project-settings.json`, `codex-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
-| `history\` | the daily archive that keeps days after the agents delete their transcripts |
-
-Every key is optional. Refresh after editing.
-
-## The two cost figures mean different things
+### The two cost figures mean different things
 
 | Agent | Headline | Meaning |
 |---|---|---|
@@ -176,7 +237,7 @@ Every key is optional. Refresh after editing.
 
 Do not add the two together.
 
-## Caveats
+### Caveats
 
 - **Estimates, not bills.** Rates come from the built-in rate cards; the Cost
   by model panel says when each was last verified. A model missing from the
@@ -193,7 +254,62 @@ Do not add the two together.
   checked on its own. Cache-write rates are on the card too, though Codex has
   not logged a cache write so far.
 
+## Tech stack and architecture
+
+C# on .NET 10. The app is WinUI 3 (Windows App SDK), unpackaged and
+self-contained. A native port of the
+[AI Usage Dashboard](https://github.com/naimulnashid/ai-usage-tracker) web app,
+sharing its design and its parsing rules but no code.
+
+```mermaid
+flowchart LR
+  T["Transcripts<br/>.claude\projects, .codex\sessions"] --> P
+  subgraph Core["UsageCore (net10.0, no UI)"]
+    P["Parsers<br/>ClaudeParser, CodexParser"] --> R["Report<br/>tokens, cost, runtime"]
+    C["Rate cards<br/>and settings"] --> P
+    R <--> A["Daily archive"]
+  end
+  R --> App["UsageApp<br/>WinUI 3 pages, charts, tray"]
+  R --> Cli["UsageCli<br/>aiusage parse, demo-data"]
+```
+
+| Part | What it does |
+|---|---|
+| [`src/UsageCore`](src/UsageCore) | Reads the transcripts, prices them, keeps the archive, and does the view math. No UI, so the CLI and the tests use it as is. |
+| [`src/UsageApp`](src/UsageApp) | The WinUI 3 app. Pages are built in C# from one set of element builders; charts are drawn on XAML shapes rather than a chart library. [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) draws SVG logos, [H.NotifyIcon](https://github.com/HavenDV/H.NotifyIcon) the tray icon. |
+| [`src/UsageCli`](src/UsageCli) | `aiusage parse <agent>` prints the diagnostics and totals; `aiusage demo-data` writes invented transcripts. |
+| [`tests/UsageCore.Tests`](tests/UsageCore.Tests) | xUnit v3 tests for the parsers, pricing, archive and settings. Fixtures are written at run time. |
+| [`site/`](site) | The project site: plain HTML, CSS and JavaScript (see [site/README.md](site/README.md)). |
+
+Numbers are recomputed from disk on every refresh. Transcript lines are
+scanned as bytes, pulling out only the fields used, so a full parse stays
+small in memory even when a line holds megabytes of tool output.
+
+## Security and privacy
+
+- **Nothing leaves the PC.** The app makes no network calls, opens no port,
+  has no account and sends no telemetry. It asks for no API key, token or
+  password, and stores none.
+- **It reads the transcripts and never changes them.** Only the folders above
+  (or `CLAUDE_CONFIG_DIR` / `CODEX_HOME`).
+- **What it stores**, in `%LOCALAPPDATA%\AI Usage Native\`: numbers (tokens,
+  cost, runtime per day, project and model), project names and their working
+  folder paths, your settings, and the logos you add. Never prompts, code or
+  other transcript content.
+- **Not encrypted.** These are plain JSON files, protected only by your Windows
+  account's file permissions: any program running as you can read them. Your
+  project names and paths are in them.
+- **Known limitations**: the build is unsigned (see [Download](#download)), and
+  the archive keeps a project's name and path after its transcripts are
+  deleted, until you remove the data folder.
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md); it also says what is
+in scope.
+
 ## Development
+
+Run these in PowerShell from the repository folder (`dotnet test` needs the
+`global.json` there):
 
 ```powershell
 dotnet build AIUsageNative.slnx
@@ -209,21 +325,25 @@ data folder runs beside the one in your tray.
 
 | Script | Does |
 |---|---|
+| `tools\Install.ps1` | Builds a Release copy and installs it for this user (see [above](#build-and-install-from-source)) |
+| `tools\Package-Release.ps1` | Builds the release zip into `artifacts\` |
 | `tools\Capture-Views.ps1` | Screenshots any page, at any scroll offset or top to bottom, on the demo data |
 | `tools\Capture-Readme.ps1` | Regenerates the screenshots above, in both themes |
 | `node site/build.mjs` | Builds the project site into `site/dist/` (see [site/README.md](site/README.md)) |
-| `tools\Package-Release.ps1` | Builds the release zip |
 | `dotnet run tools/make-social-preview.cs` | Redraws `.github/social-preview.png` |
 | `dotnet run tools/make-icon.cs` | Rebuilds `app.ico` from `app-icon.svg` |
 
-Issues are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), and report
-security problems privately as [SECURITY.md](SECURITY.md) describes.
+## Contributing, license and support
 
-## License
+- **Contributing**: issues and small pull requests are welcome; see
+  [CONTRIBUTING.md](CONTRIBUTING.md) for how, and what to leave out of a bug
+  report.
+- **Support**: ask questions and report bugs in the
+  [issue tracker](https://github.com/naimulnashid/ai-usage-native/issues).
+  Report security problems privately, as [SECURITY.md](SECURITY.md) describes.
+- **License**: [MIT](LICENSE), except for the third-party material below.
 
-[MIT](LICENSE), except for the third-party material below.
-
-## Trademarks
+### Trademarks
 
 Claude and Claude Code are trademarks of Anthropic. Codex and ChatGPT are
 trademarks of OpenAI. Their marks in `src/UsageApp/Assets/AgentMarks` are the

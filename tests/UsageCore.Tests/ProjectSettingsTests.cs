@@ -15,6 +15,31 @@ public class ProjectSettingsTests
     private static readonly string OtherDir = ClaudeParser.EncodeProjectDir(OtherCwd);
 
     [Fact]
+    public void TheReadmesExampleConfigFilesLoad_WithEveryValueTheyShow()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "config-examples");
+        var settings = AppConfig.LoadSettings(dir);
+        Assert.Equal(1, settings.LocalUtcOffsetHours);
+        Assert.Equal(WeekStart.Sunday, settings.WeekStartsOn);
+        Assert.Equal(45, settings.MaxIdleGapMinutes);
+
+        // The ids in the example are what both parsers make of those folders.
+        var oldId = ClaudeParser.EncodeProjectDir(@"C:\Users\you\Projects\old-name");
+        var newId = ClaudeParser.EncodeProjectDir(@"C:\Users\you\Projects\new-name");
+        Assert.Equal(oldId, CodexParser.ProjectIdFromCwd(@"C:\Users\you\Projects\old-name"));
+        using var tmp = new TempDir();
+        foreach (var provider in new[] { ProviderId.Claude, ProviderId.Codex })
+        {
+            // One example serves both: codex-projects.json has the same shape.
+            File.Copy(Path.Combine(dir, "projects.json"), tmp.Combine(AppConfig.ProjectsFileName(provider)));
+            var projects = AppConfig.LoadProjectConfig(provider, tmp.Path);
+            Assert.Equal(newId, Assert.Single(projects.Merge, kv => kv.Key == oldId).Value);
+            Assert.Equal("My App", projects.DisplayNames[newId]);
+            Assert.Single(projects.Merge);
+        }
+    }
+
+    [Fact]
     public void SavesANameAndAMerge_ReadsThemBack_AndClearsThem()
     {
         using var tmp = new TempDir();
