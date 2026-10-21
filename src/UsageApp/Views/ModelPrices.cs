@@ -25,16 +25,21 @@ namespace UsageApp.Views;
 public static class ModelPrices
 {
     public const string Subtitle =
-        "USD per million tokens. Set a price for a model the rate card does not know yet — it is saved on this computer and wins over the card — or pick the colour a model is drawn in.";
+        "USD per million tokens. Set a price for a model the rate card does not know yet — it is saved on this computer and wins over the card — or pick the name and colour a model is shown with. Drag a row by its handle to reorder the table.";
 
     public static UIElement Table(PageContext ctx, IReadOnlyDictionary<string, UsageCell> perModel, IReadOnlyDictionary<string, ModelRateInfo>? rates)
     {
         var meta = ctx.State.Meta;
-        var rows = perModel.Keys
+        var settings = ModelSettings.Load(meta.Id);
+        var byDefault = perModel.Keys
             .Select(model => (Model: model, Info: rates?.GetValueOrDefault(model) ?? new ModelRateInfo(null, RateSource.None, null, false)))
             // Dearest first, like every legend; equal prices fall back to the ramp.
             .OrderByDescending(r => r.Info.Rate?.Output ?? -1)
             .ThenBy(r => r.Model, ModelColors.PriceDescending)
+            .ToList();
+        var infoOf = byDefault.ToDictionary(r => r.Model, r => r.Info, StringComparer.Ordinal);
+        var rows = ModelSettings.Arrange(byDefault.Select(r => r.Model), settings.Order)
+            .Select(model => (Model: model, Info: infoOf[model]))
             .ToList();
         if (rows.Count == 0) return Ui.Text("No models found.", 15, 400, Palette.TextFaintBrush);
 
@@ -46,9 +51,17 @@ public static class ModelPrices
         }
         columns.Add(new Column(meta.CacheReadLabel));
         columns.Add(new Column("Output"));
-        columns.Add(new Column("Source"));
         columns.Add(new Column(""));
         var table = new DataTable(columns);
+        // The order is a view preference, like a colour: saved and redrawn, no parse.
+        table.EnableReorder((from, to) =>
+        {
+            var order = rows.Select(r => r.Model).ToList();
+            var moved = order[from];
+            order.RemoveAt(from);
+            order.Insert(to, moved);
+            SaveOrder(ctx, order);
+        });
 
         static string Price(double? value) => value is { } v ? "$" + Rate(v) : "—";
         foreach (var (model, info) in rows)
@@ -66,7 +79,6 @@ public static class ModelPrices
             }
             cells.Add(DataTable.Cell(Price(rate?.CacheRead)));
             cells.Add(DataTable.Cell(Price(rate?.Output)));
-            cells.Add(DataTable.Cell(SourceLabel(info), Palette.TextMutedBrush, numeric: false));
 
             var edit = Ui.Button(info.Source == RateSource.None ? "Set price" : "Edit", fontSize: 14, padding: new Thickness(13, 5, 13, 5));
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(edit, $"{(info.Source == RateSource.None ? "Set price" : "Edit")} {Format.Model(model)}");
@@ -81,14 +93,34 @@ public static class ModelPrices
             .Where(r => r.Info.Rate?.LongContext is not null)
             .GroupBy(r => r.Info.Rate!.LongContext!)
             .ToList();
-        if (tiers.Count == 0) return table.Build();
+        if (tiers.Count == 0 && settings.Order.Count == 0) return table.Build();
         var stack = new StackPanel { Spacing = 12 };
         stack.Children.Add(table.Build());
         foreach (var tier in tiers)
         {
             stack.Children.Add(Ui.Text(LongContextSentence(tier.Key, tier.Select(r => Format.Model(r.Model)).ToList()), 13, 400, Palette.TextFaintBrush, wrap: true));
         }
+        if (settings.Order.Count > 0)
+        {
+            var reset = Ui.Button("Default order", fontSize: 14, padding: new Thickness(13, 6, 13, 6));
+            reset.HorizontalAlignment = HorizontalAlignment.Left;
+            reset.Click += (_, _) => SaveOrder(ctx, []);
+            stack.Children.Add(reset);
+        }
         return stack;
+    }
+
+    private static void SaveOrder(PageContext ctx, IReadOnlyList<string> order)
+    {
+        try
+        {
+            ModelSettings.SaveOrder(ctx.State.Meta.Id, order);
+            ctx.Redraw();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            _ = Shell.ShowMessage(ctx.Window, "The order was not saved", ex.Message);
+        }
     }
 
     /// <summary>"GPT-5.6 Sol and GPT-6.1 Sol: a request whose prompt is over 272K tokens is billed at ..."</summary>
@@ -98,14 +130,6 @@ public static class ModelPrices
         var names = models.Count > 1 ? $"{string.Join(", ", models.Take(models.Count - 1))} and {models[^1]}" : models[0];
         return $"{names}: a request whose prompt is over {above} tokens is billed at {Rate(rule.InputMultiplier)}× the input and cache rates and {Rate(rule.OutputMultiplier)}× output.";
     }
-
-    private static string SourceLabel(ModelRateInfo info) => info.Source switch
-    {
-        RateSource.Card => "Rate card",
-        RateSource.Custom => "Yours",
-        RateSource.Alias => $"As {Format.Model(info.AliasOf ?? "")}",
-        _ => "None",
-    };
 
     /// <summary>Up to four decimals, no trailing zeros: 0.175, 3.75, 25.</summary>
     private static string Rate(double value) => Math.Round(value, 4).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
@@ -132,8 +156,67 @@ public static class ModelPrices
             error.Visibility = Visibility.Visible;
         }
 
+        var small = new Thickness(13, 6, 13, 6);
+        var settings = ModelSettings.Load(provider);
+
+        // ---- Name ------------------------------------------------------------
+        // A label only: the rate card, the archive and every setting stay keyed
+        // by the model string, which the price heading below still shows.
+        root.Children.Add(Ui.Text("Name", 13.5, 600, Palette.TextMutedBrush));
+        var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var nameBox = new TextBox
+        {
+            Width = 260,
+            Text = Format.Model(model),
+            PlaceholderText = Format.DefaultModel(model),
+            MaxLength = ModelSettings.MaxNameLength,
+            FontFamily = Fonts.Sans,
+            FontSize = 15,
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nameBox, "Display name");
+        nameRow.Children.Add(nameBox);
+        var saveName = Ui.Button("Save name", fontSize: 14, padding: small);
+        saveName.Click += (_, _) => SaveName();
+        nameBox.KeyDown += (_, e) =>
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            e.Handled = true;
+            SaveName();
+        };
+        nameRow.Children.Add(saveName);
+        if (settings.Names.ContainsKey(model))
+        {
+            var defaultName = Ui.Button("Default name", fontSize: 14, padding: small);
+            defaultName.Click += (_, _) => SaveNameAs(null);
+            nameRow.Children.Add(defaultName);
+        }
+        root.Children.Add(nameRow);
+
+        // Blank, or the built-in name typed back, is a reset rather than a copy of it.
+        void SaveName()
+        {
+            var text = nameBox.Text.Trim();
+            SaveNameAs(text.Length == 0 || text == Format.DefaultModel(model) ? null : text);
+        }
+        void SaveNameAs(string? name)
+        {
+            try
+            {
+                var saved = ModelSettings.Save(provider, model, name: name, clearName: name is null);
+                Palette.SetModelSettings(saved);
+                flyout.Hide();
+                ctx.Redraw();
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                Fail(ex);
+            }
+        }
+
         // ---- Price -----------------------------------------------------------
-        root.Children.Add(Ui.Text($"Price for {model}, USD per million tokens", 13.5, 600, Palette.TextMutedBrush));
+        var priceHead = Ui.Text($"Price for {model}, USD per million tokens", 13.5, 600, Palette.TextMutedBrush);
+        priceHead.Margin = new Thickness(0, 8, 0, 0);
+        root.Children.Add(priceHead);
         var fields = new List<(string Key, NumberBox Box)>();
         var fieldRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         (string Key, string Label, double? Value)[] specs = meta.HasCacheWrites
@@ -175,7 +258,6 @@ public static class ModelPrices
         };
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        var small = new Thickness(13, 6, 13, 6);
         var save = Ui.Button("Save price", primary: true, fontSize: 14, padding: small);
         save.Click += (_, _) =>
         {
@@ -248,7 +330,7 @@ public static class ModelPrices
         var colourHead = Ui.Text("Colour", 13.5, 600, Palette.TextMutedBrush);
         colourHead.Margin = new Thickness(0, 8, 0, 0);
         root.Children.Add(colourHead);
-        var chosen = ModelSettings.Load(provider).Colors.GetValueOrDefault(model);
+        var chosen = settings.Colors.GetValueOrDefault(model);
         var current = chosen ?? ModelColors.Hex(model);
         var palette = ModelColors.Palettes[provider];
         var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -295,7 +377,7 @@ public static class ModelPrices
             try
             {
                 var saved = ModelSettings.Save(provider, model, color: shade, clearColor: clear);
-                Palette.SetModelColors(saved.Colors);
+                Palette.SetModelSettings(saved);
                 flyout.Hide();
                 ctx.Redraw();
             }

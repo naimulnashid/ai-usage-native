@@ -175,7 +175,7 @@ public static class Palette
         AccentFill.Color = Hex(hex, IsLight ? 0.14 : codex ? 0.24 : 0.22);
         var ramp = IsLight ? meta.HeatRampLight : meta.HeatRamp;
         for (var i = 0; i < Heat.Length; i++) Heat[i].Color = Hex(ramp[i]);
-        SetModelColors(UsageCore.Config.ModelSettings.Load(meta.Id).Colors);
+        SetModelSettings(UsageCore.Config.ModelSettings.Load(meta.Id));
     }
 
     static Palette() => ApplyTheme(light: false);
@@ -188,6 +188,16 @@ public static class Palette
     /// rebuilt after either, so every swatch and band picks it up.
     /// </summary>
     public static void SetModelColors(IReadOnlyDictionary<string, string>? colors) => _modelColors = colors;
+
+    /// <summary>
+    /// Colours and names together. A name is not a colour, but both are set from
+    /// the Model prices table and must change with the agent at the same moment.
+    /// </summary>
+    public static void SetModelSettings(UsageCore.Config.ModelSettingsData settings)
+    {
+        SetModelColors(settings.Colors);
+        UsageCore.View.Format.ModelNames = settings.Names;
+    }
 
     /// <summary>A model's shade: darker means more expensive. See ModelColors.</summary>
     public static SolidColorBrush ModelBrush(string model) => new(ModelColor(model));

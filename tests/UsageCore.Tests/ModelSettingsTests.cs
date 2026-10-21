@@ -46,6 +46,61 @@ public class ModelSettingsTests
     }
 
     [Fact]
+    public void SavesANameAndAnOrder_KeepsTheOtherSettings_AndClearsThem()
+    {
+        using var tmp = new TempDir();
+        ModelSettings.Save(ProviderId.Codex, "gpt-new", rate: Rate, dataDir: tmp.Path);
+        ModelSettings.Save(ProviderId.Codex, "gpt-new", name: "GPT New", dataDir: tmp.Path);
+        ModelSettings.SaveOrder(ProviderId.Codex, ["b", "gpt-new", "b", "a"], dataDir: tmp.Path);
+
+        var loaded = ModelSettings.Load(ProviderId.Codex, tmp.Path);
+        Assert.Equal("GPT New", loaded.Names["gpt-new"]);
+        Assert.Equal(Rate, loaded.Pricing["gpt-new"]);
+        Assert.Equal(["b", "gpt-new", "a"], loaded.Order);
+
+        ModelSettings.Save(ProviderId.Codex, "gpt-new", clearName: true, dataDir: tmp.Path);
+        ModelSettings.SaveOrder(ProviderId.Codex, [], dataDir: tmp.Path);
+        loaded = ModelSettings.Load(ProviderId.Codex, tmp.Path);
+        Assert.Empty(loaded.Names);
+        Assert.Empty(loaded.Order);
+        Assert.Equal(Rate, loaded.Pricing["gpt-new"]);
+    }
+
+    [Fact]
+    public void RefusesABlankOrPaddedName()
+    {
+        using var tmp = new TempDir();
+        Assert.Throws<ArgumentException>(() => ModelSettings.Save(ProviderId.Claude, "m", name: "", dataDir: tmp.Path));
+        Assert.Throws<ArgumentException>(() => ModelSettings.Save(ProviderId.Claude, "m", name: " Name", dataDir: tmp.Path));
+        Assert.Throws<ArgumentException>(() => ModelSettings.Save(ProviderId.Claude, "m", name: new string('x', ModelSettings.MaxNameLength + 1), dataDir: tmp.Path));
+        Assert.Throws<ArgumentException>(() => ModelSettings.SaveOrder(ProviderId.Claude, ["_comment"], dataDir: tmp.Path));
+    }
+
+    [Fact]
+    public void ArrangePutsTheSavedOrderFirst_ThenNewModelsInTheirDefaultOrder()
+    {
+        Assert.Equal(["c", "a", "b", "d"], ModelSettings.Arrange(["a", "b", "c", "d"], ["c", "a", "gone"]));
+        Assert.Equal(["a", "b"], ModelSettings.Arrange(["a", "b"], []));
+    }
+
+    [Fact]
+    public void AGivenNameReplacesTheBuiltInOne_ForDisplayOnly()
+    {
+        var before = Format.ModelNames;
+        try
+        {
+            Format.ModelNames = new Dictionary<string, string> { ["gpt-new"] = "GPT New" };
+            Assert.Equal("GPT New", Format.Model("gpt-new"));
+            Assert.Equal("gpt-new", Format.DefaultModel("gpt-new"));
+            Assert.Equal("opus-5", Format.Model("claude-opus-5"));
+        }
+        finally
+        {
+            Format.ModelNames = before;
+        }
+    }
+
+    [Fact]
     public void FailsSoftOnACorruptFile()
     {
         using var tmp = new TempDir();

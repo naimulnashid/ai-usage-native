@@ -122,8 +122,10 @@ unsigned: with Smart App Control on, Windows may block it.
 - **Model prices**, the last panel on the overview, lists
   each model's rate. **Set price** (or **Edit**) gives a model the rate card
   does not know yet a price of its own: it wins over the card, and every figure
-  is recomputed with it, archived days included. The same editor picks the
-  model's colour from shades of the agent's accent.
+  is recomputed with it, archived days included. The same editor renames the
+  model everywhere it is shown and picks its colour from shades of the agent's
+  accent. Drag a row by its handle to reorder the table; **Default order** puts
+  the dearest first again.
 - **A project page** has the overview's sections in the overview's order, for
   that project - without the third row of activity cards and the price table,
   and with its stacked charts opening on every day - followed by a
@@ -139,7 +141,7 @@ Everything the app writes is in `%LOCALAPPDATA%\AI Usage Native\`
 | `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes` |
 | `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
-| `model-settings.json`, `codex-model-settings.json` | prices and colours set in the Model prices table, one model at a time |
+| `model-settings.json`, `codex-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
 | `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
 | `project-settings.json`, `codex-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |

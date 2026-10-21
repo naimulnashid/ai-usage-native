@@ -61,10 +61,21 @@ public static class Format
     public static string ClockTime(DateTimeOffset time) => time.ToLocalTime().ToString("h:mm:ss tt", En);
 
     /// <summary>
-    /// A model for display only. Claude models lose the redundant prefix; Codex
-    /// strings are not readable that way, so they come from a table.
+    /// The names given to models in the app's Model prices table, for the agent
+    /// on screen. Set by the app with the agent and after each rename; null in
+    /// the CLI, which prints the built-in names.
     /// </summary>
-    public static string Model(string model)
+    public static IReadOnlyDictionary<string, string>? ModelNames { get; set; }
+
+    /// <summary>A model for display only: the name given to it, else <see cref="DefaultModel"/>.</summary>
+    public static string Model(string model) =>
+        ModelNames is not null && ModelNames.TryGetValue(model, out var own) ? own : DefaultModel(model);
+
+    /// <summary>
+    /// A model's built-in display name. Claude models lose the redundant prefix;
+    /// Codex strings are not readable that way, so they come from a table.
+    /// </summary>
+    public static string DefaultModel(string model)
     {
         if (model == "<synthetic>") return "synthetic";
         return ModelColors.DisplayName(model) ?? (model.StartsWith("claude-", StringComparison.Ordinal) ? model[7..] : model);

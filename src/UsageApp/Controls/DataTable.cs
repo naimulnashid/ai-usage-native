@@ -21,6 +21,16 @@ public sealed class DataTable
     private readonly List<Column> _columns;
     private int _row;
 
+    // Reordering (EnableReorder): each data row's wash and cells, and the drag in progress.
+    private Action<int, int>? _moved;
+    private readonly List<Border> _washes = [];
+    private readonly List<List<UIElement>> _rowElements = [];
+    private Border? _dropLine;
+    private int _dragFrom = -1;
+    private int _dragTo = -1;
+    private double _dragStartY;
+    private (double Top, double Height)[] _dragRows = [];
+
     public DataTable(IReadOnlyList<Column> columns)
     {
         _columns = columns.ToList();
@@ -92,10 +102,27 @@ public sealed class DataTable
         return panel;
     }
 
+    /// <summary>
+    /// Lets the rows be dragged into a new order by a grip at the start of each.
+    /// Call before adding rows. <paramref name="moved"/> gets the row's index and
+    /// the index it was dropped at, both counted in data rows, and only for a
+    /// drop that changes the order.
+    /// </summary>
+    /// <remarks>
+    /// Pointer capture on the grip rather than WinUI's drag and drop: that one
+    /// drags a picture of the grip alone and needs a data package, where this
+    /// lifts the row itself and moves it with the pointer, for mouse, pen and
+    /// touch alike. The rest of the row stays as it was, so its text can still be
+    /// selected and its buttons pressed.
+    /// </remarks>
+    public void EnableReorder(Action<int, int> moved) => _moved = moved;
+
     public void AddRow(IReadOnlyList<UIElement?> cells, bool separatorAbove = false)
     {
         _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var row = _row++;
+        var index = _washes.Count;
+        var elements = new List<UIElement>();
 
         // The hover wash spans the row, behind its cells.
         var wash = new Border
@@ -108,17 +135,33 @@ public sealed class DataTable
         Grid.SetRow(wash, row);
         Grid.SetColumnSpan(wash, _columns.Count);
         _grid.Children.Add(wash);
+        _washes.Add(wash);
+        elements.Add(wash);
+        // A lifted row stays lit, wherever the pointer has gone.
         void Lit(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => wash.Background = Palette.SurfaceHoverBrush;
-        void Unlit(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => wash.Background = Palette.TransparentBrush;
+        void Unlit(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (_dragFrom != index) wash.Background = Palette.TransparentBrush;
+        }
         wash.PointerEntered += Lit;
         wash.PointerExited += Unlit;
 
         for (var i = 0; i < cells.Count && i < _columns.Count; i++)
         {
             if (cells[i] is not FrameworkElement content) continue;
+            var margin = new Thickness(14, 13, 14, 13);
+            if (i == 0 && _moved is not null)
+            {
+                var withGrip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                withGrip.Children.Add(Grip(index));
+                content.VerticalAlignment = VerticalAlignment.Center;
+                withGrip.Children.Add(content);
+                content = withGrip;
+                margin.Left = 4;
+            }
             content.HorizontalAlignment = i == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right;
             content.VerticalAlignment = VerticalAlignment.Center;
-            content.Margin = new Thickness(14, 13, 14, 13);
+            content.Margin = margin;
             // Cells stay hit-testable (a swatch carries a tooltip), so they
             // light the row too.
             content.PointerEntered += Lit;
@@ -126,7 +169,151 @@ public sealed class DataTable
             Grid.SetColumn(content, i);
             Grid.SetRow(content, row);
             _grid.Children.Add(content);
+            elements.Add(content);
         }
+        _rowElements.Add(elements);
+    }
+
+    /// <summary>Six dots, the usual mark of a handle.</summary>
+    private FrameworkElement Grip(int index)
+    {
+        var dots = new Canvas { Width = 10, Height = 16 };
+        var shapes = new List<Microsoft.UI.Xaml.Shapes.Ellipse>();
+        for (var r = 0; r < 3; r++)
+        {
+            for (var c = 0; c < 2; c++)
+            {
+                var dot = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 3.4, Height = 3.4, Fill = Palette.TextFaintBrush };
+                Canvas.SetLeft(dot, 1 + c * 5);
+                Canvas.SetTop(dot, 1.3 + r * 5);
+                dots.Children.Add(dot);
+                shapes.Add(dot);
+            }
+        }
+        // A target wider than its dots, and hit-testable across all of it.
+        var grip = new Grid
+        {
+            Width = 24,
+            Height = 32,
+            Background = Palette.TransparentBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { dots },
+        };
+        dots.HorizontalAlignment = HorizontalAlignment.Center;
+        dots.VerticalAlignment = VerticalAlignment.Center;
+        Ui.SetTip(grip, "Drag to reorder");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(grip, "Drag to reorder");
+        void Shade(Brush brush)
+        {
+            foreach (var dot in shapes) dot.Fill = brush;
+        }
+        grip.PointerEntered += (_, _) => Shade(Palette.TextMutedBrush);
+        grip.PointerExited += (_, _) =>
+        {
+            if (_dragFrom != index) Shade(Palette.TextFaintBrush);
+        };
+
+        grip.PointerPressed += (_, e) =>
+        {
+            var point = e.GetCurrentPoint(_grid);
+            if (point.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Mouse && !point.Properties.IsLeftButtonPressed) return;
+            if (_dragFrom >= 0 || !grip.CapturePointer(e.Pointer)) return;
+            BeginDrag(index, point.Position.Y);
+            e.Handled = true;
+        };
+        grip.PointerMoved += (_, e) =>
+        {
+            if (_dragFrom != index) return;
+            DragTo(e.GetCurrentPoint(_grid).Position.Y);
+            e.Handled = true;
+        };
+        grip.PointerReleased += (_, e) =>
+        {
+            if (_dragFrom != index) return;
+            var (from, to) = (_dragFrom, _dragTo);
+            EndDrag();
+            Shade(Palette.TextFaintBrush);
+            grip.ReleasePointerCapture(e.Pointer);
+            e.Handled = true;
+            // After the handler: the callback rebuilds the page this grip is on.
+            if (to != from && _moved is { } moved) _grid.DispatcherQueue.TryEnqueue(() => moved(from, to));
+        };
+        grip.PointerCaptureLost += (_, _) =>
+        {
+            if (_dragFrom != index) return;
+            EndDrag();
+            Shade(Palette.TextFaintBrush);
+        };
+        return grip;
+    }
+
+    private void BeginDrag(int index, double y)
+    {
+        _dragFrom = _dragTo = index;
+        _dragStartY = y;
+        // Where every row sits before anything moves; Translation leaves layout alone.
+        _dragRows = _washes.Select(w => ((double)w.ActualOffset.Y, w.ActualHeight)).ToArray();
+        foreach (var element in _rowElements[index]) Canvas.SetZIndex(element, 10);
+        _washes[index].Background = Palette.SurfaceHoverBrush;
+        if (_dropLine is null)
+        {
+            _dropLine = new Border
+            {
+                Height = 2,
+                Background = Palette.Accent,
+                VerticalAlignment = VerticalAlignment.Top,
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+                RenderTransform = new TranslateTransform(),
+            };
+            Canvas.SetZIndex(_dropLine, 20);
+            Grid.SetRow(_dropLine, 1);
+            Grid.SetColumnSpan(_dropLine, _columns.Count);
+            _grid.Children.Add(_dropLine);
+        }
+    }
+
+    private void DragTo(double y)
+    {
+        var from = _dragFrom;
+        var (top, height) = _dragRows[from];
+        // The row moves with the pointer but never leaves the table's rows.
+        var first = _dragRows[0].Top;
+        var last = _dragRows[^1].Top + _dragRows[^1].Height;
+        var dy = Math.Clamp(y - _dragStartY, first - top, last - (top + height));
+        foreach (var element in _rowElements[from]) element.Translation = new System.Numerics.Vector3(0, (float)dy, 0);
+
+        // It lands below every other row whose middle its own middle has passed.
+        var middle = top + height / 2 + dy;
+        var to = 0;
+        for (var i = 0; i < _dragRows.Length; i++)
+        {
+            if (i != from && _dragRows[i].Top + _dragRows[i].Height / 2 < middle) to++;
+        }
+        _dragTo = to;
+
+        if (_dropLine is null) return;
+        if (to == from)
+        {
+            _dropLine.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var lineY = to < from ? _dragRows[to].Top : _dragRows[to].Top + _dragRows[to].Height;
+        ((TranslateTransform)_dropLine.RenderTransform).Y = lineY - first - 1;
+        _dropLine.Visibility = Visibility.Visible;
+    }
+
+    private void EndDrag()
+    {
+        if (_dragFrom < 0) return;
+        foreach (var element in _rowElements[_dragFrom])
+        {
+            element.Translation = System.Numerics.Vector3.Zero;
+            Canvas.SetZIndex(element, 0);
+        }
+        _washes[_dragFrom].Background = Palette.TransparentBrush;
+        if (_dropLine is not null) _dropLine.Visibility = Visibility.Collapsed;
+        _dragFrom = _dragTo = -1;
     }
 
     public void AddFooter(IReadOnlyList<UIElement?> cells)
