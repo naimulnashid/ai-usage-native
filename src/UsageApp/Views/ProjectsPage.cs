@@ -98,6 +98,11 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             more.Children.Add(count);
             page.Children.Add(more);
         }
+
+        // Once for the page, not an info icon on every card that says the same.
+        var runtimeNote = Ui.Paragraph(Parts.RuntimeTip, 13.5, Palette.TextFaintBrush);
+        runtimeNote.Margin = new Thickness(0, 18, 0, 0);
+        page.Children.Add(runtimeNote);
         return page;
     }
 
@@ -279,10 +284,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 22 };
         left.Children.Add(Ui.Text($"{Format.Tokens(project.Combined.TotalTokens)} tokens", 14.5, 400, Palette.TextMutedBrush, numeric: true));
-        var runtime = new StackPanel { Orientation = Orientation.Horizontal };
-        runtime.Children.Add(Ui.Text(Format.Duration(project.Combined.RuntimeSeconds), 14.5, 400, Palette.TextMutedBrush, numeric: true));
-        runtime.Children.Add(Ui.InfoTip("About runtime", Parts.RuntimeTip));
-        left.Children.Add(runtime);
+        left.Children.Add(Ui.Text(Format.Duration(project.Combined.RuntimeSeconds), 14.5, 400, Palette.TextMutedBrush, numeric: true));
         left.Children.Add(Ui.Text(Plural(project.Sessions.Count, "session"), 14.5, 400, Palette.TextMutedBrush, numeric: true));
         left.Children.Add(Ui.Text(Plural(project.Daily.Count(d => Dates.IsDayKey(d.Date)), "active day"), 14.5, 400, Palette.TextMutedBrush, numeric: true));
         stats.Children.Add(left);
