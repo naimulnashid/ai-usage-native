@@ -56,11 +56,16 @@ const needs = ['Windows 10 2004 or later, x64', 'About 190 MB, .NET included', '
     gap: 40px;
   }
 
-  /* The card first, after the heading; the steps beside it on wide screens. */
+  /* Phones: the card first, after the heading. Wide screens: the steps on the
+     left, the card on the right. */
   @media (min-width: 960px) {
     .install {
-      grid-template-columns: 1fr 1.2fr;
+      grid-template-columns: 1.2fr 1fr;
       align-items: start;
+    }
+
+    .steps {
+      order: -1;
     }
   }
 
