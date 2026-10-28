@@ -82,7 +82,6 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
 
         var headline = new StackPanel();
         headline.Children.Add(head);
-        // The agent's own label: on Codex this figure is API-equivalent, not a bill.
         headline.Children.Add(Parts.HeadlineGrid(meta, combined.CostUsd,
             [Parts.HeadlineMeta($"{share:0.0}% of all spend · {Format.Usd(avgPerDay)} avg / active day")],
             (Format.Tokens(combined.TotalTokens), $"{Format.Count(combined.Messages)} {meta.MessageNoun} · {Format.Count(project.Sessions.Count)} sessions"),

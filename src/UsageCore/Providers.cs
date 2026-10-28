@@ -17,10 +17,11 @@ public sealed record ProviderMeta
     public required string TranscriptEnvVar { get; init; }
 
     /// <summary>
-    /// The headline label, and the ENTIRE in-app treatment of the cost basis.
-    /// Claude Code's figure tracks a per-token bill; Codex is commonly used on a
-    /// flat subscription, so its figure is only "what these tokens would cost
-    /// through the API". The two are never comparable spend and never added.
+    /// The headline label. Both agents read "Total estimated spend" by the
+    /// owner's choice (2026-10-28); Codex's used to say "API-equivalent spend".
+    /// Codex's figure is still what its tokens would cost through the OpenAI
+    /// API, which on a flat ChatGPT plan is not what was paid, and the two
+    /// agents' figures are still never added.
     /// </summary>
     public required string CostLabel { get; init; }
 
@@ -86,7 +87,7 @@ public static class Providers
         Label = "Codex",
         TranscriptHint = @"%USERPROFILE%\.codex\sessions\",
         TranscriptEnvVar = "CODEX_HOME",
-        CostLabel = "API-equivalent spend",
+        CostLabel = "Total estimated spend",
         HasCacheWrites = false,
         HasReasoningTokens = true,
         CacheReadLabel = "Cached input",

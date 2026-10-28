@@ -122,8 +122,8 @@ public sealed class TrayHost : IDisposable
     }
 
     /// <summary>
-    /// "Claude Code today: $12.34". Each agent carries its own cost label's
-    /// meaning: Codex's figure is API-equivalent, and the tooltip says so.
+    /// "Claude Code today: $12.34", one line per agent, both worded alike by
+    /// the owner's choice (2026-10-28); Codex's used to add "(API-equiv.)".
     /// </summary>
     private void UpdateToolTip(AppState state)
     {
@@ -133,8 +133,7 @@ public sealed class TrayHost : IDisposable
             if (state.For(meta.Id).Report is not { } report || ReportState.IsEmpty(report)) continue;
             var today = DayRanges.Today(report);
             var cost = report.Daily.FirstOrDefault(d => d.Date == today)?.Combined.CostUsd ?? 0;
-            var basis = meta.Id == ProviderId.Codex ? " (API-equiv.)" : "";
-            lines.Add($"{meta.Label} today: {Format.Usd(cost)}{basis}");
+            lines.Add($"{meta.Label} today: {Format.Usd(cost)}");
         }
         // The shell truncates a tray tooltip at 127 characters.
         var text = string.Join("\n", lines);

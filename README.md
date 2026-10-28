@@ -29,13 +29,13 @@ its own colour - its logo's, or one you pick - and a slice opens it.
   <img src="docs/screenshots/projects-claude.webp" alt="The projects page: a share-of-spend donut in per-project colours above the ranked list of projects, each with its share bar by model and its options menu">
 </picture>
 
-Codex gets its own accent, and its headline says **API-equivalent spend**, not
-"total spend": it is commonly used on a flat subscription, where these tokens
-were never billed individually.
+Codex gets its own accent. Its figure is what its tokens would cost through the
+OpenAI API: on a flat ChatGPT subscription they were never billed individually
+(see [the two cost figures](#the-two-cost-figures-mean-different-things)).
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-codex-light.webp">
-  <img src="docs/screenshots/overview-codex.webp" alt="The whole Codex overview, in its own teal accent, headed API-equivalent spend">
+  <img src="docs/screenshots/overview-codex.webp" alt="The whole Codex overview, in its own teal accent, headed by its total estimated spend">
 </picture>
 
 </details>
@@ -252,7 +252,7 @@ do for the agents themselves: `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
 | Agent | Headline | Meaning |
 |---|---|---|
 | Claude Code | Total estimated spend | Tokens priced at Anthropic's per-token API rates |
-| Codex | API-equivalent spend | What these tokens would cost through the OpenAI API. On a ChatGPT subscription this is not what you paid. |
+| Codex | Total estimated spend | What these tokens would cost through the OpenAI API. On a ChatGPT subscription this is not what you paid. |
 
 Do not add the two together.
 
