@@ -70,6 +70,14 @@ const faqs = [
 
   details {
     border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--dur) var(--ease);
+  }
+
+  /* Hover: the row lifts onto a surface and the question takes the accent. */
+  details:hover,
+  details[open] {
+    background: var(--surface);
   }
 
   summary {
@@ -77,11 +85,16 @@ const faqs = [
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px 2px;
+    padding: 18px 14px;
     font-size: 1.0625rem;
     font-weight: 600;
     cursor: pointer;
     list-style: none;
+    transition: color var(--dur) var(--ease);
+  }
+
+  summary:hover {
+    color: var(--accent-bright);
   }
 
   summary::-webkit-details-marker {
@@ -90,10 +103,23 @@ const faqs = [
 
   summary::after {
     content: '+';
+    display: grid;
+    place-items: center;
     flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     color: var(--accent-bright);
     font-size: 1.4rem;
     line-height: 1;
+    transition:
+      background-color var(--dur) var(--ease),
+      box-shadow var(--dur) var(--ease);
+  }
+
+  summary:hover::after {
+    background: var(--accent-dim);
+    box-shadow: 0 0 16px var(--accent-glow);
   }
 
   details[open] summary::after {
@@ -101,6 +127,6 @@ const faqs = [
   }
 
   details p {
-    padding: 0 2px 20px;
+    padding: 0 14px 20px;
   }
 </style>

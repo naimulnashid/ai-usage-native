@@ -320,6 +320,35 @@ code {
   border-radius: var(--radius);
   padding: var(--pad-card);
   box-shadow: var(--shadow-card);
+  transition:
+    transform var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+/* Hover: the card lifts and glows in its accent - the agent's own colour on a
+   card about one agent (data-agent). */
+.card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow:
+    var(--shadow-card-hover),
+    0 0 0 1px var(--accent-dim),
+    0 0 28px -6px var(--accent-glow),
+    0 14px 44px -14px var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+.card .icon-tile {
+  transition: box-shadow var(--dur) var(--ease);
+}
+
+.card:hover .icon-tile {
+  box-shadow: 0 0 18px var(--accent-glow);
 }
 
 .card h3 {
