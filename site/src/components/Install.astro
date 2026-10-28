@@ -12,13 +12,27 @@ const needs = ['Windows 10 2004 or later, x64', 'About 190 MB, .NET included', '
 ---
 
 <section class="section" id="install" aria-labelledby="install-title">
-  <div class="container install">
-    <div>
-      <div class="section-head">
-        <p class="eyebrow">Install</p>
-        <h2 id="install-title">Three steps, no admin rights.</h2>
-        <p class="lead">One setup file for your Windows account. Run a newer one later to upgrade in place.</p>
-      </div>
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Install</p>
+      <h2 id="install-title">Three steps, no admin rights.</h2>
+      <p class="lead">One setup file for your Windows account. Run a newer one later to upgrade in place.</p>
+    </div>
+    <div class="install">
+      <aside class="card needs">
+        <h3>You need</h3>
+        <ul>{needs.map((n) => <li><Icon name="check" />{n}</li>)}</ul>
+        <p class="sac">
+          <Icon name="shieldAlert" />
+          <span>Smart App Control <b>On</b> blocks unsigned apps. <a href={LINKS.smartAppControl}>What to do</a></span>
+        </p>
+        <div class="buttons">
+          <a class="button button-primary" href={LINKS.download}><Icon name="download" /> Download</a>
+          <a class="button button-secondary" href={LINKS.source}><Icon name="github" /> Build from source</a>
+        </div>
+        <p class="alt">Prefer no install? The release also has a portable zip.</p>
+      </aside>
+
       <ol class="steps">
         {
           steps.map((s, i) => (
@@ -33,20 +47,6 @@ const needs = ['Windows 10 2004 or later, x64', 'About 190 MB, .NET included', '
         }
       </ol>
     </div>
-
-    <aside class="card needs">
-      <h3>You need</h3>
-      <ul>{needs.map((n) => <li><Icon name="check" />{n}</li>)}</ul>
-      <p class="sac">
-        <Icon name="shieldAlert" />
-        <span>Smart App Control <b>On</b> blocks unsigned apps. <a href={LINKS.smartAppControl}>What to do</a></span>
-      </p>
-      <div class="buttons">
-        <a class="button button-primary" href={LINKS.download}><Icon name="download" /> Download</a>
-        <a class="button button-secondary" href={LINKS.source}><Icon name="github" /> Build from source</a>
-      </div>
-      <p class="alt">Prefer no install? The release also has a portable zip.</p>
-    </aside>
   </div>
 </section>
 
@@ -56,9 +56,10 @@ const needs = ['Windows 10 2004 or later, x64', 'About 190 MB, .NET included', '
     gap: 40px;
   }
 
+  /* The card first, after the heading; the steps beside it on wide screens. */
   @media (min-width: 960px) {
     .install {
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 1fr 1.2fr;
       align-items: start;
     }
   }
