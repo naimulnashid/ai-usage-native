@@ -312,7 +312,10 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             ctx.Navigate(new Route(PageKind.Project, project.Id));
         }), handledEventsToo: true);
         card.IsTabStop = true;
-        card.KeyDown += (_, e) =>
+        // Without this a Border takes focus invisibly: Tab reached the card and
+        // Enter opened it, but nothing showed where focus was.
+        card.UseSystemFocusVisuals = true;
+        card.FocusVisualMargin = new Thickness(-3);        card.KeyDown += (_, e) =>
         {
             if (e.Key is Windows.System.VirtualKey.Enter or Windows.System.VirtualKey.Space) ctx.Navigate(new Route(PageKind.Project, project.Id));
         };
