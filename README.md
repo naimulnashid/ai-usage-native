@@ -197,7 +197,9 @@ do for the agents themselves: `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
 ## Usage
 
 - **Sidebar**: switch between Claude Code and Codex. **Top bar**: Overview and
-  Projects, Refresh (or F5), and Settings.
+  Projects, Refresh (or F5), and Settings. **Backspace** goes back from a
+  project's page to Projects, and from the heat map's full history to the page
+  it was opened from.
 - **Zoom** like a browser: **Ctrl+Plus** / **Ctrl+Minus**, **Ctrl+mouse wheel**,
   and **Ctrl+0** to reset, from 50% to 200%. The page reflows rather than
   scrolling sideways, and the level is remembered. The same commands are in the

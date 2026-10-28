@@ -17,12 +17,14 @@ namespace UsageApp.Views;
 /// </summary>
 public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
 {
+    public Route Back { get; } = new(PageKind.Projects);
+
     public UIElement Build()
     {
         var meta = ctx.State.Meta;
         var data = ctx.State.Current;
         var page = new StackPanel { Padding = new Thickness(0, 26, 0, 0) };
-        page.Children.Add(Ui.Link("← All projects", () => ctx.Navigate(new Route(PageKind.Projects))));
+        page.Children.Add(Ui.Link("← All projects", () => ctx.Navigate(Back)));
 
         if (data.Report is null)
         {

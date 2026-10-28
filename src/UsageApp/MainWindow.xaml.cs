@@ -286,6 +286,17 @@ public sealed partial class MainWindow : Window
         };
         Root.KeyboardAccelerators.Add(f5);
 
+        // Backspace follows the page's "←" link, as a browser's once did. A
+        // KeyDown handler rather than an accelerator, and never while a text
+        // field has focus, so editing a name or a price still deletes.
+        Root.KeyDown += (_, e) =>
+        {
+            if (e.Key != Windows.System.VirtualKey.Back || _page?.Back is not { } back) return;
+            if (FocusManager.GetFocusedElement(Root.XamlRoot) is TextBox or PasswordBox or RichEditBox) return;
+            e.Handled = true;
+            Navigate(back);
+        };
+
         // Page zoom, with a browser's keys: Ctrl with =/+ (and Shift, which
         // "+" needs on most layouts), the numpad's + and -, and 0 to reset.
         const Windows.System.VirtualKey Plus = (Windows.System.VirtualKey)0xBB, Minus = (Windows.System.VirtualKey)0xBD;

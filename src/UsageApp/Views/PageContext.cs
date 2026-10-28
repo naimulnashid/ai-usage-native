@@ -30,4 +30,7 @@ public sealed class PageContext
 public interface IPage
 {
     UIElement Build();
+
+    /// <summary>Where the page's "←" link and the Backspace key go; null on a top-level page.</summary>
+    Route? Back => null;
 }

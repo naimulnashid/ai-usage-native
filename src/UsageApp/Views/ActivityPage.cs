@@ -14,15 +14,15 @@ namespace UsageApp.Views;
 /// </summary>
 public sealed class ActivityPage(PageContext ctx, string? projectId = null) : IPage
 {
+    public Route Back { get; } = projectId is null ? new(PageKind.Overview) : new(PageKind.Project, projectId);
+
     public UIElement Build()
     {
         var meta = ctx.State.Meta;
         var data = ctx.State.Current;
         var page = new StackPanel { Padding = new Thickness(0, 26, 0, 0) };
         var project = projectId is null ? null : data.Report?.Projects.FirstOrDefault(p => p.Id == projectId);
-        page.Children.Add(projectId is null
-            ? Ui.Link("← Overview", () => ctx.Navigate(new Route(PageKind.Overview)))
-            : Ui.Link($"← {project?.Name ?? "Project"}", () => ctx.Navigate(new Route(PageKind.Project, projectId))));
+        page.Children.Add(Ui.Link(projectId is null ? "← Overview" : $"← {project?.Name ?? "Project"}", () => ctx.Navigate(Back)));
 
         if (data.Report is null)
         {
