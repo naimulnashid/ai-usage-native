@@ -96,7 +96,7 @@ const AGENTS = {
     scale: 1,
   },
   codex: {
-    label: 'Codex', costLabel: 'API-equivalent spend', noun: 'requests', Noun: 'Requests', sub: 'auto-review',
+    label: 'Codex', costLabel: 'Total estimated spend', noun: 'requests', Noun: 'Requests', sub: 'auto-review',
     seed: 20261015,
     models: [
       { id: 'gpt-5.6-sol', dark: '#0B6D55', light: '#074B3B', w: 0.58, rate: { input: 4, read: 0.4, output: 20 }, long: true },
@@ -822,7 +822,7 @@ function drawTray() {
   const today = (k) => DATA[k].all[DATA[k].all.length - 1].combined.cost;
   document.getElementById('v-tray').innerHTML = `
     <div class="tray-col"><span class="tray-cap">Hover</span>
-      <div class="tooltip-mock">AI Usage<br>Claude Code today: ${usd(today('claude'))}<br>Codex today: ${usd(today('codex'))} (API-equiv.)</div>
+      <div class="tooltip-mock">AI Usage<br>Claude Code today: ${usd(today('claude'))}<br>Codex today: ${usd(today('codex'))}</div>
       <div class="taskbar"><span>⌃</span><span class="sel"><img src="favicon.svg" alt="AI Usage tray icon"></span><span>ENG</span><span>9:41 PM</span></div></div>
     <div class="tray-col"><span class="tray-cap">Right-click</span>
       <div class="menu menu-static">
