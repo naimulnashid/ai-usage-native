@@ -111,10 +111,11 @@ public sealed partial class MainWindow : Window
         Rebuild(keepScroll: true);
     }
 
-    /// <summary>WinUI's own controls (menus, combo boxes, scroll bars) and the caption buttons.</summary>
+    /// <summary>WinUI's own controls (menus, combo boxes, scroll bars), the caption buttons and the tray menu.</summary>
     private void ApplyControlTheme()
     {
         Root.RequestedTheme = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
+        TrayHost.ApplyMenuTheme(Palette.IsLight);
         var bar = AppWindow.TitleBar;
         bar.ButtonForegroundColor = Palette.TextMuted;
         bar.ButtonInactiveForegroundColor = Palette.TextFaint;
