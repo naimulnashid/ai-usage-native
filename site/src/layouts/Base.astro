@@ -17,7 +17,10 @@ const ogImage = new URL(socialPreview.src, Astro.site);
 <html lang="en" data-agent="claude">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Phones get the desktop layout, zoomed out to fit (the owner's choice,
+         2026-10-28): a 1280px layout viewport, pinch to zoom in. The narrow
+         styles stay in the CSS but no longer apply on a phone. -->
+    <meta name="viewport" content="width=1280" />
     <title>{SITE.title}</title>
     <meta name="description" content={SITE.description} />
     <link rel="canonical" href={canonical} />
