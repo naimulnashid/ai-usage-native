@@ -39,20 +39,20 @@ const traps = [
     </div>
 
     <ol class="flow" aria-label="The data path">
-      <li class="node sources">
+      <li class="glow node sources">
         <span class="node-title"><Icon name="fileText" /> Transcripts</span>
         <span class="src" data-agent="claude"><img src={claudeMark.src} alt="" width="16" height="16" /><code>.claude\projects</code></span>
         <span class="src" data-agent="codex"><span class="codex-tile"><img src={codexMark.src} alt="" width="12" height="12" /></span><code>.codex\sessions</code></span>
       </li>
-      <li class="node">
+      <li class="glow node">
         <span class="node-title"><Icon name="scanSearch" /> Parsers</span>
         <span class="muted">Read as bytes. Bad lines skipped, each message counted once.</span>
       </li>
-      <li class="node">
+      <li class="glow node">
         <span class="node-title"><Icon name="database" /> Daily archive</span>
         <span class="muted">Keeps every day after the agents delete it.</span>
       </li>
-      <li class="node app">
+      <li class="glow node app">
         <span class="node-title"><Icon name="monitor" /> The app</span>
         <span class="muted">Pages, charts, tray. Plus <code>aiusage</code> on the command line.</span>
       </li>
@@ -86,10 +86,6 @@ const traps = [
     align-content: start;
     gap: 8px;
     padding: 18px 20px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    box-shadow: var(--shadow-card);
     font-size: 0.9375rem;
   }
 

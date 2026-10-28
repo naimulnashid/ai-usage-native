@@ -340,15 +340,29 @@ code {
   border-radius: var(--radius);
   padding: var(--pad-card);
   box-shadow: var(--shadow-card);
+}
+
+/* Hover: a card - or a box that opts in with .glow - lifts and glows in its
+   accent, the agent's own colour on one about one agent (data-agent). The
+   live chart panels do not: they are used, not picked. .glow carries the
+   surface too, since a component's scoped rule would outrank the hover. */
+.glow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.card,
+.glow {
   transition:
     transform var(--dur) var(--ease),
     border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
 
-/* Hover: the card lifts and glows in its accent - the agent's own colour on a
-   card about one agent (data-agent). */
-.card:hover {
+.card:hover,
+.glow:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   box-shadow:
     var(--shadow-card-hover),
@@ -358,7 +372,8 @@ code {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .card:hover {
+  .card:hover,
+  .glow:hover {
     transform: translateY(-3px);
   }
 }

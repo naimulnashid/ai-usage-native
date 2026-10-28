@@ -18,9 +18,7 @@
 .charts-head > div:first-child { flex: 1 1 520px; }
 .charts-head .section-lede { margin-bottom: 0; }
 .gallery { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
-.viz { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow-card); min-width: 0; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-/* A chart panel glows on hover but does not lift: it is being pointed at, not picked. */
-.viz:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); box-shadow: var(--shadow-card-hover), 0 12px 40px -16px var(--accent-glow); }
+.viz { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow-card); min-width: 0; }
 .viz header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .viz header .seg { margin-left: auto; }
 .viz h3 { font-size: 1.15rem; font-weight: 600; }
