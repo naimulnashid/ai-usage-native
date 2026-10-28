@@ -162,13 +162,17 @@ public static class Parts
     /// The legend under a stacked chart. Every figure beside a share is in the
     /// share's own denominator: token counts under the tokens chart, dollars
     /// under the spend chart. A cost beside a token share reads as a cost share.
-    /// Summed over the days SHOWN, never all time.
+    /// Summed over the days SHOWN, never all time. Rows run largest share
+    /// first, unlike the bars, which stack by price because their shade
+    /// encodes it.
     /// </summary>
     public static StackPanel ModelLegend(IReadOnlyList<string> models, UsageBucket window, bool spend)
     {
         var legend = new StackPanel { Margin = new Thickness(0, 20, 0, 0), BorderBrush = Palette.BorderBrush, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 6, 0, 0) };
+        // Unpriced models show no share on the spend chart, so they go last.
         var rows = models
             .Where(m => window.PerModel.TryGetValue(m, out var c) && (spend ? c.CostUsd > 0 || c.TotalTokens > 0 : c.TotalTokens > 0))
+            .OrderByDescending(m => spend ? (window.PerModel[m].Unpriced ? -1 : window.PerModel[m].CostUsd) : window.PerModel[m].TotalTokens)
             .ToList();
         for (var i = 0; i < rows.Count; i++)
         {
