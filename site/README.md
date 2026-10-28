@@ -8,6 +8,7 @@ Built on the **Onyx** design system.
 |---|---|
 | Built with | [Astro](https://astro.build) 7, static output; Geist from Fontsource, self-hosted |
 | Design | Onyx tokens in `src/styles/onyx.css`, copied unchanged from the Onyx repo: refresh it there, never edit it here |
+| Light theme | **A grey page (`#e6e6ea`) behind white cards, by the owner's choice (2026-10-28)**: Onyx's light canvas read as nearly white. Overridden with the borders, faint text and card shadow in `src/styles/global.css`, not in `onyx.css` |
 | Accent | **Claude Code's terracotta and Codex's green, by the owner's choice (2026-10-21)**, against Onyx rule 2 (no accent on a data colour). `data-agent` on `<html>` or a section picks the family (`src/styles/global.css`) |
 | Icons | Lucide 1.61.0 shapes inlined in `src/components/Icon.astro`; no icon library ships |
 | Charts | `src/scripts/charts.js`: drawn from a fixed seed, so the same on every load and nobody's usage. Colours, rates and rules follow the app's (`src/UsageCore/View/ModelColors.cs`, `Providers.cs`, `Pricing/*.json`, `src/UsageApp/Charts/`) |

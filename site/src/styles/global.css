@@ -30,7 +30,8 @@
 }
 
 /* Light: the system setting unless the visitor chose dark, or their choice.
-   The two blocks carry the same values; keep them in step. */
+   The two blocks carry the same values; keep them in step. They also override
+   some of Onyx's light tokens, which onyx.css itself must not change. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     --claude: #ba4d2a;
@@ -41,6 +42,16 @@
     --codex-bright: #0a6b53;
     --codex-dim: rgba(12, 127, 99, 0.1);
     --codex-glow: rgba(12, 127, 99, 0.24);
+    /* A grey light page (the owner's choice, 2026-10-28): a visible
+       grey behind white cards, so sections stand apart and the page is not
+       glaring. Onyx's own #f4f5f7 read as nearly white. Borders and faint
+       text step darker with it; faint text holds 5.2:1 on this grey. */
+    --canvas: #e6e6ea;
+    --border: #d3d3da;
+    --border-strong: #c9c9d1;
+    --text-faint: #5e5e65;
+    --topbar-bg: rgba(230, 230, 234, 0.86);
+    --shadow-card: 0 1px 2px rgba(20, 20, 30, 0.05), 0 2px 8px rgba(20, 20, 30, 0.06);
   }
 }
 
@@ -53,6 +64,16 @@
   --codex-bright: #0a6b53;
   --codex-dim: rgba(12, 127, 99, 0.1);
   --codex-glow: rgba(12, 127, 99, 0.24);
+  /* A grey light page (the owner's choice, 2026-10-28): a visible
+     grey behind white cards, so sections stand apart and the page is not
+     glaring. Onyx's own #f4f5f7 read as nearly white. Borders and faint
+     text step darker with it; faint text holds 5.2:1 on this grey. */
+  --canvas: #e6e6ea;
+  --border: #d3d3da;
+  --border-strong: #c9c9d1;
+  --text-faint: #5e5e65;
+  --topbar-bg: rgba(230, 230, 234, 0.86);
+  --shadow-card: 0 1px 2px rgba(20, 20, 30, 0.05), 0 2px 8px rgba(20, 20, 30, 0.06);
 }
 
 /* The accent family follows data-agent: on <html> for the page (Claude Code),
