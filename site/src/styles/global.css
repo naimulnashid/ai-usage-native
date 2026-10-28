@@ -266,7 +266,6 @@ code {
 }
 
 .lead {
-  max-width: 44rem;
   margin-top: 14px;
   color: var(--text-dim);
   font-size: clamp(1.0625rem, 1.5vw, 1.1875rem);
