@@ -20,6 +20,9 @@ public static class Parts
 
     public static (string, string) Runtime => ("About runtime", RuntimeTip);
 
+    /// <summary>The heat map's key in words: its light ramp darkens with spend, the dark one brightens.</summary>
+    public static string HeatNote => $"{(Palette.IsLight ? "Darker" : "Brighter")} means a more expensive day.";
+
     /* ------------------------------------------------------------ Headline */
 
     /// <summary>

@@ -56,7 +56,7 @@ public sealed class ActivityPage(PageContext ctx, string? projectId = null) : IP
                 labelStrips: true,
                 action: null);
         var panel = Ui.Panel(project is null ? "Daily activity" : $"Daily activity — {project.Name}",
-            from is null ? "Spend per day. Brighter means a more expensive day." : $"Spend per day since {Format.DateStamp(from)}, six months to a row. Brighter means a more expensive day.",
+            from is null ? $"Spend per day. {Parts.HeatNote}" : $"Spend per day since {Format.DateStamp(from)}, six months to a row. {Parts.HeatNote}",
             null, body, titleIsPage: true);
         panel.Margin = new Thickness(0, 16, 0, 22);
         page.Children.Add(panel);

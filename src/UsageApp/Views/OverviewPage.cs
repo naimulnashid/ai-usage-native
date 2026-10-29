@@ -285,7 +285,7 @@ public sealed class OverviewPage(PageContext ctx) : IPage
         var figure = HeatmapFigure.Build(layout, report.Settings.WeekStartsOn, "in the last 6 months", labelStrips: false, expand);
         // The ramp runs toward "more" against each theme's own ground: brighter
         // on the dark one, darker on the light one.
-        return Ui.Panel("Daily activity", $"Spend per day over the last 6 months. {(Palette.IsLight ? "Darker" : "Brighter")} means a more expensive day.", trend, figure);
+        return Ui.Panel("Daily activity", $"Spend per day over the last 6 months. {Parts.HeatNote}", trend, figure);
     }
 
     public static UIElement Loading()
