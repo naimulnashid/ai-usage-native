@@ -455,6 +455,7 @@ public static partial class ClaudeParser
 
                 fr.Records.Add(new LineRecord(ts, line.Model is null ? null : pool.Get(line.Model), key, tokens));
             }
+            fr.Diag.CountOversized(reader, file.Rel);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -550,6 +551,15 @@ internal sealed class FileDiagnostics
     public long ImplausibleTimestamps;
     public int FilesFailed;
     public List<string> Warnings { get; } = [];
+
+    /// <summary>Lines past the reader's ceiling are unparseable lines, and worth a warning.</summary>
+    public void CountOversized(ByteLineReader reader, string file)
+    {
+        if (reader.OversizedLines == 0) return;
+        LinesRead += reader.OversizedLines;
+        LinesUnparseable += reader.OversizedLines;
+        Warnings.Add($"Skipped {reader.OversizedLines} line{(reader.OversizedLines == 1 ? "" : "s")} over {ByteLineReader.MaxLineBytes / (1024 * 1024)} MB in {file}.");
+    }
 
     public void MergeInto(ParseDiagnostics d)
     {

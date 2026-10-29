@@ -511,6 +511,7 @@ public static partial class CodexParser
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            fr.Diag.CountOversized(reader, file.Rel);
             fr.Diag.FilesFailed++;
             fr.Diag.Warnings.Add($"Error reading {file.Rel}: {ex.Message}");
         }

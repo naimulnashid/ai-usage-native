@@ -14,14 +14,29 @@ namespace UsageCore.Parsing;
 /// app that sits in the tray. This keeps one buffer per file, owned here and
 /// dropped with the file, and the JSON is scanned in place (see
 /// <see cref="Json"/>), so a message body is skipped without being materialised.</para>
+/// <para><b>A line has a ceiling</b> (<see cref="MaxLineBytes"/>). Without one, a
+/// damaged file with no newlines would be held whole, once per file read in
+/// parallel. A line that does not fit, newline included, is skipped without
+/// being kept, counted in
+/// <see cref="OversizedLines"/>, and reading resumes after its newline.</para>
 /// </remarks>
-internal sealed class ByteLineReader(Stream stream) : IDisposable
+internal sealed class ByteLineReader(Stream stream, int maxLineBytes = ByteLineReader.MaxLineBytes) : IDisposable
 {
-    private byte[] _buffer = new byte[64 * 1024];
+    /// <summary>
+    /// 64 MB. The longest real line measured (2026-10-29) was about 14 MB - a
+    /// tool result written into the line whole - so this leaves room to grow.
+    /// </summary>
+    public const int MaxLineBytes = 64 * 1024 * 1024;
+
+    private byte[] _buffer = new byte[Math.Min(64 * 1024, maxLineBytes)];
     private int _start;
     private int _end;
     private bool _eof;
     private bool _first = true;
+    private bool _skipping;
+
+    /// <summary>Lines longer than the ceiling, skipped.</summary>
+    public int OversizedLines { get; private set; }
 
     /// <summary>The next line, trimmed, or false at the end of the file.</summary>
     public bool TryReadLine(out ReadOnlySpan<byte> line)
@@ -32,13 +47,19 @@ internal sealed class ByteLineReader(Stream stream) : IDisposable
             var newline = available.IndexOf((byte)'\n');
             if (newline >= 0)
             {
-                line = Trim(available[..newline]);
                 _start += newline + 1;
+                if (_skipping)
+                {
+                    // The tail of an oversized line: drop it and carry on.
+                    _skipping = false;
+                    continue;
+                }
+                line = Trim(available[..newline]);
                 return true;
             }
             if (_eof)
             {
-                if (_end > _start)
+                if (_end > _start && !_skipping)
                 {
                     line = Trim(available);
                     _start = _end;
@@ -46,6 +67,13 @@ internal sealed class ByteLineReader(Stream stream) : IDisposable
                 }
                 line = default;
                 return false;
+            }
+            if (_skipping || _end - _start == maxLineBytes)
+            {
+                // Too long to keep: discard what is held and look for the end of it.
+                if (!_skipping) OversizedLines++;
+                _skipping = true;
+                _start = _end = 0;
             }
             Fill();
         }
@@ -55,7 +83,7 @@ internal sealed class ByteLineReader(Stream stream) : IDisposable
     {
         // Move what is left to the front, growing when one line fills the buffer.
         var pending = _end - _start;
-        if (pending == _buffer.Length) Array.Resize(ref _buffer, _buffer.Length * 2);
+        if (pending == _buffer.Length) Array.Resize(ref _buffer, (int)Math.Min((long)_buffer.Length * 2, maxLineBytes));
         else if (_start > 0) Buffer.BlockCopy(_buffer, _start, _buffer, 0, pending);
         _start = 0;
         _end = pending;
