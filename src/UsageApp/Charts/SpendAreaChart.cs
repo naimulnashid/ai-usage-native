@@ -132,7 +132,7 @@ public sealed class SpendAreaChart : ChartSurface
 
     private static Ellipse Dot(Point at, double r, Brush fill)
     {
-        var dot = new Ellipse { Width = r * 2, Height = r * 2, Fill = fill, Stroke = Palette.BgBrush, StrokeThickness = 2 };
+        var dot = new Ellipse { Width = r * 2, Height = r * 2, Fill = fill, Stroke = Palette.SurfaceBrush, StrokeThickness = 2 };
         Microsoft.UI.Xaml.Controls.Canvas.SetLeft(dot, at.X - r);
         Microsoft.UI.Xaml.Controls.Canvas.SetTop(dot, at.Y - r);
         return dot;
