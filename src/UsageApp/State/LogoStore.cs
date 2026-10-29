@@ -64,14 +64,34 @@ public sealed class LogoStore : IDisposable
     /// Copies an image in as the logo for a project, named after it, replacing
     /// any logo it had. The folder watcher then updates every view.
     /// </summary>
+    /// <remarks>
+    /// The new file is copied in beside the old one first, and the old one goes
+    /// only once that has worked: a failed copy leaves the logo as it was, and
+    /// choosing the logo's own file is not a delete followed by a copy of
+    /// nothing. The copy is a <c>.tmp</c> until it is whole, which the folder
+    /// scan does not take for a logo.
+    /// </remarks>
     public void SetLogo(ProviderId provider, string projectName, string sourceFile)
     {
         var dir = AppPaths.LogoDir(provider);
         Directory.CreateDirectory(dir);
-        RemoveLogo(provider, projectName);
-        var name = SafeFileName(projectName) + Path.GetExtension(sourceFile).ToLowerInvariant();
-        File.Copy(sourceFile, Path.Combine(dir, name), overwrite: true);
-        Refresh(provider);
+        var existing = PathFor(provider, projectName);
+        if (existing is not null && string.Equals(Path.GetFullPath(existing), Path.GetFullPath(sourceFile), StringComparison.OrdinalIgnoreCase)) return;
+
+        var target = Path.Combine(dir, SafeFileName(projectName) + Path.GetExtension(sourceFile).ToLowerInvariant());
+        var staged = target + ".tmp";
+        try
+        {
+            File.Copy(sourceFile, staged, overwrite: true);
+            // Only a different extension leaves the old file behind to remove.
+            if (existing is not null && File.Exists(existing) && !string.Equals(Path.GetFullPath(existing), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)) File.Delete(existing);
+            File.Move(staged, target, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(staged)) File.Delete(staged);
+            Refresh(provider);
+        }
     }
 
     public void RemoveLogo(ProviderId provider, string projectName)
