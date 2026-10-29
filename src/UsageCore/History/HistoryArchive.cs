@@ -15,6 +15,18 @@ public sealed class ArchivedDay
 
 public sealed record ProjectMeta(string Name, string? Cwd);
 
+/// <summary>What <see cref="HistoryArchive.Load(string, List{string}, out ArchiveLoad)"/> found on disk.</summary>
+public enum ArchiveLoad
+{
+    /// <summary>No archive yet: a first run.</summary>
+    Missing,
+    Loaded,
+    /// <summary>Read, but some days could not be, and were dropped.</summary>
+    Partial,
+    /// <summary>There, but not readable or not a shape this version knows.</summary>
+    Unreadable,
+}
+
 /// <summary>
 /// Source-generated, so saving the archive never depends on reflection: a
 /// trimmed build, or a host with reflection-based serialization turned off,
@@ -32,6 +44,12 @@ public sealed class HistoryFile
     public const int CurrentVersion = 1;
     public int Version { get; set; } = CurrentVersion;
     public string UpdatedAt { get; set; } = "";
+
+    /// <summary>
+    /// The day boundary the stored days were cut at. Absent from archives
+    /// written before it was recorded, which are taken to use today's.
+    /// </summary>
+    public double? LocalUtcOffsetHours { get; set; }
 
     /// <summary>Kept so a project whose transcripts are all gone can still be named.</summary>
     public Dictionary<string, ProjectMeta> ProjectMeta { get; init; } = new(StringComparer.Ordinal);
@@ -51,8 +69,9 @@ public sealed class HistoryFile
 /// cards. <b>Numbers only</b> - no message content. <b>The merge is one-way</b>:
 /// a day is replaced only when the fresh parse has at least as many messages,
 /// so today can grow while a day whose transcripts were partly deleted cannot
-/// overwrite its fuller record. <b>Fails soft</b>: an unreadable archive is an
-/// empty one plus a warning.</para>
+/// overwrite its fuller record. <b>Fails soft, never destructively</b>: an
+/// unreadable archive reads as an empty one plus a warning, and is then left
+/// exactly as it is on disk (see <see cref="WithHistory"/>).</para>
 /// <para>Not archived: the hour histogram and session lists, which cannot be
 /// rebuilt from daily aggregates.</para>
 /// </remarks>
@@ -62,21 +81,27 @@ public static class HistoryArchive
     public static string PathFor(ProviderId provider, string? historyDir = null) =>
         System.IO.Path.Combine(historyDir ?? AppPaths.HistoryDir, provider == ProviderId.Claude ? "claude-history.json" : "codex-history.json");
 
-    public static HistoryFile Load(string file, List<string> warnings)
+    public static HistoryFile Load(string file, List<string> warnings) => Load(file, warnings, out _);
+
+    /// <summary>The archive, and whether what is on disk can safely be written over.</summary>
+    public static HistoryFile Load(string file, List<string> warnings, out ArchiveLoad outcome)
     {
+        outcome = ArchiveLoad.Missing;
         if (!File.Exists(file)) return new HistoryFile();
+        outcome = ArchiveLoad.Unreadable;
         try
         {
             var root = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
             if (root is null || (int?)Num(root["version"]) != HistoryFile.CurrentVersion || root["days"] is not JsonObject days)
             {
-                warnings.Add($"History archive at {file} has an unexpected shape; ignoring it.");
+                warnings.Add($"History archive at {file} has an unexpected shape (perhaps written by a newer version). It is left as it is, and nothing is archived until it can be read.");
                 return new HistoryFile();
             }
 
             var history = new HistoryFile
             {
                 UpdatedAt = root["updatedAt"] is JsonValue v && v.TryGetValue<string>(out var s) ? s : "",
+                LocalUtcOffsetHours = root["localUtcOffsetHours"] is JsonValue ov && ov.TryGetValue<double>(out var offset) && double.IsFinite(offset) ? offset : null,
             };
             if (root["projectMeta"] is JsonObject meta)
             {
@@ -89,11 +114,12 @@ public static class HistoryArchive
                 }
             }
             foreach (var (date, day) in SanitizeDays(days, file, warnings)) history.Days[date] = day;
+            outcome = history.Days.Count < days.Count ? ArchiveLoad.Partial : ArchiveLoad.Loaded;
             return history;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            warnings.Add($"Could not read the history archive at {file}: {ex.Message}");
+            warnings.Add($"Could not read the history archive at {file}: {ex.Message}. It is left as it is, and nothing is archived until it can be read.");
             return new HistoryFile();
         }
     }
@@ -210,6 +236,20 @@ public static class HistoryArchive
         cells.ToDictionary(kv => kv.Key, kv => kv.Value.Clone(), StringComparer.Ordinal);
 
     /// <summary>Folds a fresh report into the archive (see the class remarks on direction).</summary>
+    /// <remarks>
+    /// <para><b>A changed day boundary</b> (daylight saving, a new time zone, an
+    /// edited <c>localUtcOffsetHours</c>) moves messages near midnight to the
+    /// next or previous day. Kept-if-fuller day by day, the stored day would
+    /// keep them while its neighbour gained them too: counted twice, on every
+    /// day still on disk. So when the offset differs from the one the archive
+    /// was cut at, the fresh parse replaces every stored day it covers, and a
+    /// stored day it no longer has is dropped (its messages now sit on a
+    /// neighbour) - except the earliest live day, which may be partly deleted
+    /// already and keeps the fuller copy as usual.</para>
+    /// <para>Days older than the transcripts cannot be re-cut and keep their
+    /// old boundary. What remains is at most the hour or so either side of the
+    /// one midnight between them and the earliest live day.</para>
+    /// </remarks>
     public static HistoryFile Merge(HistoryFile history, UsageReport report, DateTimeOffset now)
     {
         var projectDays = report.Projects.ToDictionary(
@@ -217,10 +257,28 @@ public static class HistoryArchive
             p => p.Daily.ToDictionary(d => d.Date, StringComparer.Ordinal),
             StringComparer.Ordinal);
 
+        var offset = report.Settings.LocalUtcOffsetHours;
+        var liveDates = report.Daily.Select(d => d.Date).Where(d => d != Dates.UnknownDate).ToHashSet(StringComparer.Ordinal);
+        var firstLive = liveDates.Order(StringComparer.Ordinal).FirstOrDefault();
+        var rebase = history.LocalUtcOffsetHours is { } was && was != offset && firstLive is not null && history.Days.Count > 0;
+        if (rebase)
+        {
+            // A shift can push the last stored day one past the last live one.
+            var lastLive = Dates.ToKey(Dates.ToDate(liveDates.Max(StringComparer.Ordinal)!).AddDays(1));
+            var gone = history.Days.Keys
+                .Where(d => string.CompareOrdinal(d, firstLive) > 0 && string.CompareOrdinal(d, lastLive) <= 0 && !liveDates.Contains(d))
+                .ToList();
+            foreach (var date in gone) history.Days.Remove(date);
+            report.Diagnostics.Warnings.Add(
+                $"The day boundary moved from UTC{FormatOffset(history.LocalUtcOffsetHours!.Value)} to UTC{FormatOffset(offset)}. " +
+                $"Days still on disk were re-cut at the new boundary; older archived days keep the old one.");
+        }
+
         foreach (var entry in report.Daily)
         {
             if (entry.Date == Dates.UnknownDate) continue;
-            if (history.Days.TryGetValue(entry.Date, out var existing) && existing.Combined.Messages > entry.Combined.Messages)
+            var keepStored = !rebase || entry.Date == firstLive;
+            if (keepStored && history.Days.TryGetValue(entry.Date, out var existing) && existing.Combined.Messages > entry.Combined.Messages)
             {
                 BackfillLongContext(existing.PerModel, existing.Combined, entry.PerModel);
                 foreach (var (id, stored) in existing.Projects)
@@ -255,7 +313,14 @@ public static class HistoryArchive
         }
         history.Version = HistoryFile.CurrentVersion;
         history.UpdatedAt = now.ToString("O");
+        history.LocalUtcOffsetHours = offset;
         return history;
+    }
+
+    private static string FormatOffset(double hours)
+    {
+        var span = TimeSpan.FromHours(Math.Abs(hours));
+        return (hours < 0 ? "-" : "+") + (span.Minutes == 0 ? $"{(int)span.TotalHours}" : $"{(int)span.TotalHours}:{span.Minutes:00}");
     }
 
     /// <summary>
@@ -460,15 +525,75 @@ public static class HistoryArchive
         };
     }
 
+    /// <summary>How long a parse waits for another process to finish with the archive.</summary>
+    private static readonly TimeSpan LockWait = TimeSpan.FromSeconds(10);
+
     /// <summary>Parse-time hook: fold in, persist, rebuild from the archive.</summary>
+    /// <remarks>
+    /// <para><b>One writer at a time.</b> The app and the CLI (or two CLI runs)
+    /// can parse the same agent at once. The atomic rename keeps the file whole,
+    /// but two load-merge-save rounds that overlap would each write over the
+    /// other's days, and a day whose transcripts are gone cannot be put back. A
+    /// lock file held across the whole round serialises them; the OS releases
+    /// it if a process dies holding it.</para>
+    /// <para><b>Never written over unless read.</b> An archive that exists but
+    /// cannot be read (damaged, locked, or from a newer version) is left exactly
+    /// as it is: the report shows the live days and says why. One that read with
+    /// some days dropped is copied aside before the first save that loses them.</para>
+    /// </remarks>
     public static UsageReport WithHistory(UsageReport report, string? historyDir = null, PricingConfig? pricing = null, ProjectConfig? projectConfig = null)
     {
         var warnings = report.Diagnostics.Warnings;
         var file = PathFor(report.Provider, historyDir);
-        var history = Load(file, warnings);
+        using var held = Lock(file);
+        var history = Load(file, warnings, out var outcome);
         Merge(history, report, DateTimeOffset.UtcNow);
-        Save(history, file, warnings);
+        if (held is null)
+        {
+            warnings.Add($"Another process kept the history archive at {file} busy for {LockWait.TotalSeconds:0} seconds; this refresh was not saved to it.");
+        }
+        else if (outcome != ArchiveLoad.Unreadable && (outcome != ArchiveLoad.Partial || Backup(file, warnings)))
+        {
+            Save(history, file, warnings);
+        }
         return Apply(report, history, report.GeneratedAt.ToUnixTimeMilliseconds(), pricing, projectConfig);
+    }
+
+    /// <summary>The archive's lock, or null when another process holds it past <see cref="LockWait"/>.</summary>
+    private static FileStream? Lock(string file)
+    {
+        var path = file + ".lock";
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (clock.Elapsed >= LockWait) return null;
+                Thread.Sleep(50);
+            }
+        }
+    }
+
+    /// <summary>Copies the archive aside, next to it. False when that failed, so it must not be written over.</summary>
+    private static bool Backup(string file, List<string> warnings)
+    {
+        var copy = $"{file}.bak-{DateTime.Now:yyyyMMdd-HHmmss}";
+        try
+        {
+            File.Copy(file, copy, overwrite: false);
+            warnings.Add($"The history archive's unreadable days were copied aside, to {copy}, before it was saved without them.");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            warnings.Add($"Could not copy the history archive aside ({ex.Message}); it was not saved, so its unreadable days are kept.");
+            return false;
+        }
     }
 
     /// <summary>

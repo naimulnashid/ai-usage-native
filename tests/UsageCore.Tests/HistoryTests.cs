@@ -112,4 +112,112 @@ public class HistoryTests
         Assert.Empty(HistoryArchive.Load(file, warnings).Days);
         Assert.Single(warnings);
     }
+
+    [Theory]
+    [InlineData("{ not json")]
+    [InlineData("""{ "version": 2, "days": { "2026-07-01": { "combined": { "messages": 9 } } } }""")]
+    [InlineData("[]")]
+    public void AnArchiveThatCannotBeReadIsNeverWrittenOver(string content)
+    {
+        using var tmp = new TempDir();
+        var file = HistoryArchive.PathFor(ProviderId.Claude, tmp.Path);
+        File.WriteAllText(file, content);
+
+        var report = HistoryArchive.WithHistory(ReportFor(("2026-08-01", 1_000_000)), tmp.Path);
+
+        Assert.Equal(content, File.ReadAllText(file));
+        Assert.Contains(report.Diagnostics.Warnings, w => w.Contains("left as it is"));
+        Assert.Equal("2026-08-01", Assert.Single(report.Daily).Date);
+        Assert.False(File.Exists(file + ".lock"));
+    }
+
+    [Fact]
+    public void UnreadableDaysAreCopiedAsideBeforeTheArchiveIsSavedWithoutThem()
+    {
+        using var tmp = new TempDir();
+        var file = HistoryArchive.PathFor(ProviderId.Claude, tmp.Path);
+        var original = """
+            { "version": 1, "days": {
+                "2026-07-01": { "combined": { "messages": 1, "totalTokens": 5 }, "perModel": {} },
+                "2026-07-02": "damaged"
+            } }
+            """;
+        File.WriteAllText(file, original);
+
+        var report = HistoryArchive.WithHistory(ReportFor(("2026-08-01", 1_000_000)), tmp.Path);
+
+        var backup = Assert.Single(Directory.GetFiles(tmp.Path, "claude-history.json.bak-*"));
+        Assert.Equal(original, File.ReadAllText(backup));
+        Assert.Equal(["2026-07-01", "2026-08-01"], HistoryArchive.Load(file, []).Days.Keys);
+        Assert.Equal(2, report.Daily.Count);
+    }
+
+    [Fact]
+    public async Task AWriterWaitsForTheLock_AndKeepsWhatTheOtherWriterSaved()
+    {
+        using var tmp = new TempDir();
+        var file = HistoryArchive.PathFor(ProviderId.Claude, tmp.Path);
+        var mine = ReportFor(("2026-08-02", 1_000_000));
+        var theirs = HistoryArchive.Merge(new HistoryFile(), ReportFor(("2026-08-01", 1_000_000)), Now);
+
+        Task<UsageReport> writer;
+        using (new FileStream(file + ".lock", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose))
+        {
+            writer = Task.Run(() => HistoryArchive.WithHistory(mine, tmp.Path), TestContext.Current.CancellationToken);
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            Assert.False(writer.IsCompleted);
+            // The other process commits while this one waits.
+            HistoryArchive.Save(theirs, file, []);
+        }
+
+        var report = await writer.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Equal(["2026-08-01", "2026-08-02"], HistoryArchive.Load(file, []).Days.Keys);
+        Assert.Equal(2, report.Daily.Count);
+    }
+
+    /// <summary>One message at each instant, parsed with the given day boundary.</summary>
+    private static UsageReport ParseAt(double offsetHours, params string[] timestamps)
+    {
+        using var tmp = new TempDir();
+        WriteLines(tmp.Combine(Dir, "s1.jsonl"),
+            timestamps.Select((ts, i) => (object)Assistant(ts, $"msg_{i}", output: 1_000, cwd: Cwd)).ToArray());
+        var options = Options(tmp.Path);
+        return ClaudeParser.Parse(new ParseOptions
+        {
+            Root = options.Root,
+            Pricing = options.Pricing,
+            Settings = Settings() with { LocalUtcOffsetHours = offsetHours },
+            ProjectConfig = options.ProjectConfig,
+            Now = options.Now,
+        });
+    }
+
+    [Theory]
+    // The 23:30 message moves from 08-02 to 08-03; 08-02 shrinks but must not keep it.
+    [InlineData("2026-08-01T12:00:00Z", "2026-08-02T12:00:00Z", "2026-08-02T23:30:00Z", "2026-08-03T12:00:00Z")]
+    // 08-02 empties entirely and must go.
+    [InlineData("2026-08-01T12:00:00Z", "2026-08-02T23:30:00Z", "2026-08-03T12:00:00Z")]
+    public void ADayBoundaryChangeDoesNotCountMessagesTwice(params string[] timestamps)
+    {
+        var before = ParseAt(0, timestamps);
+        var history = HistoryArchive.Merge(new HistoryFile(), before, Now);
+        Assert.Equal(0, history.LocalUtcOffsetHours);
+
+        var after = ParseAt(1, timestamps);
+        HistoryArchive.Merge(history, after, Now);
+        var report = HistoryArchive.Apply(after, history, Now.ToUnixTimeMilliseconds());
+
+        Assert.Equal(timestamps.Length, report.Global.Combined.Messages);
+        Assert.Equal(before.Global.Combined.TotalTokens, report.Global.Combined.TotalTokens);
+        Assert.Equal(1, history.LocalUtcOffsetHours);
+        Assert.Contains(after.Diagnostics.Warnings, w => w.Contains("UTC+0 to UTC+1"));
+    }
+
+    [Fact]
+    public void ADayBoundaryChangeKeepsDaysOlderThanTheTranscripts()
+    {
+        var history = HistoryArchive.Merge(new HistoryFile(), ParseAt(0, "2026-07-01T12:00:00Z", "2026-08-01T12:00:00Z"), Now);
+        HistoryArchive.Merge(history, ParseAt(1, "2026-08-01T12:00:00Z"), Now);
+        Assert.Equal(["2026-07-01", "2026-08-01"], history.Days.Keys);
+    }
 }
