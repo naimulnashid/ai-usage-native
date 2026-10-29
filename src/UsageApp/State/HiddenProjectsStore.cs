@@ -33,7 +33,10 @@ public sealed class HiddenProjectsStore
         {
             if (!File.Exists(file)) return new(StringComparer.Ordinal);
             using var doc = JsonDocument.Parse(File.ReadAllText(file));
-            if (!doc.RootElement.TryGetProperty("hidden", out var list) || list.ValueKind != JsonValueKind.Array) return new(StringComparer.Ordinal);
+            // Valid JSON of another shape ([], null, a number) holds no ids either.
+            if (doc.RootElement.ValueKind != JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("hidden", out var list)
+                || list.ValueKind != JsonValueKind.Array) return new(StringComparer.Ordinal);
             return list.EnumerateArray()
                 .Where(e => e.ValueKind == JsonValueKind.String && e.GetString() is { Length: > 0 and <= 512 })
                 .Select(e => e.GetString()!)
