@@ -5,5 +5,7 @@
   "_weekStartsOn": "monday (default), sunday or saturday.",
   "weekStartsOn": "sunday",
   "_maxIdleGapMinutes": "A gap between transcript lines longer than this counts as time away, not runtime. Default: 30.",
-  "maxIdleGapMinutes": 45
+  "maxIdleGapMinutes": 45,
+  "_projectDonutSlices": "How many projects get their own slice and legend row in the Projects page's Share of spend donut; the rest are summed into Others. Default: 9.",
+  "projectDonutSlices": 12
 }

@@ -22,9 +22,6 @@ namespace UsageApp.Views;
 /// </summary>
 public sealed class ProjectsPage(PageContext ctx) : IPage
 {
-    /// <summary>Only the top nine get a slice; past that the ring is slivers.</summary>
-    private const int MaxSlices = 9;
-
     private bool _showAll;
 
     public UIElement Build()
@@ -59,9 +56,11 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var hidden = ctx.State.Hidden.For(meta.Id);
 
         var colors = ctx.Colors.For(meta.Id, report.Projects);
+        var maxSlices = report.Settings.ProjectDonutSlices;
+        var top = maxSlices == 1 ? "the top project" : $"the top {Format.Count(maxSlices)}";
         var donutPanel = Ui.Panel("Share of spend",
-            "The largest projects as slices of the total, each in its own colour — its logo's, or one you pick from its ⋯ menu. Anything past the top nine is summed into Others. Click a slice or a name to open the project.",
-            null, ShareChart(report.Projects, total, hidden, colors));
+            $"The largest projects as slices of the total, each in its own colour — its logo's, or one you pick from its ⋯ menu. Anything past {top} is summed into Others. Click a slice or a name to open the project.",
+            null, ShareChart(report.Projects, total, hidden, colors, maxSlices));
         Ui.Rise(donutPanel);
         page.Children.Add(donutPanel);
 
@@ -105,19 +104,22 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
 
     /* --------------------------------------------------------------- Donut */
 
-    private UIElement ShareChart(List<ProjectSummary> projects, double total, IReadOnlySet<string> hiddenIds, Dictionary<string, (string Hex, ProjectColorSource Source)> colors)
+    /// <param name="maxSlices">Named slices before the rest become Others
+    /// (<c>projectDonutSlices</c> in settings.json); past about nine the ring is
+    /// slivers, which is why that is the default.</param>
+    private UIElement ShareChart(List<ProjectSummary> projects, double total, IReadOnlySet<string> hiddenIds, Dictionary<string, (string Hex, ProjectColorSource Source)> colors, int maxSlices)
     {
         var ranked = projects.Where(p => p.Combined.CostUsd > 0).OrderByDescending(p => p.Combined.CostUsd).ToList();
         if (ranked.Count == 0 || total <= 0) return new Border();
 
         var listed = ranked.Where(p => !hiddenIds.Contains(p.Id)).ToList();
         var hidden = ranked.Where(p => hiddenIds.Contains(p.Id)).ToList();
-        // At exactly ten, "Others" would stand for one project: show them all.
-        // A hidden project forces the remainder, and its slot comes out of the
-        // named ones, so the legend never passes ten rows.
-        var collapse = hidden.Count > 0 || listed.Count > MaxSlices + 1;
-        var shown = collapse ? listed.Take(MaxSlices).ToList() : listed;
-        var rest = collapse ? listed.Skip(MaxSlices).Concat(hidden).ToList() : [];
+        // At exactly one past the limit, "Others" would stand for one project:
+        // show them all. A hidden project forces the remainder, and its slot
+        // comes out of the named ones, so the legend never passes maxSlices + 1 rows.
+        var collapse = hidden.Count > 0 || listed.Count > maxSlices + 1;
+        var shown = collapse ? listed.Take(maxSlices).ToList() : listed;
+        var rest = collapse ? listed.Skip(maxSlices).Concat(hidden).ToList() : [];
 
         var slices = shown.Select((p, i) => new DonutSlice(p.Id, p.Name, p.Combined.CostUsd, p.Combined.TotalTokens, p.Combined.CostUsd / total * 100, Palette.Hex(colors[p.Id].Hex), false, 1, 0)).ToList();
         if (rest.Count > 0)

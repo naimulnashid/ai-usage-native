@@ -175,7 +175,7 @@ the `config\` files are yours to edit:
 
 | File | What |
 |---|---|
-| `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes` |
+| `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes`, `projectDonutSlices` (projects named in the Projects page's donut and legend before Others; default 9) |
 | `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
 | `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
 | `model-settings.json`, `codex-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |

@@ -71,7 +71,8 @@ public sealed record Settings(
     WeekStart WeekStartsOn,
     double MaxIdleGapMinutes,
     double SuspiciousOutputTokens,
-    double SuspiciousContextTokens);
+    double SuspiciousContextTokens,
+    int ProjectDonutSlices = Config.AppConfig.DefaultProjectDonutSlices);
 
 /// <summary>
 /// The five priced token buckets, cache writes split by TTL.

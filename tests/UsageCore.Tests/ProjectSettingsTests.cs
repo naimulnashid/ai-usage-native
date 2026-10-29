@@ -22,6 +22,7 @@ public class ProjectSettingsTests
         Assert.Equal(1, settings.LocalUtcOffsetHours);
         Assert.Equal(WeekStart.Sunday, settings.WeekStartsOn);
         Assert.Equal(45, settings.MaxIdleGapMinutes);
+        Assert.Equal(12, settings.ProjectDonutSlices);
 
         // The ids in the example are what both parsers make of those folders.
         var oldId = ClaudeParser.EncodeProjectDir(@"C:\Users\you\Projects\old-name");
@@ -37,6 +38,21 @@ public class ProjectSettingsTests
             Assert.Equal("My App", projects.DisplayNames[newId]);
             Assert.Single(projects.Merge);
         }
+    }
+
+    [Theory]
+    [InlineData("12", 12)]
+    [InlineData("7.6", 8)]
+    [InlineData("1", 1)]
+    [InlineData("0", AppConfig.DefaultProjectDonutSlices)]
+    [InlineData("-3", AppConfig.DefaultProjectDonutSlices)]
+    [InlineData("\"twelve\"", AppConfig.DefaultProjectDonutSlices)]
+    [InlineData("1e9", 1000)]
+    public void ProjectDonutSlices_TakesAWholeCountOfAtLeastOne_ElseTheDefault(string value, int expected)
+    {
+        using var tmp = new TempDir();
+        File.WriteAllText(tmp.Combine("settings.json"), $"{{ \"projectDonutSlices\": {value} }}");
+        Assert.Equal(expected, AppConfig.LoadSettings(tmp.Path).ProjectDonutSlices);
     }
 
     [Fact]

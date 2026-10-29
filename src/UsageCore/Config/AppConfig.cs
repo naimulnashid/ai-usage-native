@@ -122,6 +122,12 @@ public static class AppConfig
             ? d
             : 0;
 
+    /// <summary>Named slices in the Projects page's donut, and rows in its legend, before Others.</summary>
+    public const int DefaultProjectDonutSlices = 9;
+
+    /// <summary>A cap only so <c>slices + 1</c> cannot overflow; any real project count fits under it.</summary>
+    private const int MaxProjectDonutSlices = 1000;
+
     /// <summary>
     /// Defaults for a fresh install. The day offset follows the machine's
     /// CURRENT UTC offset, read once per parse - so in a daylight-saving zone a
@@ -157,12 +163,17 @@ public static class AppConfig
                 _ => defaults.WeekStartsOn,
             };
 
+            // Below one there would be no slice to name, so it reads as a typo, not a choice.
+            var slices = Num("projectDonutSlices", defaults.ProjectDonutSlices);
+            var donutSlices = slices >= 1 ? (int)Math.Min(Math.Round(slices), MaxProjectDonutSlices) : defaults.ProjectDonutSlices;
+
             return new Settings(
                 Num("localUtcOffsetHours", defaults.LocalUtcOffsetHours),
                 weekStart,
                 Num("maxIdleGapMinutes", defaults.MaxIdleGapMinutes),
                 Num("suspiciousOutputTokens", defaults.SuspiciousOutputTokens),
-                Num("suspiciousContextTokens", defaults.SuspiciousContextTokens));
+                Num("suspiciousContextTokens", defaults.SuspiciousContextTokens),
+                donutSlices);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
