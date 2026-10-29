@@ -81,9 +81,12 @@ public static partial class CodexParser
     [GeneratedRegex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingUuid();
 
-    /// <summary>Both roots Codex uses; <c>archived_sessions</c> is often absent.</summary>
-    public static List<string> SessionDirs(string home) =>
-        new[] { Path.Combine(home, "sessions"), Path.Combine(home, "archived_sessions") }.Where(Directory.Exists).ToList();
+    /// <summary>Both roots Codex uses, whether or not they exist yet.</summary>
+    public static string[] SessionRoots(string home) =>
+        [Path.Combine(home, "sessions"), Path.Combine(home, "archived_sessions")];
+
+    /// <summary>The roots that exist; <c>archived_sessions</c> is often absent.</summary>
+    public static List<string> SessionDirs(string home) => SessionRoots(home).Where(Directory.Exists).ToList();
 
     public static UsageReport Parse(ParseOptions? options = null)
     {
@@ -508,10 +511,10 @@ public static partial class CodexParser
 
                 if (ts is { } tickMs) fr.Ticks.Add(new Tick(tickMs, currentModel, currentCwd));
             }
+            fr.Diag.CountOversized(reader, file.Rel);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            fr.Diag.CountOversized(reader, file.Rel);
             fr.Diag.FilesFailed++;
             fr.Diag.Warnings.Add($"Error reading {file.Rel}: {ex.Message}");
         }

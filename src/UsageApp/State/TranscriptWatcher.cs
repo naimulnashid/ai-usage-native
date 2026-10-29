@@ -17,31 +17,66 @@ namespace UsageApp.State;
 /// minute is the cost ceiling.</para>
 /// <para>Each agent is watched and refreshed on its own, so Codex writing does
 /// not re-parse Claude Code.</para>
+/// <para><b>A root can appear later</b> - the app opened before an agent was
+/// first used, or Codex's <c>archived_sessions</c> made on its first archive -
+/// or be deleted and made again. The roots are checked every
+/// <see cref="Recheck"/>: one that appeared is watched (and read, since it may
+/// already hold transcripts); one that went is dropped, so a new folder of
+/// the same name is watched afresh.</para>
 /// </remarks>
 public sealed class TranscriptWatcher : IDisposable
 {
     private static readonly TimeSpan Settle = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan Recheck = TimeSpan.FromSeconds(30);
 
     private readonly AppState _state;
     private readonly DispatcherQueue _ui;
     private readonly Func<bool> _enabled;
-    private readonly List<FileSystemWatcher> _watchers = [];
+    private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ProviderId, DispatcherQueueTimer> _timers = [];
     private readonly Dictionary<ProviderId, DateTimeOffset> _lastRun = [];
+    private readonly DispatcherQueueTimer _recheck;
 
     public TranscriptWatcher(AppState state, DispatcherQueue ui, Func<bool> enabled)
     {
         _state = state;
         _ui = ui;
         _enabled = enabled;
-        Watch(ProviderId.Claude, AppPaths.ClaudeProjectsDir);
-        foreach (var dir in CodexParser.SessionDirs(AppPaths.CodexHome)) Watch(ProviderId.Codex, dir);
+        Reconcile(initial: true);
+        _recheck = ui.CreateTimer();
+        _recheck.Interval = Recheck;
+        _recheck.IsRepeating = true;
+        _recheck.Tick += (_, _) => Reconcile(initial: false);
+        _recheck.Start();
     }
 
-    private void Watch(ProviderId provider, string dir)
+    private static IEnumerable<(ProviderId Provider, string Dir)> Roots() =>
+        CodexParser.SessionRoots(AppPaths.CodexHome)
+            .Select(dir => (ProviderId.Codex, dir))
+            .Prepend((ProviderId.Claude, AppPaths.ClaudeProjectsDir));
+
+    private void Reconcile(bool initial)
     {
-        if (!Directory.Exists(dir)) return;
+        foreach (var (provider, dir) in Roots())
+        {
+            var exists = Directory.Exists(dir);
+            if (_watchers.TryGetValue(dir, out var watcher))
+            {
+                if (exists) continue;
+                watcher.Dispose();
+                _watchers.Remove(dir);
+                Schedule(provider);
+            }
+            else if (exists && Watch(provider, dir) && !initial)
+            {
+                Schedule(provider);
+            }
+        }
+    }
+
+    private bool Watch(ProviderId provider, string dir)
+    {
         try
         {
             var watcher = new FileSystemWatcher(dir, "*.jsonl")
@@ -55,14 +90,27 @@ public sealed class TranscriptWatcher : IDisposable
             watcher.Created += Changed;
             watcher.Deleted += Changed;
             watcher.Renamed += (s, e) => Changed(s, e);
-            // An overflowed buffer means changes were missed - which is still a change.
-            watcher.Error += (_, _) => _ui.TryEnqueue(() => Schedule(provider));
+            // An overflowed buffer means changes were missed - which is still a
+            // change. The other error is the folder itself going away, so the
+            // watcher is made again rather than trusted.
+            watcher.Error += (_, _) => _ui.TryEnqueue(() =>
+            {
+                if (_watchers.TryGetValue(dir, out var current) && current == watcher)
+                {
+                    _watchers.Remove(dir);
+                    watcher.Dispose();
+                    Reconcile(initial: false);
+                }
+                Schedule(provider);
+            });
             watcher.EnableRaisingEvents = true;
-            _watchers.Add(watcher);
+            _watchers[dir] = watcher;
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            // Not watchable: Refresh still works.
+            // Not watchable: Refresh still works, and the next check tries again.
+            return false;
         }
     }
 
@@ -89,7 +137,8 @@ public sealed class TranscriptWatcher : IDisposable
 
     public void Dispose()
     {
-        foreach (var watcher in _watchers) watcher.Dispose();
+        _recheck.Stop();
+        foreach (var watcher in _watchers.Values) watcher.Dispose();
         foreach (var timer in _timers.Values) timer.Stop();
     }
 }

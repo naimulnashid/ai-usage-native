@@ -35,6 +35,7 @@ public sealed class AppState
         [ProviderId.Codex] = new AgentData(),
     };
     private readonly Dictionary<ProviderId, Task> _inFlight = [];
+    private readonly HashSet<ProviderId> _again = [];
 
     public AppState(DispatcherQueue ui) => _ui = ui;
 
@@ -61,11 +62,18 @@ public sealed class AppState
 
     /// <summary>
     /// Re-reads an agent's transcripts. A refresh already running for that
-    /// agent is joined rather than started twice.
+    /// agent is joined rather than started twice - but it may have read its
+    /// prices, merges and transcripts before whatever asked again (a price
+    /// just saved, a file just written), so one more pass follows it. Every
+    /// request made during the same pass shares that one follow-up.
     /// </summary>
     public Task RefreshAsync(ProviderId id)
     {
-        if (_inFlight.TryGetValue(id, out var running)) return running;
+        if (_inFlight.TryGetValue(id, out var running))
+        {
+            _again.Add(id);
+            return running;
+        }
         var task = RunRefresh(id);
         _inFlight[id] = task;
         return task;
@@ -76,13 +84,30 @@ public sealed class AppState
         var data = _agents[id];
         data.Loading = true;
         Changed?.Invoke(id);
+        try
+        {
+            do
+            {
+                _again.Remove(id);
+                await ParseOnce(id, data);
+            }
+            while (_again.Contains(id));
+        }
+        finally
+        {
+            data.Loading = false;
+            _inFlight.Remove(id);
+            Changed?.Invoke(id);
+        }
+    }
 
+    private static async Task ParseOnce(ProviderId id, AgentData data)
+    {
         var clock = Stopwatch.StartNew();
         try
         {
             var report = await Task.Run(() =>
-            {
-                var result = UsageService.Load(id);
+            {                var result = UsageService.Load(id);
                 // The parse holds one record per transcript line until it is
                 // done. Hand that back now rather than whenever the GC gets to
                 // it, since this process may sit in the tray all day.
@@ -101,9 +126,6 @@ public sealed class AppState
         finally
         {
             data.ParseTime = clock.Elapsed;
-            data.Loading = false;
-            _inFlight.Remove(id);
-            Changed?.Invoke(id);
         }
     }
 

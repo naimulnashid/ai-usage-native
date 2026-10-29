@@ -919,11 +919,20 @@ public sealed partial class MainWindow : Window
         _heading.Text = meta.Label;
         Title = $"{meta.Label} · AI Usage";
 
+        // A failed refresh keeps the last good report on screen, so say that
+        // these numbers are older than they look; the page itself only shows
+        // an error when there is nothing else to show.
+        var stale = !data.Loading && data.Error is not null && data.Report is not null;
         _refreshMeta.Text = data.Loading
             ? "Reading transcripts…"
-            : data.LastRefreshed is { } at
-                ? $"Last refreshed {UsageCore.View.Format.ClockTime(at)} · {data.ParseTime.TotalSeconds:0.0}s"
-                : "—";
+            : stale && data.LastRefreshed is { } shown
+                ? $"Refresh failed · showing {UsageCore.View.Format.ClockTime(shown)}"
+                : data.LastRefreshed is { } at
+                    ? $"Last refreshed {UsageCore.View.Format.ClockTime(at)} · {data.ParseTime.TotalSeconds:0.0}s"
+                    : "—";
+        _refreshMeta.Foreground = stale ? Palette.WarnBrush : Palette.TextFaintBrush;
+        if (stale) Ui.SetTip(_refreshMeta, $"The last refresh failed: {data.Error}\nThe numbers are from the refresh before it. Refresh to try again.");
+        else ToolTipService.SetToolTip(_refreshMeta, null);
 
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
         if (data.Loading)
