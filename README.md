@@ -70,7 +70,8 @@ The images follow GitHub's theme: dark or light, as the app draws them.
 - **Projects**: rename, merge, hide, a logo and a colour for each, and a page
   per project with its own charts and a day-by-model table.
 - **Model prices**: set a price, a display name and a colour for any model,
-  and drag the table into your own order.
+  and drag the table into your own order (or use the Up and Down keys on a
+  row's grip).
 - **Lives in the tray** with today's spend for each agent, refreshes itself
   when transcripts change, and can start at login.
 - **Dark and light themes** (or follow Windows), and page zoom from 50% to

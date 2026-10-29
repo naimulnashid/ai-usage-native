@@ -31,6 +31,9 @@ public sealed class DataTable
     private double _dragStartY;
     private (double Top, double Height)[] _dragRows = [];
 
+    /// <summary>The row whose grip takes focus once the page is rebuilt after a keyboard move.</summary>
+    private static int? _focusRow;
+
     public DataTable(IReadOnlyList<Column> columns)
     {
         _columns = columns.ToList();
@@ -201,8 +204,37 @@ public sealed class DataTable
         };
         dots.HorizontalAlignment = HorizontalAlignment.Center;
         dots.VerticalAlignment = VerticalAlignment.Center;
-        Ui.SetTip(grip, "Drag to reorder");
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(grip, "Drag to reorder");
+        Ui.SetTip(grip, "Drag, or use the Up and Down keys, to reorder");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(grip, "Reorder: Up and Down keys move this row");
+
+        // The keyboard's way to do the same: the grip takes focus, and the
+        // arrow keys move its row one place (Home and End to either end).
+        grip.IsTabStop = true;
+        grip.UseSystemFocusVisuals = true;
+        grip.GotFocus += (_, _) => Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+            grip, $"Reorder: row {index + 1} of {_washes.Count}. Up and Down keys move it.");
+        grip.KeyDown += (_, e) =>
+        {
+            var to = e.Key switch
+            {
+                Windows.System.VirtualKey.Up => index - 1,
+                Windows.System.VirtualKey.Down => index + 1,
+                Windows.System.VirtualKey.Home => 0,
+                Windows.System.VirtualKey.End => _washes.Count - 1,
+                _ => index,
+            };
+            if (to == index || to < 0 || to >= _washes.Count || _dragFrom >= 0 || _moved is not { } moved) return;
+            e.Handled = true;
+            // The callback rebuilds the page; the moved row's new grip takes focus back.
+            _focusRow = to;
+            _grid.DispatcherQueue.TryEnqueue(() => moved(index, to));
+        };
+        grip.Loaded += (_, _) =>
+        {
+            if (_focusRow != index) return;
+            _focusRow = null;
+            grip.Focus(FocusState.Keyboard);
+        };
         void Shade(Brush brush)
         {
             foreach (var dot in shapes) dot.Fill = brush;
