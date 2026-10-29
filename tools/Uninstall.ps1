@@ -10,9 +10,11 @@
   AIUSAGE_DATA_DIR names when that is set, as the app itself reads it, else in
   %LOCALAPPDATA%\AI Usage Native.
 
-  -RemoveData deletes only the files and folders the app writes there, then
-  the folder itself if that leaves it empty. AIUSAGE_DATA_DIR can name a folder
-  that holds other things too, and those are never touched.
+  -RemoveData deletes only the files the app writes there, by name, then each
+  of its folders (config, history, project-logos) and the data folder itself
+  if that leaves them empty. AIUSAGE_DATA_DIR can name a folder that holds
+  other things too, even in a folder called config or history, and those are
+  never touched.
 
   Install.ps1 copies this script into the program folder and registers it as
   the uninstall command, so Settings -> Apps -> Installed apps (and Control
@@ -44,32 +46,71 @@ function Get-DataFolder {
   return (Join-Path $env:LOCALAPPDATA 'AI Usage Native')
 }
 
-# Everything the app writes at the top of its data folder, and the .tmp files
-# its atomic writes leave if interrupted. Keep in step with AppPaths and the
-# settings stores under src\.
-function Get-AppDataEntries([string]$Folder) {
-  $names = @('config', 'history', 'logs', 'project-logos', 'app-settings.json',
-    'hidden-projects.json', 'codex-hidden-projects.json',
+# Every file the app writes in its data folder, by folder and name. Keep in
+# step with AppPaths and the settings stores under src\. A folder's name is
+# not proof of ownership: a shared AIUSAGE_DATA_DIR can hold another
+# program's config\ or history\, so folders are only ever removed when empty.
+$OwnedFiles = [ordered]@{
+  '.' = @('app-settings.json', 'hidden-projects.json', 'codex-hidden-projects.json',
     'model-settings.json', 'codex-model-settings.json',
     'project-colors.json', 'codex-project-colors.json',
     'project-settings.json', 'codex-project-settings.json')
-  if (-not (Test-Path -LiteralPath $Folder -PathType Container)) { return @() }
-  return @(Get-ChildItem -LiteralPath $Folder -Force | Where-Object {
-    $names -contains $_.Name -or ($_.Name -like '*.json.tmp' -and $names -contains $_.Name.Substring(0, $_.Name.Length - 4))
-  })
+  'config' = @('settings.json', 'projects.json', 'codex-projects.json', 'pricing.json', 'codex-pricing.json')
+  'history' = @('claude-history.json', 'codex-history.json')
+}
+# Logos are named after projects, so these folders are matched by image type.
+$LogoFolders = @('project-logos\claude', 'project-logos\codex')
+$LogoExtensions = @('.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.ico')
+# Deepest first, so a parent can empty out after its children.
+$OwnedFolders = @('project-logos\claude', 'project-logos\codex', 'project-logos', 'config', 'history')
+
+# A file the app wrote, or one its atomic writes, archive lock or archive
+# backups leave beside it.
+function Test-OwnedName([string]$Name, [string[]]$Names) {
+  foreach ($n in $Names) {
+    if ($Name -eq $n -or $Name -eq "$n.tmp" -or $Name -eq "$n.lock" -or $Name -like "$n.bak-*") { return $true }
+  }
+  return $false
 }
 
-# Deletes the app's entries, and the folder only if nothing else is in it.
+function Get-AppDataFiles([string]$Folder) {
+  $files = @()
+  foreach ($sub in $OwnedFiles.Keys) {
+    $dir = Join-Path $Folder $sub
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+    $names = $OwnedFiles[$sub]
+    $files += @(Get-ChildItem -LiteralPath $dir -File -Force | Where-Object { Test-OwnedName $_.Name $names })
+  }
+  foreach ($sub in $LogoFolders) {
+    $dir = Join-Path $Folder $sub
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+    $files += @(Get-ChildItem -LiteralPath $dir -File -Force | Where-Object {
+      $name = $_.Name
+      if ($name.EndsWith('.tmp')) { $name = $name.Substring(0, $name.Length - 4) }
+      $LogoExtensions -contains [IO.Path]::GetExtension($name).ToLowerInvariant()
+    })
+  }
+  return $files
+}
+
+# Deletes the app's files, then its folders and the data folder only if that
+# leaves them empty.
 function Remove-AppData([string]$Folder) {
-  $entries = Get-AppDataEntries $Folder
-  foreach ($entry in $entries) { Remove-Item -LiteralPath $entry.FullName -Recurse -Force }
-  if (-not (Test-Path -LiteralPath $Folder)) { return "No app data found in $Folder" }
+  if (-not (Test-Path -LiteralPath $Folder -PathType Container)) { return "No app data found in $Folder" }
+  $files = @(Get-AppDataFiles $Folder)
+  foreach ($file in $files) { Remove-Item -LiteralPath $file.FullName -Force }
+  foreach ($sub in $OwnedFolders) {
+    $dir = Join-Path $Folder $sub
+    if ((Test-Path -LiteralPath $dir -PathType Container) -and @(Get-ChildItem -LiteralPath $dir -Force).Count -eq 0) {
+      Remove-Item -LiteralPath $dir -Force
+    }
+  }
   $left = @(Get-ChildItem -LiteralPath $Folder -Force)
   if ($left.Count -eq 0) {
     Remove-Item -LiteralPath $Folder -Force
     return "Removed $Folder"
   }
-  if ($entries.Count -eq 0) { return "No app data found in $Folder" }
+  if ($files.Count -eq 0) { return "No app data found in $Folder" }
   return "Removed the app's data from $Folder; $($left.Count) other item(s) there were left alone."
 }
 

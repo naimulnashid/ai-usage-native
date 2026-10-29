@@ -156,10 +156,11 @@ folder: `%LOCALAPPDATA%\AI Usage Native`, or the folder `AIUSAGE_DATA_DIR`
 names if you have set it.
 
 To remove them too, delete that folder, or from a source checkout run
-`tools\Install.ps1 -Uninstall -RemoveData`, which deletes only what the app
-wrote there (the files and folders listed under
-[Configuration](#configuration)), so other files in a folder you chose with
-`AIUSAGE_DATA_DIR` are left alone.
+`tools\Install.ps1 -Uninstall -RemoveData`, which deletes only the files the
+app wrote there (those listed under [Configuration](#configuration), plus
+project logos), and a folder only once that leaves it empty, so other files
+in a folder you chose with `AIUSAGE_DATA_DIR` are left alone, even inside its
+`config\` or `history\`.
 
 The zip download is not installed at all: exit it from the tray and delete its
 folder.
