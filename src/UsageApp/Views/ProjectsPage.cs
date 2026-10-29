@@ -98,11 +98,6 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             more.Children.Add(count);
             page.Children.Add(more);
         }
-
-        // Once for the page, not an info icon on every card that says the same.
-        var runtimeNote = Ui.Paragraph(Parts.RuntimeTip, 13.5, Palette.TextFaintBrush);
-        runtimeNote.Margin = new Thickness(0, 18, 0, 0);
-        page.Children.Add(runtimeNote);
         return page;
     }
 
