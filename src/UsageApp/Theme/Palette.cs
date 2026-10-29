@@ -48,23 +48,24 @@ public static class Palette
         string Bg, string Surface, string SurfaceHover, string Border, string BorderBright,
         string Text, string TextMuted, string TextFaint, string TooltipBg,
         string Warn, double WarnDim, double WarnBorder, string Good,
-        Color RowBorder, string Track, Color HoverWash);
+        Color RowBorder, string Track, Color HoverWash, string Chrome);
 
     private static readonly Tokens Dark = new(
         "#000000", "#0A0A0C", "#111114", "#1E1E24", "#2E2E37",
         "#FAFAFA", "#9A9AA4", "#7D7D87", "#131317",
         "#F87171", 0.12, 0.34, "#4ADE80",
-        Hex("#1E1E24", 0.6), "#141418", Hex("#FFFFFF", 0.04));
+        Hex("#1E1E24", 0.6), "#141418", Hex("#FFFFFF", 0.04), "#000000");
 
     /// <summary>A cool grey page, white cards; both greys of text clear 4.5:1 on each backdrop.</summary>
     private static readonly Tokens Light = new(
         // SurfaceHover was #F3F4F7, 1.07:1 on white: a hovered row showed nothing.
         // Bg was #F4F5F8 until the owner chose this darker grey (2026-10-29).
-        // Border is now about 1.01:1 on it.
+        // The title bar and top bar kept the old one (Chrome): on the grey,
+        // Border was about 1.01:1 and the active tab's accent about 4.0:1.
         "#E6E6EA", "#FFFFFF", "#E8EBF0", "#E3E5EA", "#CDD1D9",
         "#111318", "#3F4451", "#5F6472", "#FFFFFF",
         "#C62828", 0.07, 0.32, "#15803D",
-        Hex("#ECEEF2"), "#ECEEF2", Hex("#111318", 0.09));
+        Hex("#ECEEF2"), "#ECEEF2", Hex("#111318", 0.09), "#F4F5F8");
 
     /// <summary>True while the light theme is on.</summary>
     public static bool IsLight { get; private set; }
@@ -84,6 +85,8 @@ public static class Palette
     public static Color Track { get; private set; }
 
     public static readonly SolidColorBrush BgBrush = new();
+    /// <summary>The title bar and the top bar. The page's own colour in the dark theme.</summary>
+    public static readonly SolidColorBrush ChromeBrush = new();
     public static readonly SolidColorBrush SurfaceBrush = new();
     public static readonly SolidColorBrush SurfaceHoverBrush = new();
     public static readonly SolidColorBrush BorderBrush = new();
@@ -156,6 +159,7 @@ public static class Palette
         Track = Hex(t.Track);
 
         BgBrush.Color = Bg;
+        ChromeBrush.Color = Hex(t.Chrome);
         SurfaceBrush.Color = Surface;
         SurfaceHoverBrush.Color = SurfaceHover;
         BorderBrush.Color = Border;

@@ -222,7 +222,7 @@ public sealed partial class MainWindow : Window
         Root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         // Title bar: draggable, the app's name, and room for the caption buttons.
-        var titleBar = new Grid { Background = Palette.BgBrush, Padding = new Thickness(16, 0, 150, 0) };
+        var titleBar = new Grid { Background = Palette.ChromeBrush, Padding = new Thickness(16, 0, 150, 0) };
         var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
         var icon = new Image { Width = 16, Height = 16 };
         title.Children.Add(icon);
@@ -541,7 +541,7 @@ public sealed partial class MainWindow : Window
             Padding = new Thickness(32, 20, 32, 20),
             BorderBrush = Palette.BorderBrush,
             BorderThickness = new Thickness(0, 1, 0, 1),
-            Background = Palette.BgBrush,
+            Background = Palette.ChromeBrush,
             Child = grid,
         };
         return bar;
