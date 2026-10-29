@@ -371,6 +371,31 @@ public static class Ui
         return button;
     }
 
+    /// <summary>
+    /// Gives every item of a menu, submenus included, hover and press fills
+    /// that follow the app's theme (see <see cref="Palette.MenuHoverBrush"/>).
+    /// Call once the items are added.
+    /// </summary>
+    public static MenuFlyout Menu(MenuFlyout flyout)
+    {
+        static void Style(IList<MenuFlyoutItemBase> items)
+        {
+            foreach (var item in items)
+            {
+                // Toggle and radio items read the Toggle keys; a submenu its own.
+                foreach (var kind in new[] { "MenuFlyoutItem", "ToggleMenuFlyoutItem", "MenuFlyoutSubItem" })
+                {
+                    item.Resources[$"{kind}BackgroundPointerOver"] = Palette.MenuHoverBrush;
+                    item.Resources[$"{kind}BackgroundPressed"] = Palette.MenuPressedBrush;
+                }
+                item.Resources["MenuFlyoutSubItemBackgroundSubMenuOpened"] = Palette.MenuHoverBrush;
+                if (item is MenuFlyoutSubItem sub) Style(sub.Items);
+            }
+        }
+        Style(flyout.Items);
+        return flyout;
+    }
+
     /// <summary>A text link in the accent colour, like "← All projects".</summary>
     public static HyperlinkButton Link(string text, Action onClick, double size = 14.5, Brush? brush = null)
     {

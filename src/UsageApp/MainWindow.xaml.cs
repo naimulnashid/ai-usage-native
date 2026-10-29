@@ -686,7 +686,7 @@ public sealed partial class MainWindow : Window
         exit.Click += (_, _) => _exit();
         flyout.Items.Add(exit);
 
-        button.Flyout = flyout;
+        button.Flyout = Ui.Menu(flyout);
         return button;
     }
 

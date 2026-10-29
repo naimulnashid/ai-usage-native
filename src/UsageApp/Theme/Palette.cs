@@ -101,6 +101,15 @@ public static class Palette
     public static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
     public static readonly SolidColorBrush HoverWashBrush = new();
 
+    /// <summary>
+    /// A menu item's hover and press fills. WinUI's light hover is about 4%
+    /// black, which on the light menu's near-white was measured at #F1F1F3 over
+    /// #F9F9FC - invisible in practice. Light uses the page's hover wash
+    /// instead; dark keeps WinUI's own values (6% / 4% white).
+    /// </summary>
+    public static readonly SolidColorBrush MenuHoverBrush = new();
+    public static readonly SolidColorBrush MenuPressedBrush = new();
+
     // The accent family. Mutated in place by ApplyProvider.
     public static readonly SolidColorBrush Accent = new();
     public static readonly SolidColorBrush AccentBright = new();
@@ -162,6 +171,8 @@ public static class Palette
         RowBorderBrush.Color = RowBorder;
         TrackBrush.Color = Track;
         HoverWashBrush.Color = t.HoverWash;
+        MenuHoverBrush.Color = light ? t.HoverWash : Hex("#FFFFFF", 0.06);
+        MenuPressedBrush.Color = light ? Hex(t.Text, 0.06) : Hex("#FFFFFF", 0.04);
         ApplyProvider(_meta);
         ThemeChanged?.Invoke();
     }

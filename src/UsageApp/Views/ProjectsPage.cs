@@ -420,7 +420,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var open = new MenuFlyoutItem { Text = "Open logos folder", Icon = new FontIcon { Glyph = "" } };
         open.Click += (_, _) => Shell.OpenFolder(AppPaths.LogoDir(meta.Id));
         flyout.Items.Add(open);
-        button.Flyout = flyout;
+        button.Flyout = Ui.Menu(flyout);
         return button;
     }
 
