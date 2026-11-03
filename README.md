@@ -19,7 +19,7 @@ the machine.
 </picture>
 
 <details>
-<summary><b>The projects page, and Codex</b></summary>
+<summary><b>The projects page, Codex and Antigravity</b></summary>
 
 Projects open with a share-of-spend ring, because a ranked list looks the same
 whether the top project is 60% of your spend or 15%. Each project is drawn in
@@ -37,6 +37,15 @@ OpenAI API: on a flat ChatGPT subscription they were never billed individually
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-codex-light.webp">
   <img src="docs/screenshots/overview-codex.webp" alt="The whole Codex overview, in its own teal accent, headed by its total estimated spend">
+</picture>
+
+Antigravity gets Google blue. Its figure is what its tokens would cost through
+each model's own API (Google's for Gemini, Anthropic's for Claude); Antigravity
+itself is billed by plan.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-antigravity-light.webp">
+  <img src="docs/screenshots/overview-antigravity.webp" alt="The whole Antigravity overview, in its own blue accent, headed by its total estimated spend, with Gemini and Claude models">
 </picture>
 
 </details>

@@ -29,12 +29,14 @@ Remove-Item -Recurse -Force (Join-Path $root 'demo-data') -ErrorAction SilentlyC
 dotnet run --project (Join-Path $root 'src\UsageCli') -- demo-data | Out-Null
 if ($LASTEXITCODE) { throw 'demo-data failed.' }
 
-# The README shows the first three and the light overview; the project site
-# (site/) shows every page, in whichever theme it is viewed in.
+# The README shows the first four, each in both themes; the project site
+# (site/) shows the two first overviews in its hero, in whichever theme it is
+# viewed in.
 $pages = [ordered]@{
   'overview-claude' = 'claude,overview,0'
   'projects-claude' = 'claude,projects,0'
   'overview-codex'  = 'codex,overview,0'
+  'overview-antigravity' = 'antigravity,overview,0'
   'project-claude'  = 'claude,project,C--Users-you-Projects-Recipe-Box,0'
   'activity-claude' = 'claude,activity,0'
 }
