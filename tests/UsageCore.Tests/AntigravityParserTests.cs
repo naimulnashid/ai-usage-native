@@ -109,6 +109,16 @@ public class AntigravityParserTests
     }
 
     [Fact]
+    public void TheBuiltInCardPricesTheTwoNumberedModels_WithoutALongContextTier()
+    {
+        var card = Config.AppConfig.LoadPricing(Model.ProviderId.Antigravity, configDir: Path.Combine(Path.GetTempPath(), "no-such-dir"));
+        // The browser row sums a whole subagent run, so a tier would surcharge a total no prompt held.
+        Assert.Null(card.Models["(model 1018)"].LongContext);
+        Assert.Equal(10, card.Models["(model 1018)"].Output);
+        Assert.Equal(2.5, card.Models["(model 1050)"].Output);
+    }
+
+    [Fact]
     public void ARequestThatNeverRan_CountsNothing()
     {
         using var tmp = new TempDir();

@@ -11,6 +11,8 @@
 
   "_longContext": "Gemini 3.1 Pro bills a request whose prompt is over 200K tokens (cached included) at $4 input / $0.40 cached / $18 output, which is 2x input and cache and 1.5x output, for the whole request.",
 
+  "_numbered": "Two models appear only by Antigravity's internal number: the app names them '(model N)'. Antigravity's own built-in config (in language_server.exe, read 2026-11-03) gives their roles: 'browser-subagent-model' is number 1018 and 'checkpoint_model' (which summarises a long conversation) is 1050. A model table in the same config maps them to Gemini 2.5 Pro and Gemini 2.5 Flash; that table also maps other numbers onto their family's, so the exact model is inferred, not confirmed. They are priced at those two models' rates. The browser row is a whole subagent run summed into one, not one prompt, so it carries no long-context tier: one would surcharge a total that no single request held.",
+
   "_promotional": "Gemini 4 Argon's rates hold through 2026-11-30; from 2026-12-01 Google lists $4 input / $0.20 cached / $20 output. Gemini 3.7 Flash is not on Google's page (checked 2026-11-03): it is priced as Gemini 3.6 and 3.8 Flash, which share one rate, introductory through 2026-12-31, then $1.50 / $0.15 / $7.50.",
 
   "models": {
@@ -42,6 +44,22 @@
       "cacheWrite1h": 8.0,
       "cacheRead": 0.2,
       "output": 20.0
+    },
+    "(model 1018)": {
+      "_note": "The browser subagent. Gemini 2.5 Pro's rates for prompts up to 200K tokens; see _numbered.",
+      "input": 1.25,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.125,
+      "output": 10.0
+    },
+    "(model 1050)": {
+      "_note": "Checkpoints, the summaries of long conversations. Gemini 2.5 Flash's rates; see _numbered.",
+      "input": 0.3,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.03,
+      "output": 2.5
     }
   },
 

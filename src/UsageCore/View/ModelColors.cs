@@ -60,8 +60,12 @@ public static class ModelColors
         // $10. The trial id is the same model on a trial plan.
         ("gemini-4-argon", new("#4285F4", 10)),
         ("gemini-4-argon-trial", new("#5B95F5", 10)),
-        // $3.75 - lightest.
+        // The browser subagent, priced as Gemini 2.5 Pro.
+        ("(model 1018)", new("#73A5F7", 10)),
+        // $3.75
         ("gemini-3.7-flash", new("#8BB4F8", 3.75)),
+        // $2.50 - lightest. Checkpoints, priced as Gemini 2.5 Flash.
+        ("(model 1050)", new("#A3C4FA", 2.5)),
     ];
 
     private static readonly Dictionary<string, (Shade Shade, int Order)> Lookup =
@@ -78,6 +82,9 @@ public static class ModelColors
         ["gemini-4-argon"] = "Gemini 4 Argon",
         ["gemini-4-argon-trial"] = "Gemini 4 Argon (trial)",
         ["gemini-3.7-flash"] = "Gemini 3.7 Flash",
+        // Antigravity logs these by number only; the rate card says how they were identified.
+        ["(model 1018)"] = "Browser subagent (Gemini 2.5 Pro)",
+        ["(model 1050)"] = "Checkpoints (Gemini 2.5 Flash)",
     };
 
     /// <summary>

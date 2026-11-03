@@ -295,8 +295,11 @@ Do not add them together.
   conversation databases by field numbers worked out from real files, and
   checks each request against the copy of its usage on the conversation's
   steps; `aiusage parse antigravity` reports any mismatch. Some usage names its
-  model only by an internal number (a browser subagent's whole run, for
-  instance): it is shown as `(model N)`, unpriced, until you give it a price.
+  model only by an internal number. The two seen so far, the browser subagent
+  and the summaries of long conversations, are priced as Gemini 2.5 Pro and
+  Gemini 2.5 Flash, which Antigravity's own settings point to (the rate card
+  says how they were identified). Any other number shows as `(model N)`,
+  unpriced, until you give it a price.
   Gemini 4 Argon and Gemini 3.7 Flash are on introductory rates; the rate card
   says until when.
 
