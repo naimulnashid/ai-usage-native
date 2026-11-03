@@ -1,12 +1,13 @@
 /*
  * The project site, on Onyx (onyx.css, loaded first) with one exception kept by
  * the owner's choice (2026-10-21): the accent is the agent's own colour,
- * Claude Code's terracotta or Codex's green, as in the app, although Onyx rule 2
- * keeps an accent off a product's data colours.
+ * Claude Code's terracotta, Codex's green or Antigravity's blue, as in the app,
+ * although Onyx rule 2 keeps an accent off a product's data colours.
  *
- * Contrast, measured: button fills carry white at 5.02:1 (Claude #BA4D2A) and
- * 4.96:1 (Codex #0C7F63); accent text clears 8.04 / 9.15:1 on the dark surface
- * (#F08A66 / #1FC79C) and 6.32 / 6.48:1 on white (#A14224 / #0A6B53).
+ * Contrast, measured: button fills carry white at 5.02:1 (Claude #BA4D2A),
+ * 4.96:1 (Codex #0C7F63) and 6.70:1 (Antigravity #1A57BC); accent text clears
+ * 8.04 / 9.15 / 7.44:1 on the dark surface (#F08A66 / #1FC79C / #6A9FF6) and
+ * 6.32 / 6.48 / 8.89:1 on white (#A14224 / #0A6B53 / #154698).
  */
 
 :root {
@@ -24,6 +25,11 @@
   --codex-fill: #0c7f63;
   --codex-dim: rgba(16, 163, 127, 0.16);
   --codex-glow: rgba(16, 163, 127, 0.28);
+  --antigravity: #4285f4;
+  --antigravity-bright: #6a9ff6;
+  --antigravity-fill: #1a57bc;
+  --antigravity-dim: rgba(66, 133, 244, 0.16);
+  --antigravity-glow: rgba(66, 133, 244, 0.28);
 
   --content: 1180px;
   --gutter: var(--space-4);
@@ -42,6 +48,10 @@
     --codex-bright: #0a6b53;
     --codex-dim: rgba(12, 127, 99, 0.1);
     --codex-glow: rgba(12, 127, 99, 0.24);
+    --antigravity: #1a57bc;
+    --antigravity-bright: #154698;
+    --antigravity-dim: rgba(26, 87, 188, 0.1);
+    --antigravity-glow: rgba(26, 87, 188, 0.24);
     /* A grey light page (the owner's choice, 2026-10-28): a visible
        grey behind white cards, so sections stand apart and the page is not
        glaring. Onyx's own #f4f5f7 read as nearly white. Borders and faint
@@ -64,6 +74,10 @@
   --codex-bright: #0a6b53;
   --codex-dim: rgba(12, 127, 99, 0.1);
   --codex-glow: rgba(12, 127, 99, 0.24);
+  --antigravity: #1a57bc;
+  --antigravity-bright: #154698;
+  --antigravity-dim: rgba(26, 87, 188, 0.1);
+  --antigravity-glow: rgba(26, 87, 188, 0.24);
   /* A grey light page (the owner's choice, 2026-10-28): a visible
      grey behind white cards, so sections stand apart and the page is not
      glaring. Onyx's own #f4f5f7 read as nearly white. Borders and faint
@@ -103,6 +117,19 @@
   --focus-ring: var(--accent);
   /* Red on Codex's green read as Claude Code's colour (the app's Palette.SpikeBrush). */
   --spike: var(--codex-bright);
+}
+
+:root[data-agent='antigravity'],
+[data-agent='antigravity'] {
+  --accent: var(--antigravity);
+  --accent-bright: var(--antigravity-bright);
+  --accent-fill: var(--antigravity-fill);
+  --on-accent: #ffffff;
+  --accent-dim: var(--antigravity-dim);
+  --accent-glow: var(--antigravity-glow);
+  --focus-ring: var(--accent);
+  /* As Codex's: the agent's own bright accent (ProviderMeta.SpikeInWarning is false). */
+  --spike: var(--antigravity-bright);
 }
 
 @media (min-width: 720px) {

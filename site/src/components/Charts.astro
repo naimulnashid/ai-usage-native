@@ -8,6 +8,7 @@ import '../styles/charts.css';
 import Icon from './Icon.astro';
 import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
 import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+import antigravityMark from '../../../src/UsageApp/Assets/AgentMarks/antigravity.png';
 ---
 
 <section class="section" id="charts" data-agent="claude" aria-labelledby="charts-title">
@@ -25,6 +26,9 @@ import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
         <button role="radio" aria-checked="false" data-agent="codex">
           <span class="seg-mark seg-mark-codex"><img src={codexMark.src} alt="" width="14" height="14" /></span>Codex
         </button>
+        <button role="radio" aria-checked="false" data-agent="antigravity">
+          <span class="seg-mark"><img src={antigravityMark.src} alt="" width="14" height="14" /></span>Antigravity
+        </button>
       </div>
     </div>
 
@@ -37,7 +41,7 @@ import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
 
       <article class="viz">
         <header><h3>Daily combined spend</h3><span class="where">Overview · Project page</span></header>
-        <p>A dot marks a day well above trend: red for Claude Code, bright green for Codex.</p>
+        <p>A dot marks a day well above trend: red for Claude Code, the agent's bright accent for Codex and Antigravity.</p>
         <div class="chart" id="v-spend"></div>
       </article>
 

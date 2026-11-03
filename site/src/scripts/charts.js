@@ -69,13 +69,16 @@ const DAYS = 300;
 const PROJECT_COLORS = ['#3B82F6', '#D946EF', '#0D9488', '#D97706', '#8B5CF6', '#DB2777', '#0891B2', '#65A30D', '#6366F1', '#E11D48', '#C38504', '#7C3AED'];
 
 /*
-  Two invented agents. Models are listed dearest first; each has its dark
+  Three invented agents. Models are listed dearest first; each has its dark
   shade and the light theme's twin (ModelColors.LightPalettes). Rates are the
-  built-in cards', USD per million tokens.
+  built-in cards', USD per million tokens. `writes` is the app's
+  HasCacheWrites: only Claude Code logs cache writes; the other two log
+  reasoning instead. `longNote` states a long-prompt tier under Model prices.
 */
 const AGENTS = {
   claude: {
     label: 'Claude Code', costLabel: 'Total estimated spend', noun: 'messages', Noun: 'Messages', sub: 'subagent',
+    writes: true, preview: 'claude-preview-1',
     seed: 20261014,
     models: [
       { id: 'fable-5', dark: '#A14324', light: '#712E19', w: 0.14, rate: { input: 10, w5: 12.5, w1: 20, read: 1, output: 50 } },
@@ -97,6 +100,8 @@ const AGENTS = {
   },
   codex: {
     label: 'Codex', costLabel: 'Total estimated spend', noun: 'requests', Noun: 'Requests', sub: 'auto-review',
+    writes: false, preview: 'gpt-preview-1',
+    longNote: 'On GPT-5.6 Sol and GPT-6.1 Sol, a request whose prompt is over 272K tokens is billed at 2x input and cache and 1.5x output, for the whole request.',
     seed: 20261015,
     models: [
       { id: 'gpt-5.6-sol', dark: '#0B6D55', light: '#074B3B', w: 0.58, rate: { input: 4, read: 0.4, output: 20 }, long: true },
@@ -113,6 +118,28 @@ const AGENTS = {
       light: ['#074B3B', '#085340', '#095B47', '#0A624D', '#0B6C54', '#0C755C', '#0D8164', '#0E8C6D', '#0F9876', '#10A580'],
     },
     scale: 0.55,
+  },
+  antigravity: {
+    label: 'Antigravity', costLabel: 'Total estimated spend', noun: 'requests', Noun: 'Requests', sub: 'subagent',
+    writes: false, preview: 'gemini-preview-1',
+    longNote: 'On Gemini 3.1 Pro, a request whose prompt is over 200K tokens is billed at 2x input and cache and 1.5x output, for the whole request.',
+    seed: 20261016,
+    models: [
+      { id: 'Claude Opus 5.5 (High)', dark: '#0C58D4', light: '#0F326B', w: 0.10, rate: { input: 4, read: 0.2, output: 20 }, alias: 'claude-opus-5-5', noThinking: true },
+      { id: 'Gemini 3.1 Pro', dark: '#2170F2', light: '#144494', w: 0.34, rate: { input: 2, read: 0.2, output: 12 }, long: true },
+      { id: 'Gemini 4 Argon (trial)', dark: '#5B95F5', light: '#1851AF', w: 0.26, rate: { input: 2, read: 0.1, output: 10 }, alias: 'gemini-4-argon' },
+      { id: 'Gemini 3.7 Flash', dark: '#8BB4F8', light: '#1C5DCA', w: 0.30, rate: { input: 0.75, read: 0.075, output: 3.75 } },
+    ],
+    projects: [['Weather Widget', 52], ['Tide Table', 30], ['Bird Log', 18]],
+    ramp: {
+      dark: ['#13151A', '#163F83', '#1C50A6', '#2261C9', '#4285F4', '#6A9FF6'],
+      light: ['#D7DCE4', '#558CE7', '#286EE1', '#1A57BC', '#144494', '#103470'],
+    },
+    swatches: {
+      dark: ['#0C58D4', '#0D5DE3', '#0E63F1', '#2170F2', '#4285F4', '#5B95F5', '#73A5F7', '#8BB4F8', '#A3C4FA', '#BCD3FB'],
+      light: ['#0F326B', '#113879', '#133E86', '#144494', '#164BA1', '#1851AF', '#1A57BC', '#1C5DCA', '#1E64D7', '#246BE1'],
+    },
+    scale: 0.4,
   },
 };
 
@@ -168,7 +195,7 @@ function build(key) {
           if (n <= 0) return;
           const c = cell();
           c.msgs = n;
-          if (key === 'claude') {
+          if (cfg.writes) {
             c.input = n * (8 + rnd() * 20);
             c.output = n * (900 + rnd() * 2200);
             c.read = n * (35000 + rnd() * 60000);
@@ -177,7 +204,8 @@ function build(key) {
           } else {
             c.input = n * (1500 + rnd() * 4000);
             c.output = n * (800 + rnd() * 1800);
-            c.reasoning = c.output * (0.3 + rnd() * 0.3);
+            // Antigravity logs no thinking for its Claude model.
+            c.reasoning = m.noThinking ? 0 : c.output * (0.3 + rnd() * 0.3);
             c.read = n * (40000 + rnd() * 70000);
           }
           for (const f of ['input', 'output', 'read', 'w5', 'w1', 'reasoning']) c[f] = Math.round(c[f]);
@@ -227,7 +255,7 @@ function build(key) {
   };
 }
 
-const DATA = { claude: build('claude'), codex: build('codex') };
+const DATA = Object.fromEntries(Object.keys(AGENTS).map((k) => [k, build(k)]));
 let agent = 'claude';
 
 /* ------------------------------------------------------------------ helpers */
@@ -400,7 +428,7 @@ function drawCards(d) {
   const c = d.combined;
   const top = d.cfg.models.map((m, i) => ({ m, t: totalTokens(d.perModel[i]) })).sort((a, b) => b.t - a.t)[0].m;
   const cached = c.read + c.w5 + c.w1;
-  const codex = d.key === 'codex';
+  const codex = !d.cfg.writes;
   const cards = [
     ['Sessions', 'sessions', count(d.sessions), `${count(d.sessions - d.subagents)} top-level · ${count(d.subagents)} ${d.cfg.sub}`, 'Each transcript file is a session; subagent files are counted apart.'],
     [d.cfg.Noun, 'messages', count(c.msgs), 'de-duplicated API calls', 'Each API call counted once, however many times it was written to disk.'],
@@ -643,7 +671,7 @@ function closeMenus() {
 }
 
 function drawTokens(d) {
-  const codex = d.key === 'codex';
+  const codex = !d.cfg.writes;
   document.getElementById('v-tokens-note').innerHTML = codex
     ? 'Input is only the uncached part of the prompt, which is why it looks small next to Cached. Reasoning is part of Output, so the row does not sum across.'
     : 'Cache writes are split by lifetime (5 minutes and 1 hour) and priced apart; the column shows their sum.';
@@ -663,9 +691,9 @@ function drawTokens(d) {
 }
 
 /* Model prices: an invented unpriced model shows how the app flags one. */
-const priceEdits = { claude: {}, codex: {} };
+const priceEdits = Object.fromEntries(Object.keys(AGENTS).map((k) => [k, {}]));
 /* The table's dragged order, per agent; empty is the default order (ModelSettings.Arrange). */
-const priceOrder = { claude: [], codex: [] };
+const priceOrder = Object.fromEntries(Object.keys(AGENTS).map((k) => [k, []]));
 let editing = null;
 function arrange(rows, order) {
   const rank = new Map(order.map((id, i) => [id, i]));
@@ -674,11 +702,11 @@ function arrange(rows, order) {
     .map(([r]) => r);
 }
 function drawPrices(d) {
-  const codex = d.key === 'codex';
+  const codex = !d.cfg.writes;
   const fields = codex ? [['input', 'Input'], ['read', 'Cached input'], ['output', 'Output']]
     : [['input', 'Input'], ['w5', 'Write 5m'], ['w1', 'Write 1h'], ['read', 'Cache read'], ['output', 'Output']];
   const byDefault = d.cfg.models.map((m) => ({ id: m.id, color: modelColor(m), rate: priceEdits[d.key][m.id]?.rate ?? m.rate, long: m.long }));
-  const preview = codex ? 'gpt-preview-1' : 'claude-preview-1';
+  const preview = d.cfg.preview;
   const pe = priceEdits[d.key][preview];
   byDefault.push({ id: preview, color: isLight() ? '#8C909B' : '#9C7A6C', rate: pe?.rate ?? null, unpriced: !pe?.rate });
   const rows = arrange(byDefault, priceOrder[d.key]);
@@ -694,7 +722,7 @@ function drawPrices(d) {
   el.innerHTML = `<div class="table-wrap"><table>
       <thead><tr><th>Model</th>${fields.map(([, h]) => `<th class="num">${h}</th>`).join('')}<th></th></tr></thead>
       <tbody>${body}</tbody></table></div>
-    ${codex ? `<div class="note">On GPT-5.6 Sol and GPT-6.1 Sol, a request whose prompt is over 272K tokens is billed at 2x input and cache and 1.5x output, for the whole request.</div>` : '<div class="note">USD per million tokens.</div>'}${reorder}
+    <div class="note">${d.cfg.longNote ? esc(d.cfg.longNote) : 'USD per million tokens.'}</div>${reorder}
     <div class="editor" ${editRow ? '' : 'hidden'}>
       ${editRow ? `<label class="name-field">Name<input type="text" maxlength="60" data-name value="${esc(name(editRow))}" placeholder="${esc(editRow.id)}"></label>
       <h4>Price for ${esc(editRow.id)}, USD per million tokens</h4>
@@ -795,7 +823,7 @@ function drawPrices(d) {
 }
 
 function drawDaily(d) {
-  const codex = d.key === 'codex';
+  const codex = !d.cfg.writes;
   const p = d.projects[0];
   const rnd = mulberry32(7);
   const active = d.days.filter((x) => x.projects.has(p.name)).slice(-3).reverse();
@@ -822,7 +850,7 @@ function drawTray() {
   const today = (k) => DATA[k].all[DATA[k].all.length - 1].combined.cost;
   document.getElementById('v-tray').innerHTML = `
     <div class="tray-col"><span class="tray-cap">Hover</span>
-      <div class="tooltip-mock">AI Usage<br>Claude Code today: ${usd(today('claude'))}<br>Codex today: ${usd(today('codex'))}</div>
+      <div class="tooltip-mock">AI Usage${Object.keys(AGENTS).map((k) => `<br>${AGENTS[k].label} today: ${usd(today(k))}`).join('')}</div>
       <div class="taskbar"><span>⌃</span><span class="sel"><img src="favicon.svg" alt="AI Usage tray icon"></span><span>ENG</span><span>9:41 PM</span></div></div>
     <div class="tray-col"><span class="tray-cap">Right-click</span>
       <div class="menu menu-static">
@@ -871,8 +899,9 @@ const pickAgent = (b) => {
   editing = null;
 };
 agentSeg.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { pickAgent(b); drawAll(); }));
-// ?agent=codex opens the gallery on Codex, so either view can be linked.
-if (new URLSearchParams(location.search).get('agent') === 'codex') pickAgent(agentSeg.querySelector('[data-agent="codex"]'));
+// ?agent=codex or ?agent=antigravity opens the gallery on that agent, so any view can be linked.
+const asked = new URLSearchParams(location.search).get('agent');
+if (asked && asked !== 'claude' && AGENTS[asked]) pickAgent(agentSeg.querySelector(`[data-agent="${asked}"]`));
 
 const range = document.getElementById('proj-range');
 range.querySelectorAll('[role="radio"]').forEach((b) => b.addEventListener('click', () => { projRange = b.dataset.range; pickRadio(range, b); drawProjects(DATA[agent]); }));

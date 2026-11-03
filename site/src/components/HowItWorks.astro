@@ -2,6 +2,7 @@
 import Icon from './Icon.astro';
 import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
 import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+import antigravityMark from '../../../src/UsageApp/Assets/AgentMarks/antigravity.png';
 
 const traps = [
   {
@@ -27,6 +28,18 @@ const traps = [
       "Prompts over 272K tokens are billed at OpenAI's higher tier.",
     ],
   },
+  {
+    key: 'antigravity',
+    name: 'Antigravity',
+    items: [
+      'Conversations kept by both the app and the older IDE build are counted once.',
+      'Thinking is shown, never counted twice.',
+      'Research subagents count, folded into the chat that started them.',
+      "A browser subagent's run, logged only on its tool call, is counted.",
+      'Every request is checked against the second copy Antigravity keeps.',
+      'Prompts over 200K tokens on Gemini 3.1 Pro are billed at the higher tier.',
+    ],
+  },
 ];
 ---
 
@@ -43,6 +56,7 @@ const traps = [
         <span class="node-title"><Icon name="fileText" /> Transcripts</span>
         <span class="src" data-agent="claude"><img src={claudeMark.src} alt="" width="16" height="16" /><code>.claude\projects</code></span>
         <span class="src" data-agent="codex"><span class="codex-tile"><img src={codexMark.src} alt="" width="12" height="12" /></span><code>.codex\sessions</code></span>
+        <span class="src" data-agent="antigravity"><img src={antigravityMark.src} alt="" width="16" height="16" /><code>.gemini\antigravity</code></span>
       </li>
       <li class="glow node">
         <span class="node-title"><Icon name="scanSearch" /> Parsers</span>
@@ -156,9 +170,11 @@ const traps = [
     margin-top: 28px;
   }
 
-  @media (min-width: 900px) {
+  /* One list per agent, side by side once three fit; two columns would leave
+     the third alone on a row. */
+  @media (min-width: 960px) {
     .traps {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       align-items: start;
     }
   }

@@ -1,7 +1,9 @@
 ---
-// The vendors' own marks, as the app ships them (unmodified; see the footer).
+// The vendors' marks, as the app ships them (the README's Trademarks section
+// says which are unmodified).
 import claudeMark from '../../../src/UsageApp/Assets/AgentMarks/claude-code.svg';
 import codexMark from '../../../src/UsageApp/Assets/AgentMarks/codex.svg';
+import antigravityMark from '../../../src/UsageApp/Assets/AgentMarks/antigravity.png';
 
 const agents = [
   {
@@ -20,15 +22,23 @@ const agents = [
     label: 'Total estimated spend',
     text: 'What the tokens would cost through the OpenAI API. On a ChatGPT plan, not what you paid.',
   },
+  {
+    key: 'antigravity',
+    name: 'Antigravity',
+    mark: antigravityMark,
+    path: '%USERPROFILE%\\.gemini\\antigravity\\conversations\\',
+    label: 'Total estimated spend',
+    text: "What the tokens would cost through each model's own API. Antigravity bills by plan, so not what you paid.",
+  },
 ];
 ---
 
 <section class="section" id="agents" aria-labelledby="agents-title">
   <div class="container">
     <div class="section-head">
-      <p class="eyebrow">Two agents</p>
+      <p class="eyebrow">Three agents</p>
       <h2 id="agents-title">Each in its own colour, never added together.</h2>
-      <p class="lead">Claude Code and Codex are read, priced and shown apart, with a rail to switch between them.</p>
+      <p class="lead">Claude Code, Codex and Antigravity are read, priced and shown apart, with a rail to switch between them.</p>
     </div>
     <div class="grid agents">
       {
@@ -89,8 +99,11 @@ const agents = [
     text-transform: uppercase;
   }
 
+  /* Antigravity's path is longer than a phone's card is wide. */
   code {
     justify-self: start;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--text-dim);
   }
 </style>

@@ -12,9 +12,9 @@ const file = (path: string) => `${REPO}/blob/main/${path}`;
 
 export const SITE = {
   name: 'AI Usage',
-  title: 'AI Usage: Claude Code and Codex usage, counted on your own PC',
+  title: 'AI Usage: Claude Code, Codex and Antigravity usage, counted on your own PC',
   description:
-    "A native Windows app that reads Claude Code's and Codex's own transcripts and shows tokens, " +
+    "A native Windows app that reads Claude Code's, Codex's and Antigravity's own transcripts and shows tokens, " +
     'estimated cost and runtime, per project and per day. Nothing leaves the PC.',
   author: 'Md. Naimul Hasan Nashid',
   version,
