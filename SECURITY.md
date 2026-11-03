@@ -14,7 +14,8 @@ branches.
 
 This is a local app with no network service and nothing that runs elevated.
 It reads the transcript files Claude Code and Codex write under your user
-profile, so the interesting boundaries are local ones:
+profile, and Antigravity's conversation databases (opened read-only), so the
+interesting boundaries are local ones:
 
 - **The parsers.** They read files another program wrote. Anything that makes
   a crafted transcript crash the app, hang it, exhaust memory, or make it read

@@ -22,6 +22,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $exe = Join-Path $root "src\UsageApp\bin\x64\$Configuration\net10.0-windows10.0.26100.0\win-x64\AIUsage.exe"
 $env:CLAUDE_CONFIG_DIR = Join-Path $root 'demo-data\claude'
 $env:CODEX_HOME = Join-Path $root 'demo-data\codex'
+$env:AIUSAGE_ANTIGRAVITY_HOME = Join-Path $root 'demo-data\antigravity'
 $env:AIUSAGE_DATA_DIR = Join-Path $root 'demo-data\appdata'
 $env:AIUSAGE_DEBUG_FULLPAGE = if ($FullPage -gt 0) { "$FullPage" } else { $null }
 # @(...) around the if: a one-item result would otherwise unroll to a string,

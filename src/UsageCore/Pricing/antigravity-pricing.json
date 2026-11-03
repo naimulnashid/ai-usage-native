@@ -1,0 +1,53 @@
+{
+  "_comment": "Rate card for Antigravity, USD per MILLION tokens. Edit freely; no code changes required. IMPORTANT: Antigravity is billed by plan, not per token. These are the models' own API rates (Google's Gemini API for Gemini, Anthropic's for Claude), so the figure answers 'what would these tokens cost through the API', not 'what were you billed'.",
+
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "lastVerified": "2026-11-03",
+
+  "_sources": "Gemini: the Gemini API pricing page, https://aistudio.google.com/docs/pricing (paid tier, Standard), checked 2026-11-03. Claude: the same rate as this app's Claude Code card.",
+
+  "_buckets": "`cacheRead` is the context-caching rate. `input` is charged on the UNCACHED remainder: Antigravity logs input and cache reads separately. Antigravity logs no cache writes for any model, Claude included, so the write rates change no figure; Gemini's caching here is implicit, with no write charge, and context-cache storage (per token per hour) is not modelled.",
+
+  "_longContext": "Gemini 3.1 Pro bills a request whose prompt is over 200K tokens (cached included) at $4 input / $0.40 cached / $18 output, which is 2x input and cache and 1.5x output, for the whole request.",
+
+  "_promotional": "Gemini 4 Argon's rates hold through 2026-11-30; from 2026-12-01 Google lists $4 input / $0.20 cached / $20 output. Gemini 3.7 Flash is not on Google's page (checked 2026-11-03): it is priced as Gemini 3.6 and 3.8 Flash, which share one rate, introductory through 2026-12-31, then $1.50 / $0.15 / $7.50.",
+
+  "models": {
+    "gemini-4-argon": {
+      "input": 2.0,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.1,
+      "output": 10.0
+    },
+    "gemini-3.1-pro": {
+      "input": 2.0,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.2,
+      "output": 12.0,
+      "longContext": { "aboveInputTokens": 200000, "inputMultiplier": 2, "outputMultiplier": 1.5 }
+    },
+    "gemini-3.7-flash": {
+      "input": 0.75,
+      "cacheWrite5m": 0,
+      "cacheWrite1h": 0,
+      "cacheRead": 0.075,
+      "output": 3.75
+    },
+    "claude-opus-5-5": {
+      "input": 4.0,
+      "cacheWrite5m": 5.0,
+      "cacheWrite1h": 8.0,
+      "cacheRead": 0.2,
+      "output": 20.0
+    }
+  },
+
+  "_aliases": "Antigravity's ids carry an effort level or a plan ('-high', '-trial') that does not change the per-token rate. They are priced as the model and keep their own band in the charts.",
+  "aliases": {
+    "gemini-4-argon-trial": "gemini-4-argon",
+    "claude-opus-5-5-high": "claude-opus-5-5"
+  }
+}

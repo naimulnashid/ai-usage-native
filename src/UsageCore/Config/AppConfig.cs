@@ -21,10 +21,10 @@ public sealed record ProjectConfig(
 public static class AppConfig
 {
     public static string PricingFileName(ProviderId provider) =>
-        provider == ProviderId.Claude ? "pricing.json" : "codex-pricing.json";
+        Providers.Get(provider).FilePrefix + "pricing.json";
 
     public static string ProjectsFileName(ProviderId provider) =>
-        provider == ProviderId.Claude ? "projects.json" : "codex-projects.json";
+        Providers.Get(provider).FilePrefix + "projects.json";
 
     /// <summary>
     /// The agent's rate card: an override in the config folder when there is a

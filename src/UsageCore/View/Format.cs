@@ -73,7 +73,7 @@ public static class Format
 
     /// <summary>
     /// A model's built-in display name. Claude models lose the redundant prefix;
-    /// Codex strings are not readable that way, so they come from a table.
+    /// Codex and Antigravity strings are not readable that way, so they come from a table.
     /// </summary>
     public static string DefaultModel(string model)
     {

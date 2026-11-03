@@ -51,18 +51,19 @@ function Get-DataFolder {
 # not proof of ownership: a shared AIUSAGE_DATA_DIR can hold another
 # program's config\ or history\, so folders are only ever removed when empty.
 $OwnedFiles = [ordered]@{
-  '.' = @('app-settings.json', 'hidden-projects.json', 'codex-hidden-projects.json',
-    'model-settings.json', 'codex-model-settings.json',
-    'project-colors.json', 'codex-project-colors.json',
-    'project-settings.json', 'codex-project-settings.json')
-  'config' = @('settings.json', 'projects.json', 'codex-projects.json', 'pricing.json', 'codex-pricing.json')
-  'history' = @('claude-history.json', 'codex-history.json')
+  '.' = @('app-settings.json', 'hidden-projects.json', 'codex-hidden-projects.json', 'antigravity-hidden-projects.json',
+    'model-settings.json', 'codex-model-settings.json', 'antigravity-model-settings.json',
+    'project-colors.json', 'codex-project-colors.json', 'antigravity-project-colors.json',
+    'project-settings.json', 'codex-project-settings.json', 'antigravity-project-settings.json')
+  'config' = @('settings.json', 'projects.json', 'codex-projects.json', 'antigravity-projects.json',
+    'pricing.json', 'codex-pricing.json', 'antigravity-pricing.json')
+  'history' = @('claude-history.json', 'codex-history.json', 'antigravity-history.json')
 }
 # Logos are named after projects, so these folders are matched by image type.
-$LogoFolders = @('project-logos\claude', 'project-logos\codex')
+$LogoFolders = @('project-logos\claude', 'project-logos\codex', 'project-logos\antigravity')
 $LogoExtensions = @('.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.ico')
 # Deepest first, so a parent can empty out after its children.
-$OwnedFolders = @('project-logos\claude', 'project-logos\codex', 'project-logos', 'config', 'history')
+$OwnedFolders = @('project-logos\claude', 'project-logos\codex', 'project-logos\antigravity', 'project-logos', 'config', 'history')
 
 # A file the app wrote, or one its atomic writes, archive lock or archive
 # backups leave beside it.

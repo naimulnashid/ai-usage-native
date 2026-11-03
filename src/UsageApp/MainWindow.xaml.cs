@@ -88,7 +88,7 @@ public sealed partial class MainWindow : Window
     /* -------------------------------------------------------------- Theme */
 
     private readonly Windows.UI.ViewManagement.UISettings _systemColors = new();
-    private readonly List<(Image Image, string File, bool Codex)> _railMarks = [];
+    private readonly List<(Image Image, string File, bool BlackOnLight)> _railMarks = [];
 
     /// <summary>Whether the light theme is the one to show: the choice, or Windows' own for "system".</summary>
     private bool ResolveLight()
@@ -106,7 +106,7 @@ public sealed partial class MainWindow : Window
         var light = ResolveLight();
         if (light != Palette.IsLight) Palette.ApplyTheme(light);
         ApplyControlTheme();
-        foreach (var (image, file, codex) in _railMarks) _ = LoadMark(image, file, codex);
+        foreach (var (image, file, blackOnLight) in _railMarks) _ = LoadMark(image, file, blackOnLight);
         UpdateChrome();
         Rebuild(keepScroll: true);
     }
@@ -130,8 +130,24 @@ public sealed partial class MainWindow : Window
     /// rail, so there it is drawn black - OpenAI's own black variant of the same
     /// single-colour mark, not a colour of ours. The file is untouched.
     /// </summary>
-    private static async Task LoadMark(Image mark, string file, bool codex) =>
-        mark.Source = await ImageLoader.LoadAsync(file, mark.Width, mark.XamlRoot?.RasterizationScale ?? 1, black: codex && Palette.IsLight);
+    private static async Task LoadMark(Image mark, string file, bool blackOnLight) =>
+        mark.Source = await ImageLoader.LoadAsync(file, mark.Width, mark.XamlRoot?.RasterizationScale ?? 1, black: blackOnLight && Palette.IsLight);
+
+    /// <summary>
+    /// Each agent's mark file and the size it is drawn at. The vendors pad their
+    /// files differently: Anthropic's artwork fills its viewBox, OpenAI's fills
+    /// half of it. An image drawn larger and pulled back by a negative margin
+    /// keeps a 24px footprint and makes the marks look the same size. Those files
+    /// are untouched. Antigravity ships only an app icon, its glyph on a white
+    /// tile; antigravity.png is that glyph alone, white turned to alpha and
+    /// cropped to it, so it sits on the rail like the other two.
+    /// </summary>
+    private static (string File, double Size, bool BlackOnLight) MarkFor(ProviderId id) => id switch
+    {
+        ProviderId.Claude => ("claude-code.svg", 24, false),
+        ProviderId.Codex => ("codex.svg", 44, true),
+        _ => ("antigravity.png", 24, false),
+    };
 
     private void ConfigureWindow()
     {
@@ -344,7 +360,7 @@ public sealed partial class MainWindow : Window
 
     private static Border Footer()
     {
-        var text = Ui.Text("Not affiliated with Anthropic or OpenAI. Claude Code and Codex are trademarks of their owners.", 12.5, 400, Palette.TextFaintBrush, wrap: true);
+        var text = Ui.Text("Not affiliated with Anthropic, OpenAI or Google. Claude Code, Codex and Antigravity are trademarks of their owners.", 12.5, 400, Palette.TextFaintBrush, wrap: true);
         text.HorizontalAlignment = HorizontalAlignment.Center;
         text.TextAlignment = TextAlignment.Center;
         return new Border
@@ -394,15 +410,11 @@ public sealed partial class MainWindow : Window
 
         foreach (var meta in Providers.All)
         {
-            var mark = new Image { Width = meta.Id == ProviderId.Codex ? 44 : 24, Height = meta.Id == ProviderId.Codex ? 44 : 24, Margin = new Thickness(meta.Id == ProviderId.Codex ? -10 : 0) };
-            // The vendors pad their files differently: Anthropic's artwork fills
-            // its viewBox, OpenAI's fills half of it. A 44px image pulled back
-            // 10px each side keeps a 24px footprint and makes the marks look
-            // the same size. The files themselves are untouched.
-            var markFile = Path.Combine(AppContext.BaseDirectory, "Assets", "AgentMarks", meta.Id == ProviderId.Claude ? "claude-code.svg" : "codex.svg");
-            var isCodex = meta.Id == ProviderId.Codex;
-            _railMarks.Add((mark, markFile, isCodex));
-            mark.Loaded += async (_, _) => await LoadMark(mark, markFile, isCodex);
+            var (fileName, size, blackOnLight) = MarkFor(meta.Id);
+            var mark = new Image { Width = size, Height = size, Margin = new Thickness((24 - size) / 2) };
+            var markFile = Path.Combine(AppContext.BaseDirectory, "Assets", "AgentMarks", fileName);
+            _railMarks.Add((mark, markFile, blackOnLight));
+            mark.Loaded += async (_, _) => await LoadMark(mark, markFile, blackOnLight);
             var markBox = new Grid { Width = 24, Height = 24 };
             markBox.Children.Add(mark);
 
@@ -802,7 +814,7 @@ public sealed partial class MainWindow : Window
         _debugApplied = true;
         var parts = spec.Split(',');
         if (parts.Length < 2) return;
-        var provider = parts[0].Equals("codex", StringComparison.OrdinalIgnoreCase) ? ProviderId.Codex : ProviderId.Claude;
+        var provider = Providers.FromSlug(parts[0])?.Id ?? ProviderId.Claude;
         if (provider != _state.Provider)
         {
             SelectProvider(provider);

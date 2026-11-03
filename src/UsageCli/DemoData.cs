@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 namespace UsageCli;
 
 /// <summary>
-/// Writes a synthetic transcript tree for both agents.
+/// Writes a synthetic transcript tree for every agent.
 /// </summary>
 /// <remarks>
 /// <para>Every screenshot of this app is otherwise a screenshot of somebody's
@@ -16,8 +16,12 @@ namespace UsageCli;
 /// growing output_tokens, replayed history shared between files, nested
 /// subagents, cache writes split by TTL. Codex: cumulative totals, a repeated
 /// reading, cached tokens inside input, reasoning inside output, auto-review
-/// threads under their own model. A demo parse should report duplicates skipped
-/// and output recovered, and <c>files reconciled: N ok / 0 mismatched</c>.</para>
+/// threads under their own model. Antigravity: conversation databases, one copied
+/// into the older IDE build's folder, research subagents in files of their own, a
+/// browser subagent's usage on its tool step, a moving model alias and a prompt
+/// over the long-context tier. A demo parse should report duplicates skipped
+/// and output recovered, and <c>files reconciled: N ok / 0 mismatched</c> for
+/// Codex and Antigravity alike.</para>
 /// <para>Seeded, so the same command produces the same data (relative to today).</para>
 /// </remarks>
 internal static class DemoData
@@ -52,6 +56,17 @@ internal static class DemoData
         [("Recipe Box", 34), ("Weather Widget", 22), ("Invoice Tool", 18), ("Bird Log", 12), ("Chess Clock", 8), ("Tide Table", 6)];
 
     private static readonly (string Name, int Weight)[] CodexProjects = [("Recipe Box", 62), ("Label Printer", 38)];
+
+    private static readonly (string Name, int Weight)[] AntigravityProjects = [("Weather Widget", 58), ("Tide Table", 42)];
+
+    /// <summary>Antigravity's ids, display names and its own model numbers.</summary>
+    private static readonly (string Id, string Name, int Number, int Share)[] AntigravityModels =
+    [
+        ("gemini-pro-default", "Gemini 3.1 Pro (High)", 1016, 34),
+        ("gemini-3.7-flash", "Gemini 3.7 Flash (High)", 1298, 30),
+        ("gemini-4-argon-trial", "Gemini 4 Argon (Medium)", 1418, 26),
+        ("claude-opus-5-5-high", "Claude Opus 5.5 (High)", 1402, 10),
+    ];
 
     private static readonly (string Id, int Share)[] ClaudeModels =
         [("claude-opus-5", 46), ("claude-opus-4-8", 18), ("claude-fable-5", 14), ("claude-sonnet-5", 20), ("<synthetic>", 2)];
@@ -94,15 +109,19 @@ internal static class DemoData
 
         var claude = WriteClaude(target);
         var codex = WriteCodex(target);
+        // Written last, so the other agents' data stays what it was before Antigravity.
+        var antigravity = WriteAntigravity(target);
 
         Console.WriteLine($"Demo transcripts written to {target}");
         Console.WriteLine($"  Claude Code  {claude.Files} files ({claude.Sessions} sessions, plus subagents)");
         Console.WriteLine($"  Codex        {codex.Files} files ({codex.Threads} threads, plus auto-reviews)");
+        Console.WriteLine($"  Antigravity  {antigravity.Files} files ({antigravity.Conversations} conversations, plus subagents and one IDE copy)");
         Console.WriteLine();
         Console.WriteLine("Point the app at them (PowerShell):");
         Console.WriteLine();
         Console.WriteLine($"  $env:CLAUDE_CONFIG_DIR = '{Path.Combine(target, "claude")}'");
         Console.WriteLine($"  $env:CODEX_HOME = '{Path.Combine(target, "codex")}'");
+        Console.WriteLine($"  $env:{UsageCore.AppPaths.AntigravityHomeVariable} = '{Path.Combine(target, "antigravity")}'");
         Console.WriteLine($"  $env:AIUSAGE_DATA_DIR = '{Path.Combine(target, "appdata")}'");
         Console.WriteLine();
         Console.WriteLine("AIUSAGE_DATA_DIR is not optional: without it these synthetic days are");
@@ -315,5 +334,79 @@ internal static class DemoData
 
         File.WriteAllText(Path.Combine(home, "session_index.jsonl"), string.Join("\n", index) + "\n");
         return (files, threads);
+    }
+
+    /// <summary>
+    /// Antigravity: a conversation database per chat, through the same writer the
+    /// tests use, so the field numbers cannot drift from the parser's.
+    /// </summary>
+    private static (int Files, int Conversations) WriteAntigravity(string root)
+    {
+        var home = Path.Combine(root, "antigravity");
+        var dir = Path.Combine(home, "antigravity", "conversations");
+        int files = 0, conversations = 0;
+        string? firstFile = null;
+        var longPromptWritten = false;
+
+        for (var daysAgo = Days - 1; daysAgo >= 0; daysAgo--)
+        {
+            if (Rand() < 0.45) continue;
+            foreach (var (name, weight) in AntigravityProjects)
+            {
+                if (Rand() * 100 > weight) continue;
+                var workspace = Path.Combine(Home, name);
+                var start = DateTimeOffset.FromUnixTimeMilliseconds(DayStart(daysAgo));
+                var model = AntigravityModels[Pick(Enumerable.Range(0, AntigravityModels.Length).SelectMany(i => Enumerable.Repeat(i, AntigravityModels[i].Share)).ToList())];
+                var at = start;
+                var context = Int(6_000, 14_000);
+                var requests = new List<UsageCore.Parsing.AntigravityFormat.DemoRequest>();
+                var turns = Int(4, 22);
+                for (var t = 0; t < turns; t++)
+                {
+                    var fresh = Int(300, 6_000);
+                    // One prompt over Gemini 3.1 Pro's 200K tier, so the surcharge shows.
+                    var input = !longPromptWritten && model.Id == "gemini-pro-default" && t == turns - 1 ? 220_000 : fresh;
+                    longPromptWritten |= input == 220_000;
+                    var output = Int(80, 2_400);
+                    var thinking = model.Id.StartsWith("claude", StringComparison.Ordinal) ? 0 : Int(0, output / 2);
+                    var browser = Rand() < 0.04
+                        ? new UsageCore.Parsing.AntigravityFormat.DemoSubagent(1298, Int(40_000, 400_000), Int(2_000, 9_000), Int(100_000, 900_000))
+                        : null;
+                    requests.Add(new(at, model.Id, model.Name, input, output, context, thinking, Int(0, 4), model.Number, browser));
+                    context += fresh + output;
+                    at = at.AddSeconds(Int(20, 240));
+                }
+                var cascade = Uuid();
+                var file = Path.Combine(dir, cascade + ".db");
+                UsageCore.Parsing.AntigravityFormat.WriteConversation(file, workspace, start, requests);
+                firstFile ??= file;
+                files++;
+                conversations++;
+
+                // A research subagent now and then, in a file of its own.
+                if (Rand() < 0.3)
+                {
+                    var helper = new List<UsageCore.Parsing.AntigravityFormat.DemoRequest>();
+                    var hat = start.AddMinutes(2);
+                    for (var t = 0; t < Int(2, 6); t++)
+                    {
+                        helper.Add(new(hat, "gemini-4-argon-trial", "Gemini 4 Argon (Medium)", Int(2_000, 20_000), Int(100, 900), Int(5_000, 60_000), Int(0, 200), 1, 1418));
+                        hat = hat.AddSeconds(Int(10, 60));
+                    }
+                    UsageCore.Parsing.AntigravityFormat.WriteConversation(Path.Combine(dir, Uuid() + ".db"), workspace, start.AddMinutes(2), helper, parentCascadeId: cascade, subagentType: "research");
+                    files++;
+                }
+            }
+        }
+
+        // The IDE build kept a copy of the first conversation: Trap 1.
+        if (firstFile is not null)
+        {
+            var copy = Path.Combine(home, "antigravity-ide", "conversations", Path.GetFileName(firstFile));
+            Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+            File.Copy(firstFile, copy);
+            files++;
+        }
+        return (files, conversations);
     }
 }

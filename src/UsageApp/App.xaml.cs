@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using UsageApp.State;
+using UsageCore;
 using UsageCore.Model;
 
 namespace UsageApp;
@@ -50,15 +51,14 @@ public partial class App : Application
         if (startInTray) _window.EnterTray();
         else _window.OpenMaximized();
 
-        // Both agents load up front, one after the other: the tray shows both,
-        // whichever one is on screen.
-        _ = LoadBoth();
+        // Every agent loads up front, one after the other: the tray shows them
+        // all, whichever one is on screen.
+        _ = LoadAll();
     }
 
-    private async Task LoadBoth()
+    private async Task LoadAll()
     {
-        await _state!.RefreshAsync(ProviderId.Claude);
-        await _state.RefreshAsync(ProviderId.Codex);
+        foreach (var meta in Providers.All) await _state!.RefreshAsync(meta.Id);
     }
 
     private void Quit()

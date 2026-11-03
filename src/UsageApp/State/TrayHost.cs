@@ -62,8 +62,7 @@ public sealed class TrayHost : IDisposable
                 new PopupMenuItem("Open AI Usage", (_, _) => state.OnUi(open)),
                 new PopupMenuItem("Refresh now", (_, _) => state.OnUi(() =>
                 {
-                    _ = state.RefreshAsync(ProviderId.Claude);
-                    _ = state.RefreshAsync(ProviderId.Codex);
+                    foreach (var meta in Providers.All) _ = state.RefreshAsync(meta.Id);
                 })),
                 new PopupMenuSeparator(),
                 _autoRefresh,

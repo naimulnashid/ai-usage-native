@@ -20,7 +20,7 @@ public static class ProjectColorSettings
     public const int MaxIdLength = 1024;
 
     public static string PathFor(ProviderId provider, string? dataDir = null) =>
-        Path.Combine(dataDir ?? AppPaths.DataDir, provider == ProviderId.Claude ? "project-colors.json" : "codex-project-colors.json");
+        Path.Combine(dataDir ?? AppPaths.DataDir, Providers.Get(provider).FilePrefix + "project-colors.json");
 
     public static bool IsValidId(string? id) => id is { Length: > 0 and <= MaxIdLength };
 

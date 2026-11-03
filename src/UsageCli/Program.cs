@@ -20,13 +20,13 @@ switch (command)
         return DemoData.Run(args.Skip(1).FirstOrDefault() ?? "demo-data");
     default:
         Console.WriteLine("""
-            aiusage parse <claude|codex> [--no-archive] [--json <file>]
+            aiusage parse <claude|codex|antigravity> [--no-archive] [--json <file>]
                 Parses an agent's transcripts and prints the numbers worth
                 watching after a parser change. By default the result is folded
                 into the app's archive, exactly as the app does.
 
             aiusage demo-data [dir]
-                Writes synthetic transcripts for both agents (default ./demo-data)
+                Writes synthetic transcripts for every agent (default ./demo-data)
                 and prints how to point the app at them.
             """);
         return command is null or "help" or "--help" ? 0 : 1;
@@ -34,13 +34,12 @@ switch (command)
 
 static int Parse(string[] args)
 {
-    var agent = args.FirstOrDefault()?.ToLowerInvariant();
-    if (agent is not ("claude" or "codex"))
+    if (Providers.FromSlug(args.FirstOrDefault()) is not { } meta)
     {
-        Console.Error.WriteLine("parse: name an agent, claude or codex.");
+        Console.Error.WriteLine("parse: name an agent: " + string.Join(", ", Providers.All.Select(p => p.Slug)) + ".");
         return 1;
     }
-    var provider = agent == "claude" ? ProviderId.Claude : ProviderId.Codex;
+    var provider = meta.Id;
     var useArchive = !args.Contains("--no-archive");
     var jsonIndex = Array.IndexOf(args, "--json");
     var jsonOut = jsonIndex >= 0 && jsonIndex + 1 < args.Length ? args[jsonIndex + 1] : null;
@@ -74,6 +73,14 @@ static int Parse(string[] args)
         var flagged = report.Projects.SelectMany(p => p.Sessions).Sum(s => s.SuspiciousMessageCount);
         Console.WriteLine($"  still-suspicious outputs : {flagged}");
     }
+    else if (provider == ProviderId.Antigravity)
+    {
+        Console.WriteLine($"  request rows             : {d.AssistantLines:#,0}");
+        Console.WriteLine($"  requests counted         : {d.UniqueMessages:#,0}");
+        Console.WriteLine($"  duplicate copies skipped : {d.DuplicateLinesSkipped:#,0} rows");
+        Console.WriteLine($"  files reconciled         : {d.ReconciledFiles} ok / {d.ReconcileFailures} mismatched");
+        Console.WriteLine($"  long-context turns       : {d.LongContextRequests:#,0}");
+    }
     else
     {
         Console.WriteLine($"  token_count events       : {d.AssistantLines:#,0}");
@@ -95,7 +102,7 @@ static int Parse(string[] args)
     Console.WriteLine("--- MODELS -------------------------------------------------------");
     foreach (var (model, cell) in report.Global.PerModel)
     {
-        var extra = provider == ProviderId.Codex ? $"  reasoning {M(cell.Reasoning ?? 0),8}" : $"  writes {M(cell.CacheWrite5m + cell.CacheWrite1h),8}";
+        var extra = meta.HasReasoningTokens ? $"  reasoning {M(cell.Reasoning ?? 0),8}" : $"  writes {M(cell.CacheWrite5m + cell.CacheWrite1h),8}";
         Console.WriteLine($"{Usd(cell.CostUsd),12}{M(cell.TotalTokens),10}  in {M(cell.Input),8}  out {M(cell.Output),8}  cached {M(cell.CacheRead),9}{extra}  {model}{(cell.Unpriced ? "  (UNPRICED)" : "")}");
     }
 

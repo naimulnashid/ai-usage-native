@@ -79,7 +79,7 @@ public static class HistoryArchive
 {
 
     public static string PathFor(ProviderId provider, string? historyDir = null) =>
-        System.IO.Path.Combine(historyDir ?? AppPaths.HistoryDir, provider == ProviderId.Claude ? "claude-history.json" : "codex-history.json");
+        System.IO.Path.Combine(historyDir ?? AppPaths.HistoryDir, Providers.Get(provider).Slug + "-history.json");
 
     public static HistoryFile Load(string file, List<string> warnings) => Load(file, warnings, out _);
 
@@ -417,7 +417,7 @@ public static class HistoryArchive
     public static UsageReport Apply(UsageReport report, HistoryFile history, long nowMs, PricingConfig? pricing = null, ProjectConfig? projectConfig = null)
     {
         if (history.Days.Count == 0) return report;
-        var tracksReasoning = report.Provider == ProviderId.Codex;
+        var tracksReasoning = Providers.Get(report.Provider).HasReasoningTokens;
         var merge = projectConfig?.Merge ?? ProjectConfig.None.Merge;
         var displayNames = projectConfig?.DisplayNames ?? ProjectConfig.None.DisplayNames;
         var foldedIn = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);

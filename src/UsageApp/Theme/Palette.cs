@@ -124,8 +124,8 @@ public static class Palette
 
     /// <summary>
     /// A day well above trend. Claude Code's is the warning red; red on Codex's
-    /// green read as Claude Code's colour, so Codex marks it in its own bright
-    /// accent instead.
+    /// green read as Claude Code's colour, so Codex and Antigravity mark it in
+    /// their own bright accent instead (<see cref="ProviderMeta.SpikeInWarning"/>).
     /// </summary>
     public static readonly SolidColorBrush SpikeBrush = new();
 
@@ -185,19 +185,21 @@ public static class Palette
     public static void ApplyProvider(ProviderMeta meta)
     {
         _meta = meta;
-        var codex = meta.Id == ProviderId.Codex;
+        // Claude Code's terracotta tints were tuned first; the cooler accents
+        // need a little more alpha to read the same on black.
+        var cool = meta.Id != ProviderId.Claude;
         var hex = IsLight ? meta.AccentLight : meta.Accent;
         var accent = Hex(hex);
         AccentColor = accent;
         Accent.Color = accent;
         AccentBright.Color = Hex(IsLight ? meta.AccentBrightLight : meta.AccentBright);
         // Tints sit on white in the light theme, where a smaller share reads.
-        AccentDim.Color = Hex(hex, IsLight ? 0.08 : codex ? 0.15 : 0.14);
-        AccentGlow.Color = Hex(hex, IsLight ? 0.18 : codex ? 0.30 : 0.28);
-        AccentBorder.Color = Hex(hex, IsLight ? 0.30 : codex ? 0.34 : 0.32);
-        AccentBorderStrong.Color = Hex(hex, IsLight ? 0.45 : codex ? 0.46 : 0.42);
-        AccentFill.Color = Hex(hex, IsLight ? 0.14 : codex ? 0.24 : 0.22);
-        SpikeBrush.Color = codex ? AccentBright.Color : Warn;
+        AccentDim.Color = Hex(hex, IsLight ? 0.08 : cool ? 0.15 : 0.14);
+        AccentGlow.Color = Hex(hex, IsLight ? 0.18 : cool ? 0.30 : 0.28);
+        AccentBorder.Color = Hex(hex, IsLight ? 0.30 : cool ? 0.34 : 0.32);
+        AccentBorderStrong.Color = Hex(hex, IsLight ? 0.45 : cool ? 0.46 : 0.42);
+        AccentFill.Color = Hex(hex, IsLight ? 0.14 : cool ? 0.24 : 0.22);
+        SpikeBrush.Color = meta.SpikeInWarning ? Warn : AccentBright.Color;
         var ramp = IsLight ? meta.HeatRampLight : meta.HeatRamp;
         for (var i = 0; i < Heat.Length; i++) Heat[i].Color = Hex(ramp[i]);
         SetModelSettings(UsageCore.Config.ModelSettings.Load(meta.Id));

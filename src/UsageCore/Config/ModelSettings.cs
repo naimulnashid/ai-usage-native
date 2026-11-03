@@ -47,7 +47,7 @@ public static class ModelSettings
     public const int MaxNameLength = 60;
 
     public static string PathFor(ProviderId provider, string? dataDir = null) =>
-        Path.Combine(dataDir ?? AppPaths.DataDir, provider == ProviderId.Claude ? "model-settings.json" : "codex-model-settings.json");
+        Path.Combine(dataDir ?? AppPaths.DataDir, Providers.Get(provider).FilePrefix + "model-settings.json");
 
     /// <summary>A model string that can be a key: <c>_</c> keys are documentation in the rate cards.</summary>
     public static bool IsValidModelName(string? value) =>

@@ -28,7 +28,12 @@ public static class UsageService
         var pricing = ModelSettings.WithCustomRates(card, custom);
         var projects = ProjectSettings.LoadEffective(provider);
         var options = new ParseOptions { Pricing = pricing, ProjectConfig = projects };
-        var parsed = provider == ProviderId.Claude ? ClaudeParser.Parse(options) : CodexParser.Parse(options);
+        var parsed = provider switch
+        {
+            ProviderId.Claude => ClaudeParser.Parse(options),
+            ProviderId.Codex => CodexParser.Parse(options),
+            _ => AntigravityParser.Parse(options),
+        };
         var report = useArchive ? HistoryArchive.WithHistory(parsed, pricing: pricing, projectConfig: projects) : parsed;
         report.ModelRates = ModelSettings.DescribeRates(card, custom, report.Global.PerModel.Keys);
         return report;

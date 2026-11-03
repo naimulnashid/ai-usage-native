@@ -7,9 +7,10 @@ namespace UsageCore.View;
 /// </summary>
 /// <remarks>
 /// <para>The shade IS the encoding: darker means more expensive, so a dark band
-/// low in a stacked chart is premium spend. One table serves both agents because
-/// their model strings cannot collide (<c>claude-*</c> against <c>gpt-*</c> and
-/// <c>codex-*</c>).</para>
+/// low in a stacked chart is premium spend. One table serves every agent because
+/// their model strings do not collide (<c>claude-*</c> against <c>gpt-*</c> and
+/// <c>codex-*</c>; Antigravity's Claude ids carry an effort suffix,
+/// <c>claude-opus-5-5-high</c>). A shared id would take the first agent's shade.</para>
 /// <para>Every shade clears 3:1 against the panel (WCAG 1.4.11). That floor
 /// compresses the ramp - neighbours differ by ~1.2:1 - so colour is never the
 /// only way a band can be read: every chart has a legend and a tooltip.</para>
@@ -51,6 +52,16 @@ public static class ModelColors
         ("codex-auto-review", new("#13C69A", 14)),
         // $10 - lightest.
         ("gpt-6.1-sol", new("#3FD2AC", 10)),
+
+        // Antigravity: shades of Google blue. $20 deepest.
+        ("claude-opus-5-5-high", new("#0C58D4", 20)),
+        // $12
+        ("gemini-3.1-pro", new("#2170F2", 12)),
+        // $10. The trial id is the same model on a trial plan.
+        ("gemini-4-argon", new("#4285F4", 10)),
+        ("gemini-4-argon-trial", new("#5B95F5", 10)),
+        // $3.75 - lightest.
+        ("gemini-3.7-flash", new("#8BB4F8", 3.75)),
     ];
 
     private static readonly Dictionary<string, (Shade Shade, int Order)> Lookup =
@@ -62,6 +73,11 @@ public static class ModelColors
         ["gpt-5.6-sol"] = "GPT-5.6 Sol",
         ["gpt-5.3-codex"] = "GPT-5.3 Codex",
         ["codex-auto-review"] = "auto-review (5.3 Codex)",
+        ["claude-opus-5-5-high"] = "Claude Opus 5.5 (High)",
+        ["gemini-3.1-pro"] = "Gemini 3.1 Pro",
+        ["gemini-4-argon"] = "Gemini 4 Argon",
+        ["gemini-4-argon-trial"] = "Gemini 4 Argon (trial)",
+        ["gemini-3.7-flash"] = "Gemini 3.7 Flash",
     };
 
     /// <summary>
@@ -81,6 +97,11 @@ public static class ModelColors
             [
                 "#0B6D55", "#0C7A5F", "#0E8A6C", "#0F9674", "#10A37F",
                 "#12B48C", "#13C69A", "#3FD2AC", "#6CDDBF", "#98E8D3",
+            ],
+            [ProviderId.Antigravity] =
+            [
+                "#0C58D4", "#0D5DE3", "#0E63F1", "#2170F2", "#4285F4",
+                "#5B95F5", "#73A5F7", "#8BB4F8", "#A3C4FA", "#BCD3FB",
             ],
         };
 
@@ -105,6 +126,11 @@ public static class ModelColors
             [
                 "#074B3B", "#085340", "#095B47", "#0A624D", "#0B6C54",
                 "#0C755C", "#0D8164", "#0E8C6D", "#0F9876", "#10A580",
+            ],
+            [ProviderId.Antigravity] =
+            [
+                "#0F326B", "#113879", "#133E86", "#144494", "#164BA1",
+                "#1851AF", "#1A57BC", "#1C5DCA", "#1E64D7", "#246BE1",
             ],
         };
 

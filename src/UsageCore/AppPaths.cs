@@ -37,10 +37,10 @@ public static class AppPaths
     /// one agent's mark to the other's project.
     /// </summary>
     public static string LogoDir(ProviderId provider) =>
-        Path.Combine(DataDir, "project-logos", provider == ProviderId.Claude ? "claude" : "codex");
+        Path.Combine(DataDir, "project-logos", Providers.Get(provider).Slug);
 
     public static string HiddenProjectsFile(ProviderId provider) =>
-        Path.Combine(DataDir, provider == ProviderId.Claude ? "hidden-projects.json" : "codex-hidden-projects.json");
+        Path.Combine(DataDir, Providers.Get(provider).FilePrefix + "hidden-projects.json");
 
     private static string Home =>
         Environment.GetEnvironmentVariable("USERPROFILE") is { Length: > 0 } profile
@@ -56,4 +56,17 @@ public static class AppPaths
     /// <summary><c>CODEX_HOME</c>, else <c>~/.codex</c>.</summary>
     public static string CodexHome =>
         Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } dir ? dir : Path.Combine(Home, ".codex");
+
+    /// <summary>
+    /// This app's own variable, not Antigravity's: Antigravity reads none, so the
+    /// demo and the tests need somewhere to point the parser.
+    /// </summary>
+    public const string AntigravityHomeVariable = "AIUSAGE_ANTIGRAVITY_HOME";
+
+    /// <summary>
+    /// The folder that holds <c>antigravity\</c> and the older <c>antigravity-ide\</c>:
+    /// <c>AIUSAGE_ANTIGRAVITY_HOME</c>, else <c>~/.gemini</c>.
+    /// </summary>
+    public static string AntigravityHome =>
+        Environment.GetEnvironmentVariable(AntigravityHomeVariable) is { Length: > 0 } dir ? dir : Path.Combine(Home, ".gemini");
 }

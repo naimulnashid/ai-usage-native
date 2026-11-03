@@ -33,6 +33,7 @@ public sealed class AppState
     {
         [ProviderId.Claude] = new AgentData(),
         [ProviderId.Codex] = new AgentData(),
+        [ProviderId.Antigravity] = new AgentData(),
     };
     private readonly Dictionary<ProviderId, Task> _inFlight = [];
     private readonly HashSet<ProviderId> _again = [];

@@ -29,7 +29,7 @@ public sealed class LogoStore : IDisposable
     public LogoStore(DispatcherQueue ui)
     {
         _ui = ui;
-        foreach (var provider in new[] { ProviderId.Claude, ProviderId.Codex })
+        foreach (var provider in Providers.All.Select(p => p.Id))
         {
             var dir = AppPaths.LogoDir(provider);
             try

@@ -7,7 +7,7 @@ namespace UsageCore.Parsing;
 
 public sealed class ParseOptions
 {
-    /// <summary>Claude Code: the projects directory. Codex: CODEX_HOME.</summary>
+    /// <summary>Claude Code: the projects directory. Codex: CODEX_HOME. Antigravity: ~/.gemini.</summary>
     public string? Root { get; init; }
     public PricingConfig? Pricing { get; init; }
     public Settings? Settings { get; init; }

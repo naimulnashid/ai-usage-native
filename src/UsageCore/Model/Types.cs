@@ -1,10 +1,11 @@
 namespace UsageCore.Model;
 
-/// <summary>The two coding agents this app reports on.</summary>
+/// <summary>The coding agents this app reports on.</summary>
 public enum ProviderId
 {
     Claude,
     Codex,
+    Antigravity,
 }
 
 /// <summary>First day of the week in the activity heat map.</summary>
@@ -33,7 +34,7 @@ public sealed record ModelRate(
 /// A request whose prompt (cached part included) is over
 /// <see cref="AboveInputTokens"/> is billed at <see cref="InputMultiplier"/> x the
 /// input AND cache rates and <see cref="OutputMultiplier"/> x the output rate, for
-/// the whole request. Only the Codex parser classifies requests against it.
+/// the whole request. The Codex and Antigravity parsers classify requests against it.
 /// </summary>
 public sealed record LongContextRule(long AboveInputTokens, double InputMultiplier, double OutputMultiplier);
 
@@ -284,18 +285,21 @@ public sealed class ParseDiagnostics
     /// <summary>Claude Code only: output_tokens recovered from a later streaming line.</summary>
     public long OutputTokensRecovered { get; set; }
 
-    /// <summary>Codex only: files whose deltas matched Codex's own per-turn figures.</summary>
+    /// <summary>
+    /// Codex: files whose deltas matched Codex's own per-turn figures.
+    /// Antigravity: files whose request rows matched the usage on their steps.
+    /// </summary>
     public int? ReconciledFiles { get; set; }
 
-    /// <summary>Codex only. Non-zero is how you find out the schema has moved.</summary>
+    /// <summary>Codex and Antigravity. Non-zero is how you find out the schema has moved.</summary>
     public int? ReconcileFailures { get; set; }
 
     /// <summary>Codex only: running counter went backwards (context reset).</summary>
     public int? CounterResets { get; set; }
 
     /// <summary>
-    /// Codex only: billed turns whose prompt was over their model's long-context
-    /// threshold, and so carry the tier's surcharge (<see cref="ModelRate.LongContext"/>).
+    /// Codex and Antigravity: billed turns whose prompt was over their model's
+    /// long-context threshold, and so carry the tier's surcharge (<see cref="ModelRate.LongContext"/>).
     /// </summary>
     public long? LongContextRequests { get; set; }
 

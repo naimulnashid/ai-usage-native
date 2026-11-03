@@ -17,6 +17,10 @@ namespace UsageApp.State;
 /// minute is the cost ceiling.</para>
 /// <para>Each agent is watched and refreshed on its own, so Codex writing does
 /// not re-parse Claude Code.</para>
+/// <para><b>Antigravity is watched for <c>.db</c> and <c>.db-wal</c> only.</b> A
+/// live conversation writes its write-ahead log, but every reader of a database
+/// in WAL mode writes its <c>-shm</c> file - the parse included - so watching that
+/// would make each refresh schedule the next one.</para>
 /// <para><b>A root can appear later</b> - the app opened before an agent was
 /// first used, or Codex's <c>archived_sessions</c> made on its first archive -
 /// or be deleted and made again. The roots are checked every
@@ -54,7 +58,8 @@ public sealed class TranscriptWatcher : IDisposable
     private static IEnumerable<(ProviderId Provider, string Dir)> Roots() =>
         CodexParser.SessionRoots(AppPaths.CodexHome)
             .Select(dir => (ProviderId.Codex, dir))
-            .Prepend((ProviderId.Claude, AppPaths.ClaudeProjectsDir));
+            .Prepend((ProviderId.Claude, AppPaths.ClaudeProjectsDir))
+            .Concat(AntigravityParser.ConversationRoots(AppPaths.AntigravityHome).Select(dir => (ProviderId.Antigravity, dir)));
 
     private void Reconcile(bool initial)
     {
@@ -79,12 +84,18 @@ public sealed class TranscriptWatcher : IDisposable
     {
         try
         {
-            var watcher = new FileSystemWatcher(dir, "*.jsonl")
+            var watcher = new FileSystemWatcher(dir)
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
                 InternalBufferSize = 64 * 1024,
             };
+            if (provider == ProviderId.Antigravity)
+            {
+                watcher.Filters.Add("*.db");
+                watcher.Filters.Add("*.db-wal");
+            }
+            else watcher.Filters.Add("*.jsonl");
             void Changed(object? sender, FileSystemEventArgs e) => _ui.TryEnqueue(() => Schedule(provider));
             watcher.Changed += Changed;
             watcher.Created += Changed;

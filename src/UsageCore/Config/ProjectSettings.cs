@@ -29,7 +29,7 @@ public static class ProjectSettings
     public const int MaxNameLength = 120;
 
     public static string PathFor(ProviderId provider, string? dataDir = null) =>
-        Path.Combine(dataDir ?? AppPaths.DataDir, provider == ProviderId.Claude ? "project-settings.json" : "codex-project-settings.json");
+        Path.Combine(dataDir ?? AppPaths.DataDir, Providers.Get(provider).FilePrefix + "project-settings.json");
 
     public static bool IsValidId(string? id) => id is { Length: > 0 and <= MaxIdLength } && !id.StartsWith('_');
 

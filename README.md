@@ -5,7 +5,8 @@
 [![MIT license](https://img.shields.io/github/license/naimulnashid/ai-usage-native)](LICENSE)
 [![Website](https://img.shields.io/badge/website-live-D97757)](https://ai-usage-native-site.vercel.app/)
 
-A native Windows app that shows how much **Claude Code** and **Codex** you use:
+A native Windows app that shows how much **Claude Code**, **Codex** and
+**Antigravity** you use:
 tokens, estimated cost and approximate runtime, overall, per project and per
 day. It reads the agents' own transcript files on your PC, and nothing leaves
 the machine.
@@ -49,19 +50,20 @@ The images follow GitHub's theme: dark or light, as the app draws them.
 
 ## Features
 
-- **Both agents, side by side**: Claude Code and Codex, each with its own
-  pages, accent and cost label.
+- **Three agents, side by side**: Claude Code, Codex and Antigravity, each with
+  its own pages and accent.
 - **Tokens, estimated cost and runtime** overall, per project, per day and per
-  model, with input, output, cache writes, cache reads and (for Codex)
-  reasoning tokens kept apart.
+  model, with input, output, cache writes, cache reads and (for Codex and
+  Antigravity) reasoning tokens kept apart.
 - **Counts each message once.** Claude Code writes the same message to disk
-  several times (streaming updates, resumed sessions), and Codex repeats its
-  running totals; both are collapsed, so cost is not overstated.
-- **Built-in rate cards** for both vendors, including Claude Code's two cache
-  lifetimes and Codex's higher rate for prompts over 272K tokens. A model the
-  card does not know is flagged as unpriced, never counted as free, and can be
-  given a price in the app.
-- **History that outlives the transcripts.** Both agents delete old transcript
+  several times (streaming updates, resumed sessions), Codex repeats its
+  running totals, and Antigravity can keep the same conversation in two
+  folders; all are collapsed, so cost is not overstated.
+- **Built-in rate cards** for every agent, including Claude Code's two cache
+  lifetimes and the higher rates for long prompts on Codex (over 272K tokens)
+  and Gemini 3.1 Pro (over 200K). A model the card does not know is flagged as
+  unpriced, never counted as free, and can be given a price in the app.
+- **History that outlives the transcripts.** The agents delete old transcript
   files (Claude Code after 30 days by default); the app keeps a daily archive
   of the numbers, so past days do not vanish from the totals.
 - **Charts**: daily spend with unusual days marked, cost by model, a six-month
@@ -143,8 +145,10 @@ download (see [Download](#download)).
 The setup offers to open the app when it finishes; after that, open **AI
 Usage** from the Start menu (or `AIUsage.exe` from the zip). It finds
 the transcripts in their default folders on its own, `%USERPROFILE%\.claude\projects\`
-for Claude Code and `%USERPROFILE%\.codex\sessions\` for Codex, and shows the
-overview for Claude Code. Switch agents from the sidebar.
+for Claude Code, `%USERPROFILE%\.codex\sessions\` for Codex and
+`%USERPROFILE%\.gemini\antigravity\conversations\` for Antigravity (plus the
+older IDE build's `antigravity-ide\conversations\`), and shows the overview for
+Claude Code. Switch agents from the sidebar.
 
 ### Uninstall
 
@@ -176,29 +180,32 @@ the `config\` files are yours to edit:
 | File | What |
 |---|---|
 | `config\settings.json` | `localUtcOffsetHours`, `weekStartsOn` (`monday`/`sunday`/`saturday`), `maxIdleGapMinutes`, `projectDonutSlices` (projects named in the Projects page's donut and legend before Others; default 9) |
-| `config\projects.json`, `config\codex-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
-| `config\pricing.json`, `config\codex-pricing.json` | a rate card that replaces the built-in one |
-| `model-settings.json`, `codex-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
-| `project-colors.json`, `codex-project-colors.json` | colours picked for projects with **Change colour…** |
-| `project-settings.json`, `codex-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
+| `config\projects.json`, `config\codex-projects.json`, `config\antigravity-projects.json` | `merge` a renamed folder's history into its new name; `displayNames` |
+| `config\pricing.json`, `config\codex-pricing.json`, `config\antigravity-pricing.json` | a rate card that replaces the built-in one |
+| `model-settings.json`, `codex-model-settings.json`, `antigravity-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
+| `project-colors.json`, `codex-project-colors.json`, `antigravity-project-colors.json` | colours picked for projects with **Change colour…** |
+| `project-settings.json`, `codex-project-settings.json`, `antigravity-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |
 
 Every key is optional. Refresh after editing. Examples with placeholder values:
 [`settings.json`](docs/config-examples/settings.json) and
 [`projects.json`](docs/config-examples/projects.json) (the same shape serves
-`codex-projects.json`). A rate card has the shape of the built-in ones,
-[`pricing.json`](src/UsageCore/Pricing/pricing.json) (Claude Code) and
-[`codex-pricing.json`](src/UsageCore/Pricing/codex-pricing.json); a card in
+`codex-projects.json` and `antigravity-projects.json`). A rate card has the
+shape of the built-in ones, [`pricing.json`](src/UsageCore/Pricing/pricing.json)
+(Claude Code), [`codex-pricing.json`](src/UsageCore/Pricing/codex-pricing.json)
+and [`antigravity-pricing.json`](src/UsageCore/Pricing/antigravity-pricing.json); a card in
 `config\` replaces the built-in one wholesale, so to price one model, use the
 Model prices table instead.
 
 Two environment variables move the transcript folders the app reads, as they
 do for the agents themselves: `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
-`AIUSAGE_DATA_DIR` moves everything the app writes.
+Antigravity reads no such variable, so the app has its own:
+`AIUSAGE_ANTIGRAVITY_HOME`, the folder that holds `antigravity\` (by default
+`%USERPROFILE%\.gemini`). `AIUSAGE_DATA_DIR` moves everything the app writes.
 
 ## Usage
 
-- **Sidebar**: switch between Claude Code and Codex. **Top bar**: Overview and
+- **Sidebar**: switch between Claude Code, Codex and Antigravity. **Top bar**: Overview and
   Projects, Refresh (or F5), and Settings. **Backspace** goes back from a
   project's page to Projects, and from the heat map's full history to the page
   it was opened from.
@@ -249,14 +256,15 @@ do for the agents themselves: `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
   and with its stacked charts opening on every day - followed by a
   day-by-model table.
 
-### The two cost figures mean different things
+### The cost figures mean different things
 
 | Agent | Headline | Meaning |
 |---|---|---|
 | Claude Code | Total estimated spend | Tokens priced at Anthropic's per-token API rates |
 | Codex | Total estimated spend | What these tokens would cost through the OpenAI API. On a ChatGPT subscription this is not what you paid. |
+| Antigravity | Total estimated spend | What these tokens would cost through each model's own API (Google's for Gemini, Anthropic's for Claude). Antigravity is billed by plan, so this is not what you paid. |
 
-Do not add the two together.
+Do not add them together.
 
 ### Caveats
 
@@ -274,6 +282,14 @@ Do not add the two together.
   tokens costs 2x the input and cache rates and 1.5x output; each request is
   checked on its own. Cache-write rates are on the card too, though Codex has
   not logged a cache write so far.
+- **Antigravity's files have no published format.** The app reads its
+  conversation databases by field numbers worked out from real files, and
+  checks each request against the copy of its usage on the conversation's
+  steps; `aiusage parse antigravity` reports any mismatch. Some usage names its
+  model only by an internal number (a browser subagent's whole run, for
+  instance): it is shown as `(model N)`, unpriced, until you give it a price.
+  Gemini 4 Argon and Gemini 3.7 Flash are on introductory rates; the rate card
+  says until when.
 
 ## Tech stack and architecture
 
@@ -284,9 +300,9 @@ sharing its design and its parsing rules but no code.
 
 ```mermaid
 flowchart LR
-  T["Transcripts<br/>.claude\projects, .codex\sessions"] --> P
+  T["Transcripts<br/>.claude\projects, .codex\sessions,<br/>.gemini\antigravity\conversations"] --> P
   subgraph Core["UsageCore (net10.0, no UI)"]
-    P["Parsers<br/>ClaudeParser, CodexParser"] --> R["Report<br/>tokens, cost, runtime"]
+    P["Parsers<br/>ClaudeParser, CodexParser,<br/>AntigravityParser"] --> R["Report<br/>tokens, cost, runtime"]
     C["Rate cards<br/>and settings"] --> P
     R <--> A["Daily archive"]
   end
@@ -296,7 +312,7 @@ flowchart LR
 
 | Part | What it does |
 |---|---|
-| [`src/UsageCore`](src/UsageCore) | Reads the transcripts, prices them, keeps the archive, and does the view math. No UI, so the CLI and the tests use it as is. |
+| [`src/UsageCore`](src/UsageCore) | Reads the transcripts, prices them, keeps the archive, and does the view math. No UI, so the CLI and the tests use it as is. Antigravity's SQLite files are read with [Microsoft.Data.Sqlite](https://learn.microsoft.com/dotnet/standard/data/sqlite/), read-only. |
 | [`src/UsageApp`](src/UsageApp) | The WinUI 3 app. Pages are built in C# from one set of element builders; charts are drawn on XAML shapes rather than a chart library. [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) draws SVG logos, [H.NotifyIcon](https://github.com/HavenDV/H.NotifyIcon) the tray icon. |
 | [`src/UsageCli`](src/UsageCli) | `aiusage parse <agent>` prints the diagnostics and totals; `aiusage demo-data` writes invented transcripts. |
 | [`tests/UsageCore.Tests`](tests/UsageCore.Tests) | xUnit v3 tests for the parsers, pricing, archive and settings. Fixtures are written at run time. |
@@ -305,7 +321,9 @@ flowchart LR
 
 Numbers are recomputed from disk on every refresh. Transcript lines are
 scanned as bytes, pulling out only the fields used, so a full parse stays
-small in memory even when a line holds megabytes of tool output.
+small in memory even when a line holds megabytes of tool output. Antigravity's
+databases are opened read-only and only their metadata columns are read, never
+the conversation content.
 
 ## Security and privacy
 
@@ -313,7 +331,8 @@ small in memory even when a line holds megabytes of tool output.
   has no account and sends no telemetry. It asks for no API key, token or
   password, and stores none.
 - **It reads the transcripts and never changes them.** Only the folders above
-  (or `CLAUDE_CONFIG_DIR` / `CODEX_HOME`).
+  (or `CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `AIUSAGE_ANTIGRAVITY_HOME`).
+  Antigravity's databases are opened read-only.
 - **What it stores**, in `%LOCALAPPDATA%\AI Usage Native\` (or the folder
   `AIUSAGE_DATA_DIR` names): numbers (tokens,
   cost, runtime per day, project and model), project names and their working
@@ -337,12 +356,12 @@ Run these in PowerShell from the repository folder (`dotnet test` needs the
 ```powershell
 dotnet build AIUsageNative.slnx
 dotnet test --project tests\UsageCore.Tests\UsageCore.Tests.csproj
-dotnet run --project src\UsageCli -- parse claude     # diagnostics and totals; or codex
-dotnet run --project src\UsageCli -- demo-data         # synthetic transcripts for both agents
+dotnet run --project src\UsageCli -- parse claude     # diagnostics and totals; or codex, antigravity
+dotnet run --project src\UsageCli -- demo-data         # synthetic transcripts for every agent
 ```
 
-`demo-data` prints three environment variables that point the app at the
-invented transcripts. **Set all three**, including `AIUSAGE_DATA_DIR`, or the
+`demo-data` prints four environment variables that point the app at the
+invented transcripts. **Set all four**, including `AIUSAGE_DATA_DIR`, or the
 invented days are merged into your real archive. A copy pointed at its own
 data folder runs beside the one in your tray.
 
@@ -369,7 +388,9 @@ data folder runs beside the one in your tray.
 ### Trademarks
 
 Claude and Claude Code are trademarks of Anthropic. Codex and ChatGPT are
-trademarks of OpenAI. Their marks in `src/UsageApp/Assets/AgentMarks` are the
-vendors' own files, unmodified. This project is not affiliated with or endorsed
-by either. Geist is © Vercel, under the SIL Open Font License
+trademarks of OpenAI. Antigravity and Gemini are trademarks of Google. Their
+marks in `src/UsageApp/Assets/AgentMarks` are the vendors' own files,
+unmodified, except Antigravity's: Google ships only an app icon, so
+`antigravity.png` is its glyph alone, lifted off the icon's white tile. This
+project is not affiliated with or endorsed by any of them. Geist is © Vercel, under the SIL Open Font License
 (`src/UsageApp/Assets/Fonts/OFL.txt`).

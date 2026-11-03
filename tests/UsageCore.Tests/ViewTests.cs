@@ -46,9 +46,11 @@ public class ViewTests
             return 0.2126 * Channel(0) + 0.7152 * Channel(1) + 0.0722 * Channel(2);
         }
 
-        foreach (var family in new[] { "claude-", "gpt-|codex-" })
+        // An agent's block is the shades drawn from its own palette: Antigravity's
+        // Claude ids share Claude Code's prefix but not its ramp.
+        foreach (var provider in Enum.GetValues<ProviderId>())
         {
-            var ramp = ModelColors.Shades.Where(s => family.Split('|').Any(p => s.Model.StartsWith(p, StringComparison.Ordinal))).ToList();
+            var ramp = ModelColors.Shades.Where(s => ModelColors.IsPaletteColor(provider, s.Shade.Hex)).ToList();
             for (var i = 1; i < ramp.Count; i++)
             {
                 Assert.True(ramp[i - 1].Shade.OutputPrice >= ramp[i].Shade.OutputPrice, $"{ramp[i].Model} is out of price order");
