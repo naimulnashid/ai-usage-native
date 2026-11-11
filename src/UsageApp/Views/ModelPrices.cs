@@ -134,10 +134,17 @@ public static class ModelPrices
     /// <summary>Up to four decimals, no trailing zeros: 0.175, 3.75, 25.</summary>
     private static string Rate(double value) => Math.Round(value, 4).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// The editor behind a row's Edit button: name, price and colour, saved
+    /// together by one Save.
+    /// </summary>
+    /// <remarks>
+    /// Clicking outside closes it only while nothing has been changed; once
+    /// something has, only Save or Cancel do, so a stray click cannot throw an
+    /// edit away. Built afresh on every opening, so a cancelled edit is gone.
+    /// </remarks>
     private static Flyout Editor(PageContext ctx, string model, ModelRateInfo info)
     {
-        var meta = ctx.State.Meta;
-        var provider = meta.Id;
         var flyout = new Flyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
         var style = new Style(typeof(FlyoutPresenter));
         style.Setters.Add(new Setter(Control.BackgroundProperty, Palette.TooltipBgBrush));
@@ -147,6 +154,30 @@ public static class ModelPrices
         style.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 720d));
         flyout.FlyoutPresenterStyle = style;
 
+        Func<bool> isDirty = () => false;
+        var closingOnPurpose = false;
+        flyout.Opening += (_, _) =>
+        {
+            closingOnPurpose = false;
+            flyout.Content = EditorContent(ctx, model, info, Close, out isDirty);
+        };
+        flyout.Closing += (_, e) =>
+        {
+            if (!closingOnPurpose && isDirty()) e.Cancel = true;
+        };
+        return flyout;
+
+        void Close()
+        {
+            closingOnPurpose = true;
+            flyout.Hide();
+        }
+    }
+
+    private static StackPanel EditorContent(PageContext ctx, string model, ModelRateInfo info, Action close, out Func<bool> isDirty)
+    {
+        var meta = ctx.State.Meta;
+        var provider = meta.Id;
         var root = new StackPanel { Spacing = 14 };
         var error = Ui.Text("", 14, 400, Palette.WarnBrush, wrap: true);
         error.Visibility = Visibility.Collapsed;
@@ -164,10 +195,11 @@ public static class ModelPrices
         // by the model string, which the price heading below still shows.
         root.Children.Add(Ui.Text("Name", 13.5, 600, Palette.TextMutedBrush));
         var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var initialName = Format.Model(model);
         var nameBox = new TextBox
         {
             Width = 260,
-            Text = Format.Model(model),
+            Text = initialName,
             PlaceholderText = Format.DefaultModel(model),
             MaxLength = ModelSettings.MaxNameLength,
             FontFamily = Fonts.Sans,
@@ -175,49 +207,23 @@ public static class ModelPrices
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nameBox, "Display name");
         nameRow.Children.Add(nameBox);
-        var saveName = Ui.Button("Save name", fontSize: 14, padding: small);
-        saveName.Click += (_, _) => SaveName();
-        nameBox.KeyDown += (_, e) =>
-        {
-            if (e.Key != Windows.System.VirtualKey.Enter) return;
-            e.Handled = true;
-            SaveName();
-        };
-        nameRow.Children.Add(saveName);
         if (settings.Names.ContainsKey(model))
         {
+            // Puts the built-in name back in the field; Save makes it stick.
             var defaultName = Ui.Button("Default name", fontSize: 14, padding: small);
-            defaultName.Click += (_, _) => SaveNameAs(null);
+            defaultName.Click += (_, _) => nameBox.Text = Format.DefaultModel(model);
             nameRow.Children.Add(defaultName);
         }
         root.Children.Add(nameRow);
-
-        // Blank, or the built-in name typed back, is a reset rather than a copy of it.
-        void SaveName()
-        {
-            var text = nameBox.Text.Trim();
-            SaveNameAs(text.Length == 0 || text == Format.DefaultModel(model) ? null : text);
-        }
-        void SaveNameAs(string? name)
-        {
-            try
-            {
-                var saved = ModelSettings.Save(provider, model, name: name, clearName: name is null);
-                Palette.SetModelSettings(saved);
-                flyout.Hide();
-                ctx.Redraw();
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
-            {
-                Fail(ex);
-            }
-        }
 
         // ---- Price -----------------------------------------------------------
         var priceHead = Ui.Text($"Price for {model}, USD per million tokens", 13.5, 600, Palette.TextMutedBrush);
         priceHead.Margin = new Thickness(0, 8, 0, 0);
         root.Children.Add(priceHead);
-        var fields = new List<(string Key, NumberBox Box)>();
+        var fields = new List<(string Key, NumberBox Box, double Initial)>();
+        // A NumberBox commits its text to Value only on Enter or losing focus,
+        // and a click outside can come first: typing counts as a change on its own.
+        var typedIn = new HashSet<NumberBox>();
         var fieldRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         (string Key, string Label, double? Value)[] specs = meta.HasCacheWrites
             ?
@@ -240,13 +246,25 @@ public static class ModelPrices
                 FontSize = 15,
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, $"{label} rate");
+            box.Loaded += (_, _) =>
+            {
+                if (FindChild<TextBox>(box) is not { } inner) return;
+                var shown = inner.Text;
+                inner.TextChanged += (_, _) =>
+                {
+                    if (inner.Text != shown) typedIn.Add(box);
+                };
+            };
             var column = new StackPanel { Spacing = 5 };
             column.Children.Add(Ui.Caps(label, 12, 0.06));
             column.Children.Add(box);
             fieldRow.Children.Add(column);
-            fields.Add((key, box));
+            fields.Add((key, box, value ?? double.NaN));
         }
         root.Children.Add(fieldRow);
+
+        static bool Same(double a, double b) => (double.IsNaN(a) && double.IsNaN(b)) || a == b;
+        bool PriceChanged() => fields.Any(f => !Same(f.Box.Value, f.Initial));
 
         // A rate the editor does not show - cache writes, for an agent that hides
         // that column - keeps its current value rather than being saved as 0.
@@ -257,29 +275,7 @@ public static class ModelPrices
             _ => 0,
         };
 
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        var save = Ui.Button("Save price", primary: true, fontSize: 14, padding: small);
-        save.Click += (_, _) =>
-        {
-            if (fields.Any(f => double.IsNaN(f.Box.Value) || f.Box.Value < 0))
-            {
-                Fail(new ArgumentException("Every rate needs a number, 0 or more."));
-                return;
-            }
-            var rate = new ModelRate(Field("input"), Field("cacheWrite5m"), Field("cacheWrite1h"), Field("cacheRead"), Field("output"));
-            try
-            {
-                ModelSettings.Save(provider, model, rate: rate);
-                flyout.Hide();
-                _ = ctx.State.RefreshAsync(provider);
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
-            {
-                Fail(ex);
-            }
-        };
-        actions.Children.Add(save);
-
+        var priceActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         if (meta.HasCacheWrites)
         {
             var fill = Ui.Button("Cache rates from input", fontSize: 14, padding: small);
@@ -292,25 +288,25 @@ public static class ModelPrices
                     return;
                 }
                 // The usual multipliers off base input.
-                foreach (var (key, box) in fields)
+                foreach (var (key, box, _) in fields)
                 {
                     if (key == "cacheWrite5m") box.Value = Math.Round(input * 1.25, 4);
                     if (key == "cacheWrite1h") box.Value = Math.Round(input * 2, 4);
                     if (key == "cacheRead") box.Value = Math.Round(input * 0.1, 4);
                 }
             };
-            actions.Children.Add(fill);
+            priceActions.Children.Add(fill);
         }
-
         if (info.Source == RateSource.Custom)
         {
+            // Acts at once, like a delete: it saves nothing else from the editor.
             var reset = Ui.Button(info.OnCard ? "Reset to rate card" : "Remove price", fontSize: 14, padding: small);
             reset.Click += (_, _) =>
             {
                 try
                 {
                     ModelSettings.Save(provider, model, clearRate: true);
-                    flyout.Hide();
+                    close();
                     _ = ctx.State.RefreshAsync(provider);
                 }
                 catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -318,26 +314,23 @@ public static class ModelPrices
                     Fail(ex);
                 }
             };
-            actions.Children.Add(reset);
+            priceActions.Children.Add(reset);
         }
-
-        var cancel = Ui.Button("Cancel", fontSize: 14, padding: small);
-        cancel.Click += (_, _) => flyout.Hide();
-        actions.Children.Add(cancel);
-        root.Children.Add(actions);
+        if (priceActions.Children.Count > 0) root.Children.Add(priceActions);
 
         // ---- Colour ----------------------------------------------------------
         var colourHead = Ui.Text("Colour", 13.5, 600, Palette.TextMutedBrush);
         colourHead.Margin = new Thickness(0, 8, 0, 0);
         root.Children.Add(colourHead);
         var chosen = settings.Colors.GetValueOrDefault(model);
-        var current = chosen ?? ModelColors.Hex(model);
+        // What Save will write: a shade, or null for the default.
+        var picked = chosen;
         var palette = ModelColors.Palettes[provider];
         var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var swatchButtons = new List<(Button Button, string Shade, string Name)>();
         for (var i = 0; i < palette.Count; i++)
         {
             var shade = palette[i];
-            var selected = string.Equals(shade, current, StringComparison.OrdinalIgnoreCase);
             var swatch = new Button
             {
                 Width = 30,
@@ -348,38 +341,90 @@ public static class ModelPrices
                 CornerRadius = new CornerRadius(7),
                 // Stored as the dark shade; drawn as the theme's twin of it.
                 Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Palette.PaletteShade(shade)),
-                BorderBrush = selected ? Palette.TextBrush : Palette.TransparentBrush,
                 BorderThickness = new Thickness(2),
             };
             swatch.Resources["ButtonBackgroundPointerOver"] = swatch.Background;
             swatch.Resources["ButtonBackgroundPressed"] = swatch.Background;
             swatch.Resources["ButtonBorderBrushPointerOver"] = Palette.TextMutedBrush;
             var position = i == 0 ? ", deepest" : i == palette.Count - 1 ? ", lightest" : "";
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(swatch, $"Shade {i + 1} of {palette.Count}{position}{(selected ? ", selected" : "")}");
-            swatch.Click += (_, _) => SaveColour(shade, clear: false);
+            swatch.Click += (_, _) => Pick(shade);
             swatches.Children.Add(swatch);
+            swatchButtons.Add((swatch, shade, $"Shade {i + 1} of {palette.Count}{position}"));
         }
         root.Children.Add(swatches);
+        void Pick(string? shade)
+        {
+            picked = shade;
+            var current = picked ?? ModelColors.Hex(model);
+            foreach (var (button, shadeOf, name) in swatchButtons)
+            {
+                var selected = string.Equals(shadeOf, current, StringComparison.OrdinalIgnoreCase);
+                button.BorderBrush = selected ? Palette.TextBrush : Palette.TransparentBrush;
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, name + (selected ? ", selected" : ""));
+            }
+        }
+        Pick(chosen);
 
         if (chosen is not null)
         {
             var reset = Ui.Button("Default colour", fontSize: 14, padding: small);
             reset.HorizontalAlignment = HorizontalAlignment.Left;
-            reset.Click += (_, _) => SaveColour(null, clear: true);
+            reset.Click += (_, _) => Pick(null);
             root.Children.Add(reset);
         }
         var note = Ui.Text("Deeper shades usually mean dearer models — the charts stack the dearest at the bottom.", 13, 400, Palette.TextFaintBrush, wrap: true);
         root.Children.Add(note);
         root.Children.Add(error);
 
-        void SaveColour(string? shade, bool clear)
+        // ---- Save / Cancel ---------------------------------------------------
+        bool NameChanged() => nameBox.Text.Trim() != initialName;
+        bool ColourChanged() => !string.Equals(picked, chosen, StringComparison.OrdinalIgnoreCase);
+        isDirty = () => NameChanged() || PriceChanged() || typedIn.Count > 0 || ColourChanged();
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 6, 0, 0) };
+        var save = Ui.Button("Save", primary: true, fontSize: 14, padding: small);
+        save.Click += (_, _) => Save();
+        nameBox.KeyDown += (_, e) =>
         {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            e.Handled = true;
+            Save();
+        };
+        actions.Children.Add(save);
+        var cancel = Ui.Button("Cancel", fontSize: 14, padding: small);
+        cancel.Click += (_, _) => close();
+        actions.Children.Add(cancel);
+        root.Children.Add(actions);
+
+        void Save()
+        {
+            var priceChanged = PriceChanged();
+            if (priceChanged && fields.Any(f => double.IsNaN(f.Box.Value) || f.Box.Value < 0))
+            {
+                Fail(new ArgumentException("Every rate needs a number, 0 or more."));
+                return;
+            }
+            // Blank, or the built-in name typed back, is a reset rather than a copy of it.
+            var text = nameBox.Text.Trim();
+            var name = text.Length == 0 || text == Format.DefaultModel(model) ? null : text;
+            var nameChanged = NameChanged();
+            var colourChanged = ColourChanged();
             try
             {
-                var saved = ModelSettings.Save(provider, model, color: shade, clearColor: clear);
+                // One write, so a bad value saves nothing rather than half the edit.
+                var saved = ModelSettings.Save(
+                    provider, model,
+                    rate: priceChanged ? new ModelRate(Field("input"), Field("cacheWrite5m"), Field("cacheWrite1h"), Field("cacheRead"), Field("output")) : null,
+                    color: colourChanged ? picked : null,
+                    clearColor: colourChanged && picked is null,
+                    name: nameChanged ? name : null,
+                    clearName: nameChanged && name is null);
                 Palette.SetModelSettings(saved);
-                flyout.Hide();
-                ctx.Redraw();
+                close();
+                // A price changes the figures, so it needs a parse; a name or a
+                // colour only the view.
+                if (priceChanged) _ = ctx.State.RefreshAsync(provider);
+                else ctx.Redraw();
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
             {
@@ -387,7 +432,18 @@ public static class ModelPrices
             }
         }
 
-        flyout.Content = root;
-        return flyout;
+        return root;
+    }
+
+    private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) return match;
+            if (FindChild<T>(child) is { } deeper) return deeper;
+        }
+        return null;
     }
 }
