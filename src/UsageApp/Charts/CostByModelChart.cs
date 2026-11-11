@@ -12,7 +12,7 @@ namespace UsageApp.Charts;
 /// <summary>Estimated spend per model as horizontal bars, dearest first.</summary>
 public sealed class CostByModelChart : ChartSurface
 {
-    private const double Top = 4, Right = 26, Bottom = 4, Left = 4, CategoryWidth = 116, XAxisHeight = 30, BarSize = 30;
+    private const double Top = 4, Right = 26, Bottom = 4, Left = 4, CategoryWidth = 116, XAxisHeight = 30, BarSize = 30, BarGap = 12;
 
     private sealed record Row(string Model, string Label, double Cost, long Tokens, double Runtime, bool Unpriced, double Share);
 
@@ -21,8 +21,8 @@ public sealed class CostByModelChart : ChartSurface
     private Rectangle? _wash;
     private double _plotLeft, _plotRight;
 
-    public CostByModelChart(IReadOnlyDictionary<string, UsageCell> perModel, double height = 260, bool animate = true)
-        : base(height, animate)
+    public CostByModelChart(IReadOnlyDictionary<string, UsageCell> perModel, bool animate = true)
+        : base(Top + Bottom + XAxisHeight, animate)
     {
         // Shares are of the spend this chart draws, so they add to 100 on
         // screen. An unpriced model contributes no cost and gets no share.
@@ -32,6 +32,10 @@ public sealed class CostByModelChart : ChartSurface
             .Where(r => r.Cost > 0 || r.Tokens > 0)
             .OrderByDescending(r => r.Cost)
             .ToList();
+        // The height follows the rows, so every bar keeps the same gap: a fixed
+        // 260px squeezed eight models' bands under the bar's own 30px and the
+        // bars ran into each other.
+        Height = Top + Bottom + XAxisHeight + Math.Max(1, _rows.Count) * (BarSize + BarGap);
     }
 
     public bool IsEmpty => _rows.Count == 0;
