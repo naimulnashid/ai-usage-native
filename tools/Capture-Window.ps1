@@ -106,8 +106,9 @@ $proc = $null
 if ($Exe) {
   $proc = if ($Arguments.Count) { Start-Process -FilePath $Exe -ArgumentList $Arguments -PassThru } else { Start-Process -FilePath $Exe -PassThru }
 } else {
-  $proc = Get-Process -Name AIUsage -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (-not $proc) { throw 'No -Exe given and no running AIUsage process.' }
+  # The one with a window: the tray is an AIUsage process too, without one.
+  $proc = Get-Process -Name AIUsage -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+  if (-not $proc) { throw 'No -Exe given and no AIUsage window is open.' }
 }
 
 $deadline = (Get-Date).AddSeconds(30)

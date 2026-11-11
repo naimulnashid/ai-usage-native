@@ -90,15 +90,7 @@ public sealed partial class MainWindow : Window
     private readonly Windows.UI.ViewManagement.UISettings _systemColors = new();
     private readonly List<(Image Image, string File, bool BlackOnLight)> _railMarks = [];
 
-    /// <summary>Whether the light theme is the one to show: the choice, or Windows' own for "system".</summary>
-    private bool ResolveLight()
-    {
-        if (_settings.Theme == "light") return true;
-        if (_settings.Theme != "system") return false;
-        // Windows' app mode shows in its background colour: white in light mode.
-        var background = _systemColors.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
-        return background.R > 128;
-    }
+    private bool ResolveLight() => _settings.ResolveLight(_systemColors);
 
     /// <summary>Applies the current choice to every token, the WinUI controls and the title bar, then redraws.</summary>
     private void ApplyThemeChoice()
@@ -111,11 +103,15 @@ public sealed partial class MainWindow : Window
         Rebuild(keepScroll: true);
     }
 
-    /// <summary>WinUI's own controls (menus, combo boxes, scroll bars), the caption buttons and the tray menu.</summary>
+    /// <summary>
+    /// WinUI's own controls (menus, combo boxes, scroll bars), the caption
+    /// buttons and this process's Win32 menus. The tray's menu is the tray
+    /// process's: it re-reads the choice when told the settings changed.
+    /// </summary>
     private void ApplyControlTheme()
     {
         Root.RequestedTheme = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
-        TrayHost.ApplyMenuTheme(Palette.IsLight);
+        MenuTheme.Apply(Palette.IsLight);
         var bar = AppWindow.TitleBar;
         bar.ButtonForegroundColor = Palette.TextMuted;
         bar.ButtonInactiveForegroundColor = Palette.TextFaint;
@@ -171,49 +167,25 @@ public sealed partial class MainWindow : Window
             presenter.PreferredMinimumWidth = (int)(760 * scale);
             presenter.PreferredMinimumHeight = (int)(520 * scale);
         }
-
-        AppWindow.Closing += (_, args) =>
-        {
-            if (!_settings.CloseToTray) return;
-            // Keep running in the tray: the numbers keep updating, and the
-            // window comes back from the tray icon.
-            args.Cancel = true;
-            AppWindow.Hide();
-            EnterTray();
-            ClosedToTray?.Invoke();
-        };
     }
 
-    private bool _inTray;
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hwnd);
 
     /// <summary>
-    /// Nothing is on screen, so nothing needs to be built: drop the page and let
-    /// the tray process sit small. It is rebuilt when the window comes back.
+    /// Brings the window forward: asked for again while already open (the
+    /// tray icon, a second launch). Activate alone leaves it behind whatever
+    /// is in front when the request came from another process.
     /// </summary>
-    public void EnterTray()
-    {
-        _inTray = true;
-        _pageHost.Content = null;
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-    }
-
-    /// <summary>Raised when the close button sent the window to the tray.</summary>
-    public event Action? ClosedToTray;
-
     public void ShowAndActivate()
     {
-        if (_inTray)
-        {
-            _inTray = false;
-            UpdateChrome();
-            Rebuild(keepScroll: false);
-        }
         AppWindow.Show();
         Maximize();
         Activate();
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
     }
 
-    /// <summary>The window always opens maximised - at launch and back from the tray.</summary>
+    /// <summary>The window always opens maximised - at launch and when asked for again.</summary>
     public void OpenMaximized()
     {
         Maximize();
@@ -641,6 +613,7 @@ public sealed partial class MainWindow : Window
         {
             _settings.CloseToTray = tray.IsChecked;
             _settings.Save();
+            SettingsChanged?.Invoke();
         };
         flyout.Opening += (_, _) =>
         {
@@ -663,6 +636,7 @@ public sealed partial class MainWindow : Window
                 _settings.Theme = value;
                 _settings.Save();
                 ApplyThemeChoice();
+                SettingsChanged?.Invoke();
             };
             flyout.Opening += (_, _) => item.IsChecked = _settings.Theme == value;
             theme.Items.Add(item);
@@ -702,7 +676,7 @@ public sealed partial class MainWindow : Window
         return button;
     }
 
-    /// <summary>Raised when a setting the tray also shows was changed here.</summary>
+    /// <summary>Raised when a setting the tray process also goes by was changed here.</summary>
     public event Action? SettingsChanged;
 
     /// <summary>Copies a folder of logos in for the current agent - once, not a link to it.</summary>
@@ -789,9 +763,7 @@ public sealed partial class MainWindow : Window
     private void OnStateChanged(ProviderId id)
     {
         UpdateChrome();
-        // Hidden in the tray: the tray tooltip updates itself; the page is
-        // built when the window comes back.
-        if (_inTray || id != _state.Provider) return;
+        if (id != _state.Provider) return;
         // Rebuild when there is something new to show; a refresh in progress
         // keeps the previous report on screen rather than flashing a skeleton.
         var data = _state.Current;

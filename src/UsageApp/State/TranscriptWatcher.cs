@@ -34,7 +34,7 @@ public sealed class TranscriptWatcher : IDisposable
     private static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan Recheck = TimeSpan.FromSeconds(30);
 
-    private readonly AppState _state;
+    private readonly Func<ProviderId, Task> _refresh;
     private readonly DispatcherQueue _ui;
     private readonly Func<bool> _enabled;
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
@@ -42,9 +42,10 @@ public sealed class TranscriptWatcher : IDisposable
     private readonly Dictionary<ProviderId, DateTimeOffset> _lastRun = [];
     private readonly DispatcherQueueTimer _recheck;
 
-    public TranscriptWatcher(AppState state, DispatcherQueue ui, Func<bool> enabled)
+    /// <param name="refresh">Re-reads one agent: the window's state, or the tray process's own.</param>
+    public TranscriptWatcher(Func<ProviderId, Task> refresh, DispatcherQueue ui, Func<bool> enabled)
     {
-        _state = state;
+        _refresh = refresh;
         _ui = ui;
         _enabled = enabled;
         Reconcile(initial: true);
@@ -135,7 +136,7 @@ public sealed class TranscriptWatcher : IDisposable
             timer.Tick += (_, _) =>
             {
                 _lastRun[provider] = DateTimeOffset.Now;
-                _ = _state.RefreshAsync(provider);
+                _ = _refresh(provider);
             };
             _timers[provider] = timer;
         }

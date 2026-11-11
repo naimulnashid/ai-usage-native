@@ -37,6 +37,6 @@ foreach ($view in $Views) {
   $env:AIUSAGE_DEBUG_VIEW = $spec
   # Windows PowerShell 5.1, which has System.Drawing built in; PowerShell 7
   # would need System.Drawing.Common referenced by hand.
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Out (Join-Path $root "screenshots\$name.png") @sizing -WaitSeconds $WaitSeconds -HoverX $hoverX -HoverY $hoverY -Close
+  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Capture-Window.ps1') -Exe $exe -Arguments '--dashboard' -Out (Join-Path $root "screenshots\$name.png") @sizing -WaitSeconds $WaitSeconds -HoverX $hoverX -HoverY $hoverY -Close
   Start-Sleep -Milliseconds 800
 }

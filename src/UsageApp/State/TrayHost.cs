@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Runtime.InteropServices;
 using H.NotifyIcon.Core;
 using UsageCore;
 using UsageCore.Model;
@@ -9,8 +8,8 @@ namespace UsageApp.State;
 
 /// <summary>
 /// The notification-area icon: today's spend for each agent in its tooltip,
-/// click to open, right-click for the menu. Closing the window leaves the app
-/// here, so the numbers keep updating in the background.
+/// click to open, right-click for the menu. It belongs to the tray process
+/// (<see cref="TrayProcess"/>), which outlives the window.
 /// </summary>
 public sealed class TrayHost : IDisposable
 {
@@ -19,7 +18,9 @@ public sealed class TrayHost : IDisposable
     private readonly PopupMenuItem _startAtLogin;
     private readonly PopupMenuItem _autoRefresh;
 
-    public TrayHost(AppState state, UiSettings settings, Action open, Action exit)
+    /// <param name="onUi">Marshals a menu click, which arrives on the icon's thread, onto the UI thread.</param>
+    /// <param name="toggleAutoRefresh">Flips the setting and returns its new value.</param>
+    public TrayHost(Action<Action> onUi, bool autoRefresh, Action open, Action refresh, Func<bool> toggleAutoRefresh, Action exit)
     {
         _icon = new Icon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"), 16, 16);
         // The id is per exe path. Windows binds a tray icon's id to the exe
@@ -33,7 +34,7 @@ public sealed class TrayHost : IDisposable
             ToolTip = "AI Usage",
         };
 
-        _startAtLogin = new PopupMenuItem("Start at login", (_, _) => state.OnUi(() =>
+        _startAtLogin = new PopupMenuItem("Start at login", (_, _) => onUi(() =>
         {
             try
             {
@@ -47,100 +48,61 @@ public sealed class TrayHost : IDisposable
         }))
         { Checked = StartupRegistration.IsEnabled };
 
-        _autoRefresh = new PopupMenuItem("Refresh when transcripts change", (_, _) => state.OnUi(() =>
-        {
-            settings.AutoRefresh = !settings.AutoRefresh;
-            settings.Save();
-            _autoRefresh!.Checked = settings.AutoRefresh;
-        }))
-        { Checked = settings.AutoRefresh };
+        _autoRefresh = new PopupMenuItem("Refresh when transcripts change", (_, _) => onUi(() => _autoRefresh!.Checked = toggleAutoRefresh()))
+        { Checked = autoRefresh };
 
         _tray.ContextMenu = new PopupMenu
         {
             Items =
             {
-                new PopupMenuItem("Open AI Usage", (_, _) => state.OnUi(open)),
-                new PopupMenuItem("Refresh now", (_, _) => state.OnUi(() =>
-                {
-                    foreach (var meta in Providers.All) _ = state.RefreshAsync(meta.Id);
-                })),
+                new PopupMenuItem("Open AI Usage", (_, _) => onUi(open)),
+                new PopupMenuItem("Refresh now", (_, _) => onUi(refresh)),
                 new PopupMenuSeparator(),
                 _autoRefresh,
                 _startAtLogin,
                 new PopupMenuSeparator(),
-                new PopupMenuItem("Exit", (_, _) => state.OnUi(exit)),
+                new PopupMenuItem("Exit", (_, _) => onUi(exit)),
             },
         };
 
         _tray.MessageWindow.MouseEventReceived += (_, e) =>
         {
-            if (e.MouseEvent is MouseEvent.IconLeftMouseUp or MouseEvent.IconDoubleClick) state.OnUi(open);
+            if (e.MouseEvent is MouseEvent.IconLeftMouseUp or MouseEvent.IconDoubleClick) onUi(open);
         };
         _tray.Create();
-        try
-        {
-            AllowDarkModeForWindow(_tray.MessageWindow.Handle, true);
-        }
-        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
-        {
-        }
-
-        state.Changed += _ => UpdateToolTip(state);
-    }
-
-    // Undocumented uxtheme ordinals, stable since Windows 10 1903, which
-    // Explorer and Notepad++ use for the same job: no public API themes a
-    // Win32 menu.
-    [DllImport("uxtheme.dll", EntryPoint = "#133")]
-    private static extern bool AllowDarkModeForWindow(IntPtr hwnd, bool allow);
-
-    [DllImport("uxtheme.dll", EntryPoint = "#135")]
-    private static extern int SetPreferredAppMode(int mode);
-
-    [DllImport("uxtheme.dll", EntryPoint = "#136")]
-    private static extern void FlushMenuThemes();
-
-    /// <summary>
-    /// The menu is a Win32 one (TrackPopupMenuEx), so it follows neither
-    /// WinUI's RequestedTheme nor Windows' app mode on its own. This sets it
-    /// for the whole process to the app's resolved theme, "system" included.
-    /// </summary>
-    public static void ApplyMenuTheme(bool light)
-    {
-        try
-        {
-            SetPreferredAppMode(light ? 3 : 2); // ForceLight : ForceDark
-            FlushMenuThemes();
-        }
-        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
-        {
-            // An older Windows: the menu keeps the system's look.
-        }
+        MenuTheme.Allow(_tray.MessageWindow.Handle);
     }
 
     /// <summary>Keeps the menu's check marks true if they were changed in the window.</summary>
-    public void SyncChecks(UiSettings settings)
+    public void SyncChecks(bool autoRefresh)
     {
-        _autoRefresh.Checked = settings.AutoRefresh;
+        _autoRefresh.Checked = autoRefresh;
         _startAtLogin.Checked = StartupRegistration.IsEnabled;
     }
 
     /// <summary>
-    /// "Claude Code today: $12.34", one line per agent, both worded alike by
-    /// the owner's choice (2026-10-28); Codex's used to add "(API-equiv.)".
+    /// "Claude Code today: $12.34", an agent's tooltip line, all worded alike
+    /// by the owner's choice (2026-10-28); Codex's used to add "(API-equiv.)".
+    /// Null when the agent has nothing to show.
     /// </summary>
-    private void UpdateToolTip(AppState state)
+    public static string? Line(ProviderMeta meta, UsageReport report)
     {
-        var lines = new List<string> { "AI Usage" };
+        if (ReportState.IsEmpty(report)) return null;
+        var today = DayRanges.Today(report);
+        var cost = report.Daily.FirstOrDefault(d => d.Date == today)?.Combined.CostUsd ?? 0;
+        return $"{meta.Label} today: {Format.Usd(cost)}";
+    }
+
+    /// <summary>Shows the agents' lines, in the agents' own order.</summary>
+    public void ShowLines(IReadOnlyDictionary<ProviderId, string> lines)
+    {
+        var all = new List<string> { "AI Usage" };
         foreach (var meta in Providers.All)
         {
-            if (state.For(meta.Id).Report is not { } report || ReportState.IsEmpty(report)) continue;
-            var today = DayRanges.Today(report);
-            var cost = report.Daily.FirstOrDefault(d => d.Date == today)?.Combined.CostUsd ?? 0;
-            lines.Add($"{meta.Label} today: {Format.Usd(cost)}");
+            if (lines.TryGetValue(meta.Id, out var line)) all.Add(line);
         }
         // The shell truncates a tray tooltip at 127 characters.
-        var text = string.Join("\n", lines);
+        var text = string.Join("\n", all);
         _tray.UpdateToolTip(text.Length > 127 ? text[..127] : text);
     }
 

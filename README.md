@@ -84,7 +84,9 @@ The images follow GitHub's theme: dark or light, as the app draws them.
   and drag the table into your own order (or use the Up and Down keys on a
   row's grip).
 - **Lives in the tray** with today's spend for each agent, refreshes itself
-  when transcripts change, and can start at login.
+  when transcripts change, and can start at login. The tray icon is a small
+  process of its own (20 to 27 MB of private memory on the author's PC,
+  measured 2026-11-11); the window's memory is given back when it closes.
 - **Dark and light themes** (or follow Windows), and page zoom from 50% to
   200%.
 
@@ -223,7 +225,9 @@ Antigravity reads no such variable, so the app has its own:
   scrolling sideways, and the level is remembered. The same commands are in the
   Settings menu.
 - **The tray icon** shows today's spend for each agent. Closing the window
-  keeps the app there; right-click the icon to exit.
+  keeps the app there; right-click the icon to exit. The window is a separate
+  process that ends when it closes, so opening it again reads the transcripts
+  afresh before the numbers appear.
 - **Refresh when transcripts change** is on by default: while an agent is
   writing, its numbers update at most once a minute.
 - **Start at login** is in Settings and in the tray menu. It starts straight to
@@ -325,7 +329,7 @@ flowchart LR
 | Part | What it does |
 |---|---|
 | [`src/UsageCore`](src/UsageCore) | Reads the transcripts, prices them, keeps the archive, and does the view math. No UI, so the CLI and the tests use it as is. Antigravity's SQLite files are read with [Microsoft.Data.Sqlite](https://learn.microsoft.com/dotnet/standard/data/sqlite/), read-only. |
-| [`src/UsageApp`](src/UsageApp) | The WinUI 3 app. Pages are built in C# from one set of element builders; charts are drawn on XAML shapes rather than a chart library. [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) draws SVG logos, [H.NotifyIcon](https://github.com/HavenDV/H.NotifyIcon) the tray icon. |
+| [`src/UsageApp`](src/UsageApp) | The WinUI 3 app. Pages are built in C# from one set of element builders; charts are drawn on XAML shapes rather than a chart library. [Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia) draws SVG logos, [H.NotifyIcon](https://github.com/HavenDV/H.NotifyIcon) the tray icon. One exe runs as two processes: the tray icon, which never loads WinUI, and the window (`AIUsage.exe --dashboard`), which the tray starts and which ends when closed. |
 | [`src/UsageCli`](src/UsageCli) | `aiusage parse <agent>` prints the diagnostics and totals; `aiusage demo-data` writes invented transcripts. |
 | [`tests/UsageCore.Tests`](tests/UsageCore.Tests) | xUnit v3 tests for the parsers, pricing, archive and settings. Fixtures are written at run time. |
 | [`installer/`](installer) | The [Inno Setup](https://jrsoftware.org/isinfo.php) script for the release's per-user setup.exe. |
@@ -342,6 +346,10 @@ the conversation content.
 - **Nothing leaves the PC.** The app makes no network calls, opens no port,
   has no account and sends no telemetry. It asks for no API key, token or
   password, and stores none.
+- **The window and the tray icon are two processes that talk over a local
+  named pipe**, open to your Windows account only. It carries each agent's
+  tooltip line (today's spend) and requests such as "exit"; nothing else from
+  the reports.
 - **It reads the transcripts and never changes them.** Only the folders above
   (or `CLAUDE_CONFIG_DIR` / `CODEX_HOME` / `AIUSAGE_ANTIGRAVITY_HOME`).
   Antigravity's databases are opened read-only.

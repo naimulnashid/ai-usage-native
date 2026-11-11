@@ -43,7 +43,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; Windows 10 version 2004: the app's TargetPlatformMinVersion.
 MinVersion=10.0.19041
 ; PrepareToInstall closes the running copy itself; Restart Manager would ask
-; the user to close an app that only hides to the tray.
+; the user to close a tray process that has no window to close.
 CloseApplications=no
 SetupIconFile=..\src\UsageApp\Assets\app.ico
 UninstallDisplayIcon={app}\AIUsage.exe

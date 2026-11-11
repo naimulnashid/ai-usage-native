@@ -27,6 +27,15 @@ public sealed class UiSettings
     /// <summary>Whether the "still running in the tray" note has been shown once.</summary>
     public bool TrayNoteShown { get; set; }
 
+    /// <summary>Whether the light theme is the one to show: the choice, or Windows' own for "system".</summary>
+    public bool ResolveLight(Windows.UI.ViewManagement.UISettings system)
+    {
+        if (Theme == "light") return true;
+        if (Theme != "system") return false;
+        // Windows' app mode shows in its background colour: white in light mode.
+        return system.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background).R > 128;
+    }
+
     private static string FilePath => Path.Combine(AppPaths.DataDir, "app-settings.json");
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
