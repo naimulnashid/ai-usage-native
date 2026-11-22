@@ -11,6 +11,8 @@ tokens, estimated cost and approximate runtime, overall, per project and per
 day. It reads the agents' own transcript files on your PC, and nothing leaves
 the machine.
 
+> **Status:** in active development, built for my own setup. Updates can change how usage is counted and shown, so check the release notes before updating. It needs Claude Code, Codex or Antigravity used on this PC; without their transcripts it has nothing to show.
+
 ## Screenshots
 
 <picture>
