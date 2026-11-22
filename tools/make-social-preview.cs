@@ -1,4 +1,5 @@
 #:package Svg.Skia@5.2.3
+#:property PublishAot=false
 // Draws the repository's GitHub social preview.
 //
 //   dotnet run tools/make-social-preview.cs      ->  .github/social-preview.png

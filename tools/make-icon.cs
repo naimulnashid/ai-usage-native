@@ -1,4 +1,5 @@
 #:package Svg.Skia@5.2.3
+#:property PublishAot=false
 // Regenerates src/UsageApp/Assets/app.ico from src/UsageApp/Assets/app-icon.svg.
 //
 //   dotnet run tools/make-icon.cs

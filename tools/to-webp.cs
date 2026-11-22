@@ -1,4 +1,5 @@
 #:package Svg.Skia@5.2.3
+#:property PublishAot=false
 // Converts PNG screenshots to WebP for the README.
 //
 //   dotnet run tools/to-webp.cs -- <in.png> <out.webp> [<in.png> <out.webp> ...]
