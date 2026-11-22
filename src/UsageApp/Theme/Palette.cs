@@ -202,7 +202,7 @@ public static class Palette
         SpikeBrush.Color = meta.SpikeInWarning ? Warn : AccentBright.Color;
         var ramp = IsLight ? meta.HeatRampLight : meta.HeatRamp;
         for (var i = 0; i < Heat.Length; i++) Heat[i].Color = Hex(ramp[i]);
-        SetModelSettings(UsageCore.Config.ModelSettings.Load(meta.Id));
+        SetModelSettings(UsageCore.Config.ModelSettings.LoadForView(meta.Id));
     }
 
     static Palette() => ApplyTheme(light: false);

@@ -54,11 +54,12 @@ public sealed class OverviewPage(PageContext ctx) : IPage
             if (coverage.Restored)
             {
                 var badge = Ui.Pill($"{Format.Count(coverage.ArchivedOnlyDays)} archived", Palette.TextMutedBrush, Palette.BorderBrightBrush);
-                Ui.SetTip(badge, $"{coverage.ArchivedOnlyDays} earlier {(coverage.ArchivedOnlyDays == 1 ? "day is" : "days are")} kept from this app's own archive. {meta.Label} has already deleted those transcripts, so the numbers come from what was recorded before they went.");
+                Ui.SetTip(badge, $"{coverage.ArchivedOnlyDays} earlier {(coverage.ArchivedOnlyDays == 1 ? "day is" : "days are")} kept from this app's own archive. {(meta.IsCombined ? "Every agent has" : $"{meta.Label} has")} already deleted those transcripts, so the numbers come from what was recorded before they went.");
                 line.Children.Add(badge);
             }
             extras.Add(line);
         }
+        if (report.Agents is { } agents) extras.Add(Parts.AgentSplit(agents));
         var headline = Ui.Card(
             Parts.HeadlineGrid(meta, global.Combined.CostUsd, extras,
                 (Format.Tokens(global.Combined.TotalTokens), $"{Format.Count(global.Combined.Messages)} {meta.MessageNoun}"),
@@ -90,6 +91,7 @@ public sealed class OverviewPage(PageContext ctx) : IPage
             daily.Any(d => Dates.IsDayKey(d.Date)) ? new SpendAreaChart(daily.Where(d => Dates.IsDayKey(d.Date)).ToList()) : Parts.NoDaysInRange(daily, DayRange.All));
         Ui.Rise(spend, 100);
         page.Children.Add(spend);
+        if (report.Agents is { } shares) page.Children.Add(Parts.AgentPanel(shares, daily, DayRanges.Today(report), DayRange.Last30));
 
         // ---- Cost by model -------------------------------------------------------
         page.Children.Add(CostPanel(report, global.PerModel, "Estimated spend per model across every project."));
@@ -110,7 +112,8 @@ public sealed class OverviewPage(PageContext ctx) : IPage
 
         // ---- The detail tables: tokens, then the rates behind the costs --------
         page.Children.Add(TokenPanel(meta, global.PerModel, global.Combined));
-        page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, global.PerModel, report.ModelRates)));
+        // Prices are set per agent, each against its own rate card; All agents has none of its own.
+        if (!meta.IsCombined) page.Children.Add(Ui.Panel("Model prices", ModelPrices.Subtitle, null, ModelPrices.Table(ctx, global.PerModel, report.ModelRates)));
         return page;
     }
 

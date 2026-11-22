@@ -195,6 +195,7 @@ public sealed class TrayProcess : IDisposable
     /// <summary>A read finished: keep the agent's line and let the report go.</summary>
     private void OnRead(ProviderId id)
     {
+        if (id == ProviderId.Combined) return;
         var data = _state.For(id);
         if (data.Report is not { } report) return;
         if (TrayHost.Line(Providers.Get(id), report) is { } line) _lines[id] = line;

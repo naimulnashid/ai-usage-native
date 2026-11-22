@@ -6,6 +6,12 @@ public enum ProviderId
     Claude,
     Codex,
     Antigravity,
+
+    /// <summary>
+    /// Not an agent: the three agents' reports merged (<c>Combining.ReportMerge</c>).
+    /// Last, so the others keep their numbers. Never parsed, never archived.
+    /// </summary>
+    Combined,
 }
 
 /// <summary>First day of the week in the activity heat map.</summary>
@@ -266,7 +272,27 @@ public sealed class ProjectSummary
     /// alone. Null only on a report built by something other than the parsers.
     /// </summary>
     public ActivityStats? Activity { get; set; }
+
+    /// <summary>
+    /// Combined reports only: each agent's share of this project, and the
+    /// agents' own projects it was built from. Null on an agent's report.
+    /// </summary>
+    public List<AgentShare>? Agents { get; init; }
+    public List<ProjectSource>? Sources { get; init; }
 }
+
+/// <summary>One agent's part of a combined total: its usage and its spend per day.</summary>
+public sealed class AgentShare
+{
+    public required ProviderId Provider { get; init; }
+    public UsageCell Combined { get; init; } = new();
+
+    /// <summary>Spend per day key, for the "by agent" chart.</summary>
+    public Dictionary<string, double> DailyCost { get; init; } = new(StringComparer.Ordinal);
+}
+
+/// <summary>An agent's own project that a combined project was built from.</summary>
+public sealed record ProjectSource(ProviderId Provider, string ProjectId, string Name, string? Cwd);
 
 public sealed class ParseDiagnostics
 {
@@ -393,6 +419,9 @@ public sealed class UsageReport
     /// Filled in by <c>UsageService</c>; null on a bare parser result.
     /// </summary>
     public Dictionary<string, ModelRateInfo>? ModelRates { get; set; }
+
+    /// <summary>Combined reports only: each agent's share of the whole. Null on an agent's report.</summary>
+    public List<AgentShare>? Agents { get; init; }
 }
 
 /// <summary>Where one model's rate comes from, for the Model prices table.</summary>

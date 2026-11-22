@@ -157,7 +157,7 @@ public static class ModelColors
 
     /// <summary>True when <paramref name="color"/> is one of the agent's palette shades (any case).</summary>
     public static bool IsPaletteColor(ProviderId provider, string color) =>
-        Palettes[provider].Any(shade => string.Equals(shade, color, StringComparison.OrdinalIgnoreCase));
+        Palettes.TryGetValue(provider, out var palette) && palette.Any(shade => string.Equals(shade, color, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>No API call, no cost - deliberately outside the accent family.</summary>
     public const string Synthetic = "#5D5D68";

@@ -61,6 +61,24 @@ public static class ModelSettings
             .All(v => double.IsFinite(v) && v >= 0 && v <= MaxRate);
 
     /// <summary>One agent's settings. Fails soft to none: the card's prices and the default colours.</summary>
+    /// <summary>
+    /// The names and colours a view draws with. For the combined view, the three
+    /// agents' own laid together (model ids do not collide; Claude Code's first
+    /// on a tie): it has no Model prices table, so nothing of its own to set.
+    /// </summary>
+    public static ModelSettingsData LoadForView(ProviderId provider, string? dataDir = null)
+    {
+        if (provider != ProviderId.Combined) return Load(provider, dataDir);
+        var merged = new ModelSettingsData();
+        foreach (var meta in Providers.All)
+        {
+            var one = Load(meta.Id, dataDir);
+            foreach (var (model, color) in one.Colors) merged.Colors.TryAdd(model, color);
+            foreach (var (model, name) in one.Names) merged.Names.TryAdd(model, name);
+        }
+        return merged;
+    }
+
     public static ModelSettingsData Load(ProviderId provider, string? dataDir = null)
     {
         var result = new ModelSettingsData();

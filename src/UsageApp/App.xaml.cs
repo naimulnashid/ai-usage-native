@@ -95,7 +95,8 @@ public partial class App : Application
     /// <summary>An agent's tooltip line, when it is new: this process reads the transcripts while it is open.</summary>
     private void SendLine(ProviderId id)
     {
-        if (!_linked || _state!.For(id).Report is not { } report) return;
+        // The tray has one line per agent; "All agents" is not one.
+        if (id == ProviderId.Combined || !_linked || _state!.For(id).Report is not { } report) return;
         var meta = Providers.Get(id);
         var line = TrayHost.Line(meta, report) ?? "";
         if (_sentLines.TryGetValue(id, out var sent) && sent == line) return;

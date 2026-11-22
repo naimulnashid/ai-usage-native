@@ -23,6 +23,7 @@ public static class UsageService
     /// </remarks>
     public static UsageReport Load(ProviderId provider, bool useArchive = true)
     {
+        if (provider == ProviderId.Combined) throw new ArgumentException("The combined report is merged from the agents' reports, not parsed.", nameof(provider));
         var card = AppConfig.LoadPricing(provider);
         var custom = ModelSettings.Load(provider).Pricing;
         var pricing = ModelSettings.WithCustomRates(card, custom);
@@ -32,7 +33,8 @@ public static class UsageService
         {
             ProviderId.Claude => ClaudeParser.Parse(options),
             ProviderId.Codex => CodexParser.Parse(options),
-            _ => AntigravityParser.Parse(options),
+            ProviderId.Antigravity => AntigravityParser.Parse(options),
+            _ => throw new ArgumentOutOfRangeException(nameof(provider)),
         };
         var report = useArchive ? HistoryArchive.WithHistory(parsed, pricing: pricing, projectConfig: projects) : parsed;
         report.ModelRates = ModelSettings.DescribeRates(card, custom, report.Global.PerModel.Keys);

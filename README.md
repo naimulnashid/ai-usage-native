@@ -21,7 +21,7 @@ the machine.
 </picture>
 
 <details>
-<summary><b>The projects page, Codex and Antigravity</b></summary>
+<summary><b>The projects page, Codex, Antigravity and All agents</b></summary>
 
 Projects open with a share-of-spend ring, because a ranked list looks the same
 whether the top project is 60% of your spend or 15%. Each project is drawn in
@@ -34,7 +34,7 @@ its own colour - its logo's, or one you pick - and a slice opens it.
 
 Codex gets its own accent. Its figure is what its tokens would cost through the
 OpenAI API: on a flat ChatGPT subscription they were never billed individually
-(see [the two cost figures](#the-two-cost-figures-mean-different-things)).
+(see [the two cost figures](#the-cost-figures-mean-different-things)).
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-codex-light.webp">
@@ -50,6 +50,15 @@ itself is billed by plan.
   <img src="docs/screenshots/overview-antigravity.webp" alt="The whole Antigravity overview, in its own blue accent, headed by its total estimated spend, with Gemini and Claude models">
 </picture>
 
+All agents adds the three together, in violet, a project used from several
+agents counted once. Every total keeps its split by agent beside it, because
+the three figures do not mean the same thing.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-combined-light.webp">
+  <img src="docs/screenshots/overview-combined.webp" alt="The All agents overview in violet: estimated spend at API rates with each agent's share under it, daily combined spend, then daily spend by agent stacked in the three agents' colours">
+</picture>
+
 </details>
 
 The images follow GitHub's theme: dark or light, as the app draws them.
@@ -63,6 +72,9 @@ The images follow GitHub's theme: dark or light, as the app draws them.
 
 - **Three agents, side by side**: Claude Code, Codex and Antigravity, each with
   its own pages and accent.
+- **All agents**: the same pages with the three added together. A project used
+  from more than one agent is one project there, matched by its folder, and
+  every total shows its split by agent.
 - **Tokens, estimated cost and runtime** overall, per project, per day and per
   model, with input, output, cache writes, cache reads and (for Codex and
   Antigravity) reasoning tokens kept apart.
@@ -198,6 +210,7 @@ the `config\` files are yours to edit:
 | `model-settings.json`, `codex-model-settings.json`, `antigravity-model-settings.json` | prices, colours and names set in the Model prices table, and its row order |
 | `project-colors.json`, `codex-project-colors.json`, `antigravity-project-colors.json` | colours picked for projects with **Change colour…** |
 | `project-settings.json`, `codex-project-settings.json`, `antigravity-project-settings.json` | merges and names set with **Merge into…** and **Rename…**; for one project they win over `projects.json` |
+| `combined-project-settings.json`, `combined-project-colors.json`, `combined-hidden-projects.json` | the same, set on **All agents** |
 | `history\` | the daily archive that keeps days after the agents delete their transcripts |
 
 Every key is optional. Refresh after editing. Examples with placeholder values:
@@ -218,7 +231,7 @@ Antigravity reads no such variable, so the app has its own:
 
 ## Usage
 
-- **Sidebar**: switch between Claude Code, Codex and Antigravity. **Top bar**: Overview and
+- **Sidebar**: switch between All agents, Claude Code, Codex and Antigravity. **Top bar**: Overview and
   Projects, Refresh (or F5), and Settings. **Backspace** goes back from a
   project's page to Projects, and from the heat map's full history to the page
   it was opened from.
@@ -270,6 +283,14 @@ Antigravity reads no such variable, so the app has its own:
   that project - without the third row of activity cards and the price table,
   and with its stacked charts opening on every day - followed by a
   day-by-model table.
+- **All agents** (first in the sidebar) has the same Overview and Projects
+  pages with every agent's usage, plus **Daily spend by agent**, without Model
+  prices (prices are set on each agent's own page). Projects are matched by
+  working folder, and a merge made on an agent's page carries over; **Merge
+  into…** on this view joins what the folders miss (a folder renamed between
+  agents) without changing the agents' own pages. Renames, colours, logos and
+  hiding work as on an agent's page; a project with no logo or colour of its
+  own here takes the one an agent's page gave it.
 
 ### The cost figures mean different things
 
@@ -279,7 +300,9 @@ Antigravity reads no such variable, so the app has its own:
 | Codex | Total estimated spend | What these tokens would cost through the OpenAI API. On a ChatGPT subscription this is not what you paid. |
 | Antigravity | Total estimated spend | What these tokens would cost through each model's own API (Google's for Gemini, Anthropic's for Claude). Antigravity is billed by plan, so this is not what you paid. |
 
-Do not add them together.
+All agents adds them anyway, and says so: its headline reads "Estimated spend
+at API rates", and every total sits beside its split by agent. Read it as what
+all of the usage would cost at API rates, not as money spent.
 
 ### Caveats
 

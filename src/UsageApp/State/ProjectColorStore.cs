@@ -44,8 +44,30 @@ public sealed class ProjectColorStore(LogoStore logos)
     public Dictionary<string, (string Hex, ProjectColorSource Source)> For(ProviderId provider, IReadOnlyList<ProjectSummary> projects)
     {
         var names = projects.ToDictionary(p => p.Id, p => p.Name, StringComparer.Ordinal);
-        return ProjectColors.Assign(projects.Select(p => p.Id), Custom(provider),
+        return ProjectColors.Assign(projects.Select(p => p.Id), provider == ProviderId.Combined ? Inherited(projects) : Custom(provider),
             id => logos.PathFor(provider, names[id]) is { } path ? FromLogo(path) : null);
+    }
+
+    /// <summary>
+    /// "All agents": a colour chosen here, else one chosen for the same project
+    /// on an agent's page (the agents in their own order), so it keeps its colour.
+    /// </summary>
+    private Dictionary<string, string> Inherited(IReadOnlyList<ProjectSummary> projects)
+    {
+        var result = new Dictionary<string, string>(Custom(ProviderId.Combined), StringComparer.Ordinal);
+        foreach (var project in projects)
+        {
+            if (result.ContainsKey(project.Id) || project.Sources is null) continue;
+            foreach (var source in project.Sources)
+            {
+                if (Custom(source.Provider).TryGetValue(source.ProjectId, out var hex))
+                {
+                    result[project.Id] = hex;
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     private string? FromLogo(string path)

@@ -5,6 +5,7 @@ using UsageApp.Controls;
 using UsageApp.Theme;
 using UsageCore;
 using UsageCore.Model;
+using UsageCore.Parsing;
 using UsageCore.View;
 
 namespace UsageApp.Views;
@@ -109,6 +110,98 @@ public static class Parts
         return meta;
     }
 
+    /* ------------------------------------------------- All agents: split */
+
+    /// <summary>An agent's colour as the current theme draws it: its own accent, which is how it is known everywhere else.</summary>
+    public static Windows.UI.Color AgentColor(ProviderId id)
+    {
+        var meta = Providers.Get(id);
+        return Palette.Hex(Palette.IsLight ? meta.AccentLight : meta.Accent);
+    }
+
+    /// <summary>
+    /// Under a combined total: each agent's mark, spend and share, so a sum of
+    /// unlike figures never stands alone. Largest first.
+    /// </summary>
+    public static UIElement AgentSplit(IReadOnlyList<AgentShare> shares)
+    {
+        var total = shares.Sum(a => a.Combined.CostUsd);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 22, Margin = new Thickness(0, 14, 0, 0) };
+        foreach (var share in shares.Where(a => a.Combined.CostUsd > 0 || a.Combined.TotalTokens > 0).OrderByDescending(a => a.Combined.CostUsd))
+        {
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            item.Children.Add(AgentMark.Create(share.Provider, 18));
+            var value = Ui.Text(Format.Usd(share.Combined.CostUsd), 16, 600, numeric: true);
+            value.VerticalAlignment = VerticalAlignment.Center;
+            item.Children.Add(value);
+            var pct = Ui.Text(total > 0 ? $"{share.Combined.CostUsd / total * 100:0}%" : "", 14, 400, Palette.TextFaintBrush, numeric: true);
+            pct.VerticalAlignment = VerticalAlignment.Center;
+            item.Children.Add(pct);
+            Ui.SetTip(item, $"{Providers.Get(share.Provider).Label} · {Format.Usd(share.Combined.CostUsd)} · {Format.Tokens(share.Combined.TotalTokens)} tokens");
+            row.Children.Add(item);
+        }
+        return row;
+    }
+
+    /// <summary>
+    /// Daily spend by agent: the project chart's stacked areas, one band per
+    /// agent in its own accent, largest at the bottom. Range 30 / 90 / all, as
+    /// Daily spend by project.
+    /// </summary>
+    public static Border AgentPanel(IReadOnlyList<AgentShare> shares, List<DailyEntry> daily, string today, DayRange initial)
+    {
+        var body = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch, Content = AgentChart(shares, daily, initial, today) };
+        var picker = RangePicker.Create("Days shown in Daily spend by agent", range => body.Content = AgentChart(shares, daily, range, today), initial, RangePicker.ProjectRanges);
+        var panel = Ui.Panel("Daily spend by agent",
+            "Not alike: Claude Code's figure is an estimate at per-token rates, Codex's and Antigravity's what the same tokens would cost through each model's API.",
+            picker, body);
+        Ui.Rise(panel, 80);
+        return panel;
+    }
+
+    private static UIElement AgentChart(IReadOnlyList<AgentShare> shares, List<DailyEntry> daily, DayRange range, string today)
+    {
+        var days = DayRanges.DaysIn(daily, range, today).Where(d => Dates.IsDayKey(d.Date)).ToList();
+        var bands = shares
+            .Select(a => (a.Provider, Values: days.Select(d => Math.Max(0, a.DailyCost.GetValueOrDefault(d.Date))).ToArray()))
+            .Where(x => x.Values.Sum() > 0)
+            .OrderByDescending(x => x.Values.Sum())
+            .ToList();
+        var series = bands.Select(x => new ProjectSeries(null, Providers.Get(x.Provider).Label, AgentColor(x.Provider), x.Values, 1)).ToList();
+        if (series.Count == 0) return NoDaysInRange(daily, range);
+
+        var stack = new StackPanel();
+        stack.Children.Add(new ProjectAreaChart(days.Select(d => d.Date).ToList(), series));
+        var legend = new CenteredWrapPanel { HorizontalSpacing = 10, VerticalSpacing = 8 };
+        foreach (var (s, (provider, _)) in series.Zip(bands))
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            content.Children.Add(Ui.Swatch(s.Color));
+            content.Children.Add(AgentMark.Create(provider, 18));
+            var name = Ui.Text(s.Name, 14, 560, selectable: false);
+            name.VerticalAlignment = VerticalAlignment.Center;
+            content.Children.Add(name);
+            legend.Children.Add(new Border
+            {
+                Child = content,
+                Padding = new Thickness(9, 5, 11, 5),
+                CornerRadius = new CornerRadius(15),
+                BorderThickness = new Thickness(1),
+                BorderBrush = Palette.BorderBrush,
+                Background = Palette.SurfaceBrush,
+            });
+        }
+        stack.Children.Add(new Border
+        {
+            Child = legend,
+            Margin = new Thickness(0, 18, 0, 0),
+            Padding = new Thickness(0, 16, 0, 0),
+            BorderBrush = Palette.BorderBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+        });
+        return stack;
+    }
+
     /* --------------------------------------------------------- Token table */
 
     /// <summary>
@@ -142,7 +235,8 @@ public static class Parts
                 DataTable.Cell(Format.Tokens(cell.Input)),
                 DataTable.Cell(Format.Tokens(cell.Output)),
             };
-            if (meta.HasReasoningTokens) cells.Add(DataTable.Cell(Format.Tokens(cell.Reasoning ?? 0)));
+            // Null is "not reported" (Claude Code's models under All agents), never a measured 0.
+            if (meta.HasReasoningTokens) cells.Add(DataTable.Cell(cell.Reasoning is { } reasoning ? Format.Tokens(reasoning) : "—"));
             if (meta.HasCacheWrites) cells.Add(DataTable.Cell(Format.Tokens(cell.CacheWrite5m + cell.CacheWrite1h)));
             cells.Add(DataTable.Cell(Format.Tokens(cell.CacheRead)));
             cells.Add(DataTable.Cell(Format.Tokens(cell.TotalTokens)));
@@ -301,7 +395,7 @@ public static class Parts
         if (models.Count == 0) return null;
         var one = models.Count == 1;
         var text = Ui.Paragraph(
-            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Set {(one ? "its" : "their")} price in Model prices at the bottom of the overview.",
+            $"Unpriced model{(one ? "" : "s")}: {string.Join(" ", models.Select(m => $"`{m}`"))}. Tokens are counted but excluded from cost. Set {(one ? "its" : "their")} price in Model prices at the bottom of {(meta.IsCombined ? "its agent's" : "the")} overview.",
             14.5, Palette.TextMutedBrush);
         return Notice(text);
     }

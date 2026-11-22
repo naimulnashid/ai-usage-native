@@ -76,14 +76,18 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
         {
             var merged = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
             merged.Children.Add(Ui.Paragraph("Includes usage merged from " + string.Join(", ", project.MergedFrom.Select(m => $"`{m}`")), 13.5, Palette.TextMutedBrush));
-            merged.Children.Add(Ui.InfoTip("About merged projects", $"{meta.Label} keys projects by working directory, so renaming or moving a folder starts a new project and splits its history. These directories are stitched back together by a merge - set from a project's ⋯ menu on the Projects page, or in {Config.ProjectsHint(meta)}."));
+            merged.Children.Add(Ui.InfoTip("About merged projects", meta.IsCombined
+                ? "All agents matches each agent's projects by folder, and keeps every merge made on an agent's own page. These were merged here, from a project's ⋯ menu on the Projects page, for what the folders did not match."
+                : $"{meta.Label} keys projects by working directory, so renaming or moving a folder starts a new project and splits its history. These directories are stitched back together by a merge - set from a project's ⋯ menu on the Projects page, or in {Config.ProjectsHint(meta)}."));
             head.Children.Add(merged);
         }
 
         var headline = new StackPanel();
         headline.Children.Add(head);
         headline.Children.Add(Parts.HeadlineGrid(meta, combined.CostUsd,
-            [Parts.HeadlineMeta($"{share:0.0}% of all spend · {Format.Usd(avgPerDay)} avg / active day")],
+            project.Agents is { } agents
+                ? [Parts.HeadlineMeta($"{share:0.0}% of all spend · {Format.Usd(avgPerDay)} avg / active day"), Parts.AgentSplit(agents)]
+                : [Parts.HeadlineMeta($"{share:0.0}% of all spend · {Format.Usd(avgPerDay)} avg / active day")],
             (Format.Tokens(combined.TotalTokens), $"{Format.Count(combined.Messages)} {meta.MessageNoun} · {Format.Count(project.Sessions.Count)} sessions"),
             (Format.Duration(combined.RuntimeSeconds), $"across {Format.Count(activeDays)} active days"),
             combined));
@@ -115,6 +119,7 @@ public sealed class ProjectDetailPage(PageContext ctx, string projectId) : IPage
             dated.Count > 0 ? new SpendAreaChart(dated) : Parts.NoDaysInRange(daily, DayRange.All));
         Ui.Rise(spend, 100);
         page.Children.Add(spend);
+        if (project.Agents is { } shares) page.Children.Add(Parts.AgentPanel(shares, daily, DayRanges.Today(report), DayRange.All));
 
         page.Children.Add(OverviewPage.CostPanel(report, project.PerModel, "Estimated spend per model in this project."));
 

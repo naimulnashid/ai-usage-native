@@ -29,7 +29,7 @@ public sealed class LogoStore : IDisposable
     public LogoStore(DispatcherQueue ui)
     {
         _ui = ui;
-        foreach (var provider in Providers.All.Select(p => p.Id))
+        foreach (var provider in Providers.All.Select(p => p.Id).Append(ProviderId.Combined))
         {
             var dir = AppPaths.LogoDir(provider);
             try
@@ -49,8 +49,25 @@ public sealed class LogoStore : IDisposable
         }
     }
 
-    /// <summary>The logo file for a project, or null for the monogram.</summary>
+    /// <summary>
+    /// The logo file for a project, or null for the monogram. "All agents" has a
+    /// folder of its own for a logo set there, and otherwise takes the one an
+    /// agent has for the same name, so logos need not be filed twice.
+    /// </summary>
     public string? PathFor(ProviderId provider, string projectName)
+    {
+        if (provider == ProviderId.Combined)
+        {
+            return Own(ProviderId.Combined, projectName)
+                ?? Providers.All.Select(p => Own(p.Id, projectName)).FirstOrDefault(path => path is not null);
+        }
+        return Own(provider, projectName);
+    }
+
+    /// <summary>The logo in this view's own folder only: what Set logo replaces and Remove logo deletes.</summary>
+    public string? OwnPathFor(ProviderId provider, string projectName) => Own(provider, projectName);
+
+    private string? Own(ProviderId provider, string projectName)
     {
         if (!_files.TryGetValue(provider, out var map))
         {
@@ -75,7 +92,8 @@ public sealed class LogoStore : IDisposable
     {
         var dir = AppPaths.LogoDir(provider);
         Directory.CreateDirectory(dir);
-        var existing = PathFor(provider, projectName);
+        // Never an agent's file when "All agents" sets one: that would delete it.
+        var existing = Own(provider, projectName);
         if (existing is not null && string.Equals(Path.GetFullPath(existing), Path.GetFullPath(sourceFile), StringComparison.OrdinalIgnoreCase)) return;
 
         var target = Path.Combine(dir, SafeFileName(projectName) + Path.GetExtension(sourceFile).ToLowerInvariant());
@@ -96,7 +114,7 @@ public sealed class LogoStore : IDisposable
 
     public void RemoveLogo(ProviderId provider, string projectName)
     {
-        if (PathFor(provider, projectName) is { } existing && File.Exists(existing)) File.Delete(existing);
+        if (Own(provider, projectName) is { } existing && File.Exists(existing)) File.Delete(existing);
         Refresh(provider);
     }
 

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Microsoft.UI.Dispatching;
 using UsageCore;
+using UsageCore.Combining;
+using UsageCore.Config;
 using UsageCore.Model;
 
 namespace UsageApp.State;
@@ -34,7 +36,11 @@ public sealed class AppState
         [ProviderId.Claude] = new AgentData(),
         [ProviderId.Codex] = new AgentData(),
         [ProviderId.Antigravity] = new AgentData(),
+        [ProviderId.Combined] = new AgentData(),
     };
+
+    /// <summary>The agents' versions the combined report was built from.</summary>
+    private (int, int, int)? _combinedFrom;
     private readonly Dictionary<ProviderId, Task> _inFlight = [];
     private readonly HashSet<ProviderId> _again = [];
 
@@ -57,8 +63,69 @@ public sealed class AppState
     {
         if (Provider == id) return;
         Provider = id;
+        if (id == ProviderId.Combined) Recombine(force: false);
         Changed?.Invoke(id);
-        if (_agents[id].Report is null && !_agents[id].Loading) _ = RefreshAsync(id);
+        if (id == ProviderId.Combined)
+        {
+            foreach (var meta in Providers.All)
+            {
+                if (_agents[meta.Id].Report is null && !_agents[meta.Id].Loading) _ = RefreshAsync(meta.Id);
+            }
+        }
+        else if (_agents[id].Report is null && !_agents[id].Loading)
+        {
+            _ = RefreshAsync(id);
+        }
+    }
+
+    /// <summary>
+    /// After a project setting is saved: an agent re-parses, the combined view
+    /// only merges again, since its merges and names act on finished reports.
+    /// </summary>
+    public Task ApplyProjectSettings(ProviderId id)
+    {
+        if (id != ProviderId.Combined) return RefreshAsync(id);
+        Recombine(force: true);
+        Changed?.Invoke(ProviderId.Combined);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The combined report, rebuilt when any agent's report has changed. Only
+    /// while it is the view shown: the tray process never selects it, and a
+    /// merged copy of every report held all day would cost memory for nothing.
+    /// </summary>
+    private void Recombine(bool force)
+    {
+        var data = _agents[ProviderId.Combined];
+        var parts = Providers.All.Select(m => _agents[m.Id]).ToList();
+        data.Loading = parts.Any(p => p.Loading);
+        var errors = Providers.All.Where(m => _agents[m.Id].Error is not null).Select(m => $"{m.Label}: {_agents[m.Id].Error}").ToList();
+        data.Error = errors.Count > 0 ? string.Join(Environment.NewLine, errors) : null;
+        if (Provider != ProviderId.Combined) return;
+
+        var from = (parts[0].Version, parts[1].Version, parts[2].Version);
+        if (!force && from == _combinedFrom) return;
+        // Wait for every agent's first read, or the totals would grow on screen
+        // agent by agent and the count-ups replay three times.
+        if (parts.Any(p => p.Report is null && p.Error is null)) return;
+        var reports = parts.Select(p => p.Report).OfType<UsageReport>().ToList();
+        if (reports.Count == 0) return;
+
+        var clock = Stopwatch.StartNew();
+        data.Report = ReportMerge.Merge(reports, ProjectSettings.LoadEffective(ProviderId.Combined));
+        data.Version++;
+        data.LastRefreshed = parts.Max(p => p.LastRefreshed);
+        data.ParseTime = parts.Max(p => p.ParseTime) + clock.Elapsed;
+        _combinedFrom = from;
+    }
+
+    private void Raise(ProviderId id)
+    {
+        Changed?.Invoke(id);
+        if (id == ProviderId.Combined) return;
+        Recombine(force: false);
+        Changed?.Invoke(ProviderId.Combined);
     }
 
     /// <summary>
@@ -70,6 +137,7 @@ public sealed class AppState
     /// </summary>
     public Task RefreshAsync(ProviderId id)
     {
+        if (id == ProviderId.Combined) return Task.WhenAll(Providers.All.Select(m => RefreshAsync(m.Id)));
         if (_inFlight.TryGetValue(id, out var running))
         {
             _again.Add(id);
@@ -84,7 +152,7 @@ public sealed class AppState
     {
         var data = _agents[id];
         data.Loading = true;
-        Changed?.Invoke(id);
+        Raise(id);
         try
         {
             do
@@ -98,7 +166,7 @@ public sealed class AppState
         {
             data.Loading = false;
             _inFlight.Remove(id);
-            Changed?.Invoke(id);
+            Raise(id);
         }
     }
 

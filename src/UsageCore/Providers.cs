@@ -25,6 +25,9 @@ public sealed record ProviderMeta
     /// </summary>
     public string FilePrefix => Id == ProviderId.Claude ? "" : Slug + "-";
 
+    /// <summary>The "All agents" view rather than an agent: no rate card, no archive, no transcripts of its own.</summary>
+    public bool IsCombined => Id == ProviderId.Combined;
+
     /// <summary>Where the transcripts live, for the empty state.</summary>
     public required string TranscriptHint { get; init; }
     public required string TranscriptEnvVar { get; init; }
@@ -158,13 +161,48 @@ public static class Providers
         HeatRampLight = ["#D7DCE4", "#558CE7", "#286EE1", "#1A57BC", "#144494", "#103470"],
     };
 
+    /// <summary>
+    /// The three agents' reports as one (<c>Combining.ReportMerge</c>). Its own
+    /// accent, violet, so no agent's colour stands for all of them. Its cost is
+    /// the three agents' figures added, and they are not alike: Claude Code's is
+    /// an estimate at per-token rates, the other two what the tokens would cost
+    /// through each model's API. Hence the label, and the split by agent beside
+    /// every total. Not in <see cref="All"/>, which is the agents themselves.
+    /// </summary>
+    public static readonly ProviderMeta Combined = new()
+    {
+        Id = ProviderId.Combined,
+        Label = "All agents",
+        Slug = "combined",
+        TranscriptHint = "each agent's own folder",
+        TranscriptEnvVar = "CLAUDE_CONFIG_DIR, CODEX_HOME or " + AppPaths.AntigravityHomeVariable,
+        CostLabel = "Estimated spend at API rates",
+        HasCacheWrites = true,
+        HasReasoningTokens = true,
+        CacheReadLabel = "Cache read",
+        CacheTip = "Cache reads plus cache writes, all three agents. Only Claude Code logs cache writes. Reads are billed at a tenth of the input rate or less, but their volume makes them the largest driver of cost.",
+        MessageNoun = "requests",
+        MessageTip = "Claude Code's messages plus Codex's and Antigravity's requests: one per billed API response, each de-duplicated as on its agent's own page.",
+        SessionTip = "Every transcript, rollout and conversation the three agents keep, subagents and auto-review threads included.",
+        SubagentNoun = "subagent",
+        SpikeNote = "Days marked with a dot sit well above trend.",
+        Accent = "#9479F0",
+        AccentBright = "#AE98F5",
+        HeatRamp = ["#151419", "#4A3394", "#5C40B8", "#7356DD", "#9479F0", "#AE98F5"],
+        AccentLight = "#6A4BD8",
+        AccentBrightLight = "#5A3BC4",
+        HeatRampLight = ["#DBDAE4", "#9479F0", "#7A5BE6", "#6340D4", "#4F30AE", "#3D2588"],
+    };
+
+    /// <summary>The agents themselves. <see cref="Combined"/> is not one.</summary>
     public static readonly IReadOnlyList<ProviderMeta> All = [Claude, Codex, Antigravity];
 
     public static ProviderMeta Get(ProviderId id) => id switch
     {
         ProviderId.Claude => Claude,
         ProviderId.Codex => Codex,
-        _ => Antigravity,
+        ProviderId.Antigravity => Antigravity,
+        _ => Combined,
     };
 
     /// <summary>The agent a CLI or debug argument names by its slug, or null.</summary>

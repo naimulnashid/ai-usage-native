@@ -243,6 +243,18 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var nameLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         nameLine.Children.Add(Ui.Text(project.Name, 20, 620, spacing: -0.015));
         if (isHidden) nameLine.Children.Add(Ui.Pill("Hidden", Palette.TextMutedBrush, Palette.BorderBrightBrush));
+        if (project.Agents is { } agents)
+        {
+            // Which agents worked on it: their marks, each with its share.
+            var marks = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            foreach (var agent in agents)
+            {
+                var mark = AgentMark.Create(agent.Provider, 18);
+                Ui.SetTip(mark, $"{Providers.Get(agent.Provider).Label} · {Format.Usd(agent.Combined.CostUsd)}");
+                marks.Children.Add(mark);
+            }
+            nameLine.Children.Add(marks);
+        }
         names.Children.Add(nameLine);
         var path = Ui.Text(project.Cwd ?? project.Id, 13.5, 400, Palette.TextFaintBrush);
         path.Margin = new Thickness(0, 4, 0, 0);
@@ -387,11 +399,15 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
                 Text = separable.Count == 1 ? "Unmerge" : $"Unmerge {source}",
                 Icon = new FontIcon { Glyph = "\uE8C6" },
             };
-            Ui.SetTip(unmerge, $"Lists {source} as a project of its own again. Days whose transcripts are already gone stay with {project.Name}.");
+            // The combined view merges finished reports, so its merges undo whole;
+            // an agent's archive keeps a merged day merged.
+            Ui.SetTip(unmerge, meta.IsCombined
+                ? $"Lists {source} as a project of its own again."
+                : $"Lists {source} as a project of its own again. Days whose transcripts are already gone stay with {project.Name}.");
             unmerge.Click += (_, _) => Guard(() =>
             {
                 ProjectSettings.SaveMerge(meta.Id, source, null);
-                _ = ctx.State.RefreshAsync(meta.Id);
+                _ = ctx.State.ApplyProjectSettings(meta.Id);
             });
             flyout.Items.Add(unmerge);
         }
@@ -411,7 +427,8 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         var setLogo = new MenuFlyoutItem { Text = "Set logo…", Icon = new FontIcon { Glyph = "" } };
         setLogo.Click += async (_, _) => await PickLogo(meta, project);
         flyout.Items.Add(setLogo);
-        if (ctx.Logos.PathFor(meta.Id, project.Name) is not null)
+        // In All agents, a logo borrowed from an agent's folder is not this view's to delete.
+        if (ctx.Logos.OwnPathFor(meta.Id, project.Name) is not null)
         {
             var remove = new MenuFlyoutItem { Text = "Remove logo", Icon = new FontIcon { Glyph = "" } };
             remove.Click += (_, _) => Guard(() => ctx.Logos.RemoveLogo(meta.Id, project.Name));
@@ -523,7 +540,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             {
                 ProjectSettings.SaveName(meta.Id, project.Id, name);
                 flyout.Hide();
-                _ = ctx.State.RefreshAsync(meta.Id);
+                _ = ctx.State.ApplyProjectSettings(meta.Id);
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
             {
@@ -597,8 +614,9 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
         }
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, $"Project to merge {project.Name} into");
         root.Children.Add(picker);
-        root.Children.Add(Ui.Paragraph(
-            "Its spend, sessions and history become part of the chosen project, under that project's name. Totals do not change, and nothing on disk is touched. Unmerge it from the chosen project's ⋯ menu; days whose transcripts are already gone stay merged.", 13));
+        root.Children.Add(Ui.Paragraph(meta.IsCombined
+            ? "Its spend, sessions and history become part of the chosen project, under that project's name, in All agents only: each agent's own page is unchanged. Unmerge it from the chosen project's ⋯ menu."
+            : "Its spend, sessions and history become part of the chosen project, under that project's name. Totals do not change, and nothing on disk is touched. Unmerge it from the chosen project's ⋯ menu; days whose transcripts are already gone stay merged.", 13));
         var error = Ui.Text("", 13.5, 400, Palette.WarnBrush, wrap: true);
         error.Visibility = Visibility.Collapsed;
 
@@ -614,7 +632,7 @@ public sealed class ProjectsPage(PageContext ctx) : IPage
             {
                 ProjectSettings.SaveMerge(meta.Id, project.Id, target);
                 flyout.Hide();
-                _ = ctx.State.RefreshAsync(meta.Id);
+                _ = ctx.State.ApplyProjectSettings(meta.Id);
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
             {

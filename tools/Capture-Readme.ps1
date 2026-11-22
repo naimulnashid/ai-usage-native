@@ -37,6 +37,7 @@ $pages = [ordered]@{
   'projects-claude' = 'claude,projects,0'
   'overview-codex'  = 'codex,overview,0'
   'overview-antigravity' = 'antigravity,overview,0'
+  'overview-combined' = 'combined,overview,0'
   'project-claude'  = 'claude,project,C--Users-you-Projects-Recipe-Box,0'
   'activity-claude' = 'claude,activity,0'
 }
